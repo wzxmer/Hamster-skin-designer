@@ -223,6 +223,20 @@
     "traditional": "繁",
     "verticalCandidateReturn": "返回"
   },
+  "display": {
+    "menu": { "type": "systemImageName", "systemImageName": "slider.horizontal.3" },
+    "symbol": { "type": "systemImageName", "systemImageName": "xmark.triangle.circle.square" },
+    "phrase": { "type": "systemImageName", "systemImageName": "list.bullet.clipboard" }
+  },
+  "actions": {
+    "menu": { "floatKeyboardType": "panel" },
+    "symbol": { "keyboardType": "symbolic" },
+    "emoji": { "keyboardType": "emojis" },
+    "phrase": { "shortcut": "#showPhraseView" },
+    "pasteboard": { "shortcut": "#showPasteboardView" },
+    "script": { "shortcut": "#toggleScriptView" },
+    "close": { "standard": "dismissKeyboard" }
+  },
   "iconFontSize": 18,
   "verticalCandidateIconCenter": { "y": 0.53 },
   "horizontalCandidates": {
@@ -233,6 +247,12 @@
   }
 }
 ```
+
+其中：
+
+- `toolbar.display.<key>` 控制工具栏按钮显示方式，当前工作台支持 `text` / `systemImageName`。
+- `toolbar.actions.<key>` 保存工具栏按钮动作，结构直接对齐皮肤规范文档中的 action 对象。
+- 工作台工具栏编辑面板提供“默认搭配 + 手动输入”两种方式；默认搭配会自动切换对应动作类型和值。
 
 ## data
 

@@ -880,6 +880,66 @@
       "traditional": "繁",
       "verticalCandidateReturn": "返回"
     },
+    "display": {
+      "menu": {
+        "type": "systemImageName",
+        "systemImageName": "slider.horizontal.3"
+      },
+      "symbol": {
+        "type": "systemImageName",
+        "systemImageName": "xmark.triangle.circle.square"
+      },
+      "translate": {
+        "type": "systemImageName",
+        "systemImageName": "translate"
+      },
+      "emoji": {
+        "type": "systemImageName",
+        "systemImageName": "face.smiling"
+      },
+      "phrase": {
+        "type": "systemImageName",
+        "systemImageName": "list.bullet.clipboard"
+      },
+      "pasteboard": {
+        "type": "systemImageName",
+        "systemImageName": "doc.on.clipboard"
+      },
+      "script": {
+        "type": "systemImageName",
+        "systemImageName": "apple.terminal"
+      },
+      "close": {
+        "type": "systemImageName",
+        "systemImageName": "keyboard.chevron.compact.down"
+      }
+    },
+    "actions": {
+      "menu": {
+        "floatKeyboardType": "panel"
+      },
+      "symbol": {
+        "keyboardType": "symbolic"
+      },
+      "translate": {
+        "runTranslateScript": "translate"
+      },
+      "emoji": {
+        "shortcut": "#Emoji"
+      },
+      "phrase": {
+        "shortcut": "#Phrase"
+      },
+      "pasteboard": {
+        "shortcut": "#Pasteboard"
+      },
+      "script": {
+        "runScript": "script"
+      },
+      "close": {
+        "standard": "dismissKeyboard"
+      }
+    },
     "iconFontSize": 18,
     "verticalCandidateIconCenter": {
       "y": 0.53

@@ -129,10 +129,56 @@ button:disabled:hover {
   letter-spacing: 0;
 }
 
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
 .topbar h1 {
   font-size: 21px;
   font-weight: 800;
   line-height: 1.25;
+}
+
+.brand-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.brand-icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #152033;
+  text-decoration: none;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.brand-icon-link:hover {
+  border-color: var(--border);
+  background: rgba(248, 250, 252, 0.95);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.brand-icon-link:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
+.brand-icon-link svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
 }
 
 .eyebrow {
@@ -581,6 +627,11 @@ button:disabled:hover {
   gap: 12px;
 }
 
+.meta-info-grid {
+  grid-template-columns: minmax(180px, 0.72fr) minmax(220px, 0.96fr) minmax(300px, 1.18fr);
+  align-items: start;
+}
+
 .compact-field-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -808,16 +859,19 @@ button:disabled:hover {
   gap: 7px;
 }
 
+.download-location-card > label {
+  margin-bottom: 0;
+}
+
 .download-location-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) max-content;
   gap: 8px;
-  align-items: stretch;
-  min-height: 46px;
+  align-items: center;
 }
 
 .download-location-row input {
-  height: 100%;
+  height: 38px;
   min-width: 0;
 }
 
@@ -825,8 +879,8 @@ button:disabled:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  min-height: 0;
+  height: 38px;
+  min-height: 38px;
   padding: 0 12px;
   white-space: nowrap;
 }
@@ -932,6 +986,10 @@ button:disabled:hover {
   min-width: 0;
   line-height: 1.25;
   white-space: normal;
+}
+
+.key-edit-fields .field-card.key-edit-span-two {
+  grid-column: span 2;
 }
 
 .key-edit-fields .field-card input,
@@ -2216,11 +2274,15 @@ button:disabled:hover {
   min-width: 245px;
 }
 
+.action-type-field-wide {
+  min-width: clamp(300px, 34vw, 420px);
+}
+
 .action-type-select {
   width: 100%;
   min-width: 0;
-  text-align: center;
-  text-align-last: center;
+  text-align: left;
+  text-align-last: left;
 }
 
 .action-type-select option {
@@ -3593,5 +3655,11 @@ textarea {
 
   .metrics-table {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1100px) {
+  .meta-info-grid {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   }
 }

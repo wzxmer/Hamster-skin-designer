@@ -39,6 +39,16 @@ const PANEL_BUTTONS = [
 ];
 
 const TOOLBAR_ORDER = ['menu', 'symbol', 'translate', 'emoji', 'phrase', 'pasteboard', 'script', 'close'];
+const TOOLBAR_TEXT_BY_KEY = {
+  menu: '菜单',
+  symbol: '#+=',
+  translate: '翻译',
+  emoji: '表情',
+  phrase: '短语',
+  pasteboard: '剪贴板',
+  script: '脚本',
+  close: '关闭',
+};
 const DEFAULT_NUMERIC_SYMBOLS = ['+', '-', '×', '/', '()', '.', '@', ',', '#', ':', '_', '?', '￥'];
 const DEFAULT_NUMERIC_COLUMNS = [
   ['collection', 'symbol'],
@@ -1024,14 +1034,17 @@ function renderToolbar(project, styles, height) {
   return `
     <div class="calayer-toolbar" style="height:${height}px">
       ${buttons.map((button) => {
-        const systemImage = SYSTEM_IMAGE_BY_KEY[button];
-        const text = project.toolbar?.text?.[button] || (button === 'symbol' ? '#+=' : button);
-        const style = systemImage ? styles.toolbarForegroundStyle : { ...styles.toolbarForegroundStyle, buttonStyleType: 'text' };
+        const display = project.toolbar?.display?.[button] || {};
+        const displayType = display.type || (SYSTEM_IMAGE_BY_KEY[button] ? 'systemImageName' : 'text');
+        const systemImage = display.systemImageName || SYSTEM_IMAGE_BY_KEY[button];
+        const text = project.toolbar?.text?.[button] || TOOLBAR_TEXT_BY_KEY[button] || button;
+        const usesIcon = displayType === 'systemImageName' && systemImage;
+        const style = usesIcon ? styles.toolbarForegroundStyle : { ...styles.toolbarForegroundStyle, buttonStyleType: 'text' };
         return renderLayerCell({
           className: 'is-toolbar-button',
           height,
           backgroundStyle: styles.toolbarButtonBackgroundStyle,
-          foregrounds: [renderForeground(style, systemImage || text)],
+          foregrounds: [renderForeground(style, usesIcon ? systemImage : text)],
         });
       }).join('')}
     </div>
