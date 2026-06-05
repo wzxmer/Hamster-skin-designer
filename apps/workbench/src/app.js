@@ -36,6 +36,7 @@ const state = {
   keyDrag: null,
   skipNextKeyEditorClick: false,
   editingKey: null,
+  suppressKeyEditorAutoCloseUntil: 0,
   customKeyboardPanel: 'preview',
   keyboard26LayoutMode: 'portrait',
   metricsKeyboardId: 'keyboard26',
@@ -128,6 +129,35 @@ const SYMBOLIC_KEY_LABELS = {
 const SYMBOLIC_FUNCTION_KEY_ORDER = ['return', 'pageUp', 'pageDown', 'lock', 'backspace'];
 const DEFAULT_SYMBOLIC_FUNCTION_ROWS = [['return', 'pageUp', 'pageDown', 'lock', 'backspace']];
 const DEFAULT_TOOLBAR_BUTTONS = ['menu', 'symbol', 'translate', 'emoji', 'phrase', 'pasteboard', 'script', 'close'];
+const TOOLBAR_BUTTON_LABELS = {
+  menu: '菜单',
+  symbol: '符号',
+  translate: '翻译',
+  emoji: '表情',
+  phrase: '短语',
+  pasteboard: '剪贴板',
+  script: '脚本',
+  close: '关闭',
+};
+const DEFAULT_TOOLBAR_SYSTEM_IMAGES = {
+  menu: 'slider.horizontal.3',
+  symbol: 'xmark.triangle.circle.square',
+  translate: 'translate',
+  emoji: 'face.smiling',
+  phrase: 'list.bullet.clipboard',
+  pasteboard: 'doc.on.clipboard',
+  script: 'apple.terminal',
+  close: 'keyboard.chevron.compact.down',
+};
+const DEFAULT_TOOLBAR_ACTIONS = {
+  menu: { floatKeyboardType: 'panel' },
+  symbol: { keyboardType: 'symbolic' },
+  emoji: { keyboardType: 'emojis' },
+  phrase: { shortcut: '#showPhraseView' },
+  pasteboard: { shortcut: '#showPasteboardView' },
+  script: { shortcut: '#toggleScriptView' },
+  close: { standard: 'dismissKeyboard' },
+};
 const PANEL_BUTTONS = [
   ['Hamster', 'keyboard', 'Script'],
   ['Switcher', 'switch.2', 'RimeSwitcher'],
@@ -271,10 +301,14 @@ const ACTION_TYPE_LABELS = {
   runScript: '执行脚本',
   runTranslateScript: '执行翻译脚本',
   keyboardType: '键盘切换',
+  floatKeyboardType: '浮动键盘',
   switchRimeSchema: '切换 RIME 方案',
+  shortcutCommand: '快捷命令',
+  combine: '组合动作',
   raw: '原始值',
 };
-const ACTION_TYPES = ['standard', 'character', 'symbol', 'sendKeys', 'openURL', 'runScript', 'keyboardType', 'shortcut', 'switchRimeSchema', 'runTranslateScript'];
+const ACTION_TYPES = ['standard', 'character', 'symbol', 'sendKeys', 'openURL', 'runScript', 'keyboardType', 'floatKeyboardType', 'shortcut', 'shortcutCommand', 'switchRimeSchema', 'runTranslateScript', 'combine'];
+const TOOLBAR_ACTION_TYPES = ['standard', 'keyboardType', 'floatKeyboardType', 'shortcut', 'shortcutCommand', 'runScript', 'runTranslateScript', 'switchRimeSchema', 'combine', 'openURL', 'sendKeys', 'character', 'symbol'];
 const STANDARD_ACTION_VALUES = [
   'space',
   'enter',
@@ -292,6 +326,12 @@ const STANDARD_ACTION_VALUES = [
 ];
 const KEYBOARD_TYPE_VALUES = ['pinyin', 'alphabetic', 'symbolic', 'numeric', 'emojis'];
 const SHORTCUT_VALUES = [
+  '#showPhraseView',
+  '#showPasteboardView',
+  '#toggleScriptView',
+  '#candidatesBarStateToggle',
+  '#toggleEmbeddedInputMode',
+  '#keyboardMenu',
   '#简繁切换',
   '#中英切换',
   '#RimeSwitcher',
@@ -309,18 +349,34 @@ const SHORTCUT_VALUES = [
   '#subCollectionPageDown',
   '#verticalCandidatesPageDown',
   '#verticalCandidatesPageUp',
-  '#showPhraseView',
-  '#showPasteboardView',
-  '#toggleScriptView',
-  '#candidatesBarStateToggle',
   '#rimePreviousPage',
   '#rimeNextPage',
-  '#toggleEmbeddedInputMode',
   '#keyboardPerformance',
-  '#keyboardMenu',
 ];
 const OPEN_URL_VALUES = ['#pasteboardContent', '#selectText', '#pasteboardContent#selectText'];
+const TOOLBAR_ACTION_VALUE_SUGGESTIONS = {
+  standard: ['dismissKeyboard', 'returnLastKeyboard', 'returnPrimaryKeyboard', 'nextKeyboard', ...STANDARD_ACTION_VALUES],
+  keyboardType: ['symbolic', 'emojis', ...KEYBOARD_TYPE_VALUES],
+  floatKeyboardType: ['panel'],
+  shortcut: ['#showPhraseView', '#showPasteboardView', '#toggleScriptView', '#candidatesBarStateToggle', ...SHORTCUT_VALUES],
+  shortcutCommand: ['#showPhraseView', '#showPasteboardView', '#toggleScriptView'],
+  openURL: OPEN_URL_VALUES,
+};
+const TOOLBAR_ACTION_PRESETS = [
+  { label: '打开工具栏面板', type: 'floatKeyboardType', value: 'panel' },
+  { label: '切到符号键盘', type: 'keyboardType', value: 'symbolic' },
+  { label: '切到表情键盘', type: 'keyboardType', value: 'emojis' },
+  { label: '打开短语面板', type: 'shortcut', value: '#showPhraseView' },
+  { label: '打开剪贴板面板', type: 'shortcut', value: '#showPasteboardView' },
+  { label: '切换脚本面板', type: 'shortcut', value: '#toggleScriptView' },
+  { label: '切换候选栏状态', type: 'shortcut', value: '#candidatesBarStateToggle' },
+  { label: '收起键盘', type: 'standard', value: 'dismissKeyboard' },
+];
 const MAX_UNDO_STEPS = 30;
+
+function toolbarActionPresetId(type, value) {
+  return `${type}::${value}`;
+}
 
 const el = {
   workspace: document.getElementById('workspace'),
@@ -696,7 +752,7 @@ function displayActionTypeWithCode(type) {
 }
 
 function keyCodeLabel(key) {
-  return FUNCTION_KEY_LABELS[key] || NUMERIC_KEY_LABELS[key] || SYMBOLIC_KEY_LABELS[key] || key;
+  return FUNCTION_KEY_LABELS[key] || NUMERIC_KEY_LABELS[key] || SYMBOLIC_KEY_LABELS[key] || TOOLBAR_BUTTON_LABELS[key] || key;
 }
 
 function keyboard26PreviewProfile() {
@@ -1011,7 +1067,7 @@ function renderMetaEditor() {
   return `
     <section class="group-card">
       <h3>皮肤信息</h3>
-      <div class="section-grid">
+      <div class="section-grid meta-info-grid">
         ${defaultInput({ path: 'meta.name', label: '皮肤名称', value: value.name, defaultValue: defaults.name || defaultSkinName(1) })}
         ${defaultInput({ path: 'meta.author', label: '作者', value: value.author, defaultValue: defaults.author || DEFAULT_SKIN_AUTHOR })}
         <div class="field-card download-location-card">
@@ -1480,9 +1536,35 @@ function actionValueSuggestions(type) {
   return {
     standard: STANDARD_ACTION_VALUES,
     keyboardType: KEYBOARD_TYPE_VALUES,
+    floatKeyboardType: ['panel'],
     shortcut: SHORTCUT_VALUES,
     openURL: OPEN_URL_VALUES,
   }[type] || [];
+}
+
+function toolbarActionValueSuggestions(type) {
+  return TOOLBAR_ACTION_VALUE_SUGGESTIONS[type] || actionValueSuggestions(type);
+}
+
+function toolbarActionPresetValue(type, value) {
+  return TOOLBAR_ACTION_PRESETS.find((item) => item.type === type && item.value === value)
+    ? toolbarActionPresetId(type, value)
+    : '';
+}
+
+function toolbarActionPresetOptions() {
+  return [
+    { value: '', label: '手动输入' },
+    ...TOOLBAR_ACTION_PRESETS.map((item) => ({
+      value: toolbarActionPresetId(item.type, item.value),
+      selectedLabel: item.label,
+      dropdownLabel: `${item.label}（${item.type}: ${item.value}）`,
+    })),
+  ];
+}
+
+function suppressKeyEditorAutoClose(duration = 250) {
+  state.suppressKeyEditorAutoCloseUntil = Date.now() + duration;
 }
 
 function buildAction(type, value) {
@@ -1494,6 +1576,28 @@ function buildAction(type, value) {
 function labelToFields(label = {}) {
   if (label.systemImageName) return { type: 'systemImageName', value: label.systemImageName };
   return { type: 'text', value: label.text || '' };
+}
+
+function toolbarDisplayMode(key) {
+  const configured = getPath(state.project, `toolbar.display.${key}.type`);
+  if (configured === 'text' || configured === 'systemImageName') return configured;
+  return DEFAULT_TOOLBAR_SYSTEM_IMAGES[key] ? 'systemImageName' : 'text';
+}
+
+function toolbarTextValue(key) {
+  return getPath(state.project, `toolbar.text.${key}`) || (key === 'symbol' ? '#+=' : TOOLBAR_BUTTON_LABELS[key] || key);
+}
+
+function toolbarSystemImageValue(key) {
+  return getPath(state.project, `toolbar.display.${key}.systemImageName`) || DEFAULT_TOOLBAR_SYSTEM_IMAGES[key] || '';
+}
+
+function toolbarActionFields(key) {
+  const action = actionToFields(getPath(state.project, `toolbar.actions.${key}`) || DEFAULT_TOOLBAR_ACTIONS[key]);
+  return {
+    type: getPath(state.project, `toolbar.actions.${key}.actionType`) || action.type,
+    value: getPath(state.project, `toolbar.actions.${key}.actionValue`) || action.value || '',
+  };
 }
 
 function allKeyboard26Keys(value) {
@@ -1837,16 +1941,50 @@ function symbolicKeyEditFields(path, value) {
 
 function toolbarButtonEditFields(path, value) {
   const textPath = `toolbar.text.${value}`;
-  const textValue = value ? getPath(state.project, textPath) || '' : '';
+  const displayTypePath = `toolbar.display.${value}.type`;
+  const systemImagePath = `toolbar.display.${value}.systemImageName`;
+  const action = toolbarActionFields(value);
+  const presetPath = `toolbar.actions.${value}.presetValue`;
   return `
     <section class="group-card key-edit-panel" data-key-edit-panel-path="${escapeHtml(path)}">
       <div class="field-card-title">
         <h3>按钮编辑</h3>
         ${closeIconButton('data-keyboard-action="close-key-editor"', '关闭编辑')}
       </div>
-      <div class="key-edit-fields">
-        ${input({ path, label: '按钮标识', value })}
-        ${input({ path: textPath, label: '显示文案', value: textValue })}
+      <div class="key-edit-fields key-edit-fields-four">
+        ${input({ path, label: '按键名', value })}
+        ${input({ path: textPath, label: '显示文本', value: toolbarTextValue(value) })}
+        ${selectField({
+    path: displayTypePath,
+    label: '显示方式',
+    value: toolbarDisplayMode(value),
+    options: [
+      { value: 'text', label: '文字' },
+      { value: 'systemImageName', label: 'systemImageName' },
+    ],
+  })}
+        ${input({ path: systemImagePath, label: '图标名', value: toolbarSystemImageValue(value), suggestions: Object.values(DEFAULT_TOOLBAR_SYSTEM_IMAGES) })}
+        ${selectField({
+    path: `toolbar.actions.${value}.actionType`,
+    label: '功能',
+    value: action.type,
+    className: 'action-type-field',
+    selectClassName: 'action-type-select',
+    options: TOOLBAR_ACTION_TYPES.map((item) => ({
+      value: item,
+      selectedLabel: displayActionType(item),
+      dropdownLabel: displayActionTypeWithCode(item),
+    })),
+  })}
+        ${selectField({
+    path: presetPath,
+    label: '默认搭配',
+    value: toolbarActionPresetValue(action.type, action.value),
+    className: 'action-type-field action-type-field-wide key-edit-span-two',
+    selectClassName: 'action-type-select',
+    options: toolbarActionPresetOptions(),
+  })}
+        ${input({ path: `toolbar.actions.${value}.actionValue`, label: '执行的命令', value: action.value, suggestions: toolbarActionValueSuggestions(action.type) })}
       </div>
       <span class="key-edit-focus-sentinel" tabindex="0" aria-hidden="true"></span>
     </section>
@@ -4172,6 +4310,23 @@ function setFieldValue(path, value, type) {
     return;
   }
 
+  if (path.startsWith('toolbar.actions.') && path.endsWith('.presetValue')) {
+    const basePath = path.replace(/\.presetValue$/, '');
+    const preset = TOOLBAR_ACTION_PRESETS.find((item) => toolbarActionPresetId(item.type, item.value) === value);
+    if (!preset) return;
+    setPath(state.project, basePath, buildAction(preset.type, preset.value));
+    return;
+  }
+
+  if (path.startsWith('toolbar.actions.') && (path.endsWith('.actionType') || path.endsWith('.actionValue'))) {
+    const basePath = path.replace(/\.(actionType|actionValue)$/, '');
+    const currentAction = actionToFields(getPath(state.project, basePath));
+    const nextType = path.endsWith('.actionType') ? value : currentAction.type;
+    const nextValue = path.endsWith('.actionValue') ? value : currentAction.value;
+    setPath(state.project, basePath, buildAction(nextType, nextValue));
+    return;
+  }
+
   if (path.includes('.actionType') || path.includes('.actionValue')) {
     const basePath = path.replace(/\.(actionType|actionValue)$/, '');
     const current = getPath(state.project, basePath) || {};
@@ -4225,6 +4380,7 @@ function handleInput(event) {
     target.classList.remove('is-default-value');
     setFieldValue(path, target.value, target.dataset.type);
     markDirty();
+    if (path.startsWith('toolbar.actions.')) renderEditor();
     renderProjectSummary();
     renderSaveState();
     renderCurrentPreview();
@@ -4447,12 +4603,14 @@ function bindEvents() {
       return;
     }
     if (target.matches('select.action-type-select')) {
+      suppressKeyEditorAutoClose();
       syncSelectOptionLabels(target, false);
     }
   });
   el.editorRoot.addEventListener('focusin', (event) => {
     const target = event.target;
     if (target.matches('select.action-type-select')) {
+      suppressKeyEditorAutoClose();
       syncSelectOptionLabels(target, true);
     }
     if (!target.matches('.default-hint-input')) return;
@@ -4467,19 +4625,6 @@ function bindEvents() {
     }
     if (target.matches('[data-path], [data-json-path], [data-collection-items], [data-collection-entry-value], [data-collection-entry-field]')) {
       delete target.dataset.undoCaptured;
-    }
-    const panel = target.closest('.key-edit-panel');
-    if (panel) {
-      const panelPath = panel.dataset.keyEditPanelPath || state.editingKey?.path || '';
-      const nextFocus = event.relatedTarget;
-      if (nextFocus?.closest?.('[data-key-edit-path]')) return;
-      window.setTimeout(() => {
-        if (!state.editingKey) return;
-        if (state.editingKey.path !== panelPath) return;
-        if (document.activeElement && panel.contains(document.activeElement)) return;
-        state.editingKey = null;
-        renderEditor();
-      }, 0);
     }
     if (!target.matches('.default-hint-input')) return;
     if (target.value.trim() !== '') return;
