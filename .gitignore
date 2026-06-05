@@ -1,0 +1,9 @@
+.work/
+.codegraph/
+.codex/
+node_modules/
+dist/
+*.zip
+*.log
+visitor-stats.json
+visitor-stats.json.tmp

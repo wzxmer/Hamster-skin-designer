@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="hamster-visitor-stats-endpoint" content="https://poultry.jiaqinyy.cn/hamster-stats/visit" />
+    <title>元书输入法皮肤工作台</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1>元书皮肤工具</h1>
+        </div>
+        <div class="topbar-actions">
+          <span id="visitorStats" class="visitor-stats is-idle" title="未配置访问统计接口">访问 --</span>
+          <span id="saveState" class="save-state">未保存</span>
+          <button id="undoButton" type="button" disabled>撤销</button>
+          <button id="saveTemplateButton" type="button">保存模板</button>
+          <button id="templateLibraryButton" type="button">模板库</button>
+          <button id="exportProjectButton" type="button">导出皮肤</button>
+          <label class="file-button">
+            导入皮肤
+            <input id="importProjectInput" type="file" accept=".json,application/json" hidden />
+          </label>
+        </div>
+      </header>
+
+      <main id="workspace" class="workspace">
+        <aside class="sidebar">
+          <section class="panel">
+            <div class="sidebar-header">
+              <h2>配置模块</h2>
+              <button id="sidebarToggleButton" class="icon-button icon-only sidebar-toggle-button" type="button" aria-label="收起配置模块">
+                <span aria-hidden="true">‹</span>
+              </button>
+            </div>
+            <div id="moduleList" class="module-list"></div>
+          </section>
+        </aside>
+
+        <section class="editor-panel">
+          <header class="editor-header">
+            <div>
+              <p id="moduleKicker" class="eyebrow"></p>
+              <h2 id="moduleTitle">模块</h2>
+              <p id="moduleDescription"></p>
+            </div>
+            <div class="editor-tools">
+              <button id="resetModuleButton" type="button">重置当前模块</button>
+              <button id="jsonModeButton" type="button">源码模式</button>
+            </div>
+          </header>
+          <div id="editorRoot" class="editor-root"></div>
+        </section>
+
+        <aside class="preview-panel">
+          <section class="panel">
+            <div class="preview-toolbar">
+              <h2>预览</h2>
+              <div class="preview-mode-select">
+                <select id="previewMode" aria-hidden="true" tabindex="-1"></select>
+                <button id="previewModeButton" class="preview-mode-button" type="button" aria-haspopup="listbox" aria-expanded="false"></button>
+                <div id="previewModeMenu" class="preview-mode-menu" role="listbox" hidden></div>
+              </div>
+              <button id="resetPreviewKeyboardListButton" type="button">重置</button>
+              <input id="previewKeyboardNameInput" type="text" placeholder="键盘1" aria-label="键盘名称" />
+              <button id="addPreviewKeyboardButton" type="button">添加键盘</button>
+              <button id="deletePreviewKeyboardButton" type="button" disabled>删除键盘</button>
+            </div>
+            <div class="preview-controls">
+              <button id="themeToggleButton" class="theme-toggle-button" type="button">浅色</button>
+              <div class="candidate-tabs">
+                <button type="button" data-candidate-state="toolbar" class="active">工具栏</button>
+                <button type="button" data-candidate-state="candidates">候选</button>
+                <button type="button" data-candidate-state="expanded">展开</button>
+              </div>
+            </div>
+            <div id="previewRoot" class="preview-root"></div>
+          </section>
+          <section class="panel preview-operation-panel" aria-label="自定义操作提示">
+            <div class="preview-operation-tip">
+              <span class="preview-operation-label">操作提示</span>
+              <p>自定义模块会根据右侧当前键盘预览显示可操作内容；需要调配中文、英文、数字、符号或自定义面板时，请先切换对应键盘预览。</p>
+            </div>
+          </section>
+          <section class="panel">
+            <h2>项目摘要</h2>
+            <pre id="projectSummary" class="project-summary"></pre>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
