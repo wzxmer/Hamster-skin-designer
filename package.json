@@ -1,0 +1,24 @@
+{
+  "name": "hamster3-skins",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "node scripts/workbench-server.mjs",
+    "start": "node scripts/workbench-server.mjs",
+    "dev:builder": "node apps/builder/server.js",
+    "validate:project-schema": "node packages/project-schema/validate-sample.js",
+    "test:exporter": "node packages/exporter/test-exporter.js",
+    "test:preview": "node --check apps/workbench/src/ui/preview.js",
+    "build": "npm run validate:project-schema && npm run test:exporter && node --check apps/workbench/src/app.js && node --check apps/workbench/src/ui/preview.js"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.14",
+    "tailwindcss": "3.4"
+  }
+}

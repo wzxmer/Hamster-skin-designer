@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>元书输入法皮肤工作台 - Hamster Skin Designer</title>
+    <!-- 引入 Google Fonts (Poppins & Open Sans) 以符合 ui-ux-pro-max 的现代 SaaS 设计规范 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="bg-slate-50 text-slate-900 font-sans antialiased">
+    <a class="skip-link" href="#mainContent">跳到主工作区</a>
+
+    <div id="app" class="flex flex-col min-h-screen">
+      <!-- Top Navigation (Hero/Header) -->
+      <header class="glass-header sticky top-0 z-50 w-full backdrop-blur-lg bg-white/70 border-b border-white/20 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="p-2 bg-indigo-500 rounded-lg shadow-inner text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 8h.01"/><path d="M12 12h.01"/><path d="M14 8h.01"/><path d="M16 12h.01"/><path d="M18 8h.01"/><path d="M6 8h.01"/><path d="M7 16h10"/><path d="M8 12h.01"/><rect width="20" height="16" x="2" y="4" rx="2"/></svg>
+            </div>
+            <h1 class="text-xl font-bold font-poppins text-indigo-950 tracking-tight">元书输入法皮肤工作台</h1>
+          </div>
+          
+          <div class="flex items-center gap-4 text-sm font-medium">
+             <div class="flex items-center gap-2 px-3 py-1.5 bg-slate-100/50 rounded-full border border-slate-200/50">
+               <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+               <span id="draftInfo" class="text-slate-600">草稿：未保存</span>
+             </div>
+             <div class="hidden md:flex items-center gap-3 text-slate-500">
+               <span id="projectName" class="font-semibold text-slate-700"></span>
+               <span id="templateInfo" class="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs"></span>
+               <span id="versionInfo" class="px-2 py-0.5 bg-slate-100 rounded text-xs"></span>
+             </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Content Grid -->
+      <main id="mainContent" class="flex-1 max-w-[100rem] w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Sidebar: Menu & Actions -->
+        <aside class="lg:col-span-3 flex flex-col gap-6">
+          
+          <!-- Template Selection Card -->
+          <section class="glass-card rounded-2xl p-5 border border-white/40 shadow-lg bg-white/60 backdrop-blur-xl relative overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent pointer-events-none"></div>
+            <div class="relative z-10 flex flex-col gap-4">
+              <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500 font-poppins flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                项目模板
+              </h2>
+              <div class="flex flex-col gap-3">
+                <div class="relative">
+                  <select id="templateSelect" class="w-full appearance-none bg-white border border-slate-200 text-slate-700 py-2.5 pl-4 pr-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all cursor-pointer shadow-sm text-sm font-medium"></select>
+                  <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                   <button id="loadTemplateButton" type="button" class="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-xl font-medium text-sm transition-all shadow-md shadow-indigo-500/20 active:scale-[0.98]">载入</button>
+                   <button id="importProjectButton" type="button" class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 py-2 px-4 rounded-xl font-medium text-sm transition-all shadow-sm active:scale-[0.98]">导入</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Main Function Zones (Navigation) -->
+          <section class="glass-card rounded-2xl p-5 border border-white/40 shadow-lg bg-white/60 backdrop-blur-xl flex-1 flex flex-col min-h-[400px]">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500 font-poppins mb-4 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              主功能区
+            </h2>
+            <div id="sectionList" class="section-list flex-1 overflow-y-auto pr-2 space-y-2">
+              <!-- JS injected list items go here -->
+            </div>
+          </section>
+
+        </aside>
+
+        <!-- Center: Editor Area -->
+        <section class="lg:col-span-5 flex flex-col gap-6">
+          <div class="glass-card rounded-2xl border border-white/40 shadow-lg bg-white/70 backdrop-blur-xl flex-1 flex flex-col relative overflow-hidden">
+             
+             <!-- Editor Header -->
+             <header class="p-5 border-b border-slate-100/50 bg-white/40">
+               <div class="flex justify-between items-start mb-4">
+                 <div>
+                   <span class="text-xs font-bold uppercase tracking-wider text-indigo-500 mb-1 block">配置编辑</span>
+                   <h2 id="editorTitle" class="text-2xl font-bold font-poppins text-slate-800">模块参数</h2>
+                   <p id="editorDesc" class="text-sm text-slate-500 mt-1" hidden></p>
+                 </div>
+                 <div class="flex bg-slate-100/80 p-1 rounded-xl border border-slate-200/50">
+                    <button id="visualModeButton" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all text-indigo-700 bg-white shadow-sm ring-1 ring-slate-900/5" type="button">可视化</button>
+                    <button id="jsonModeButton" class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all text-slate-600 hover:text-slate-900" type="button">JSON</button>
+                 </div>
+               </div>
+               
+               <div id="editorMetaSummary" class="flex flex-wrap gap-2 text-xs" hidden></div>
+               
+               <!-- Toolbar Actions -->
+               <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-200/40">
+                 <button id="undoButton" class="text-xs px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors font-medium border border-transparent cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/50">撤销</button>
+                 <button id="resetButton" class="text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors font-medium border border-transparent cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500/50">重置模块</button>
+                 <div class="flex-1"></div>
+                 <button id="shareProjectButton" class="text-xs px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors font-medium border border-transparent cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/50">分享</button>
+                 <button id="importShareButton" class="text-xs px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors font-medium border border-transparent cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/50">导分</button>
+                 <button id="packageButton" class="text-xs px-4 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:shadow-md hover:shadow-emerald-500/20 transition-all font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/50">打包下载</button>
+               </div>
+             </header>
+
+             <!-- Editor Body -->
+             <div class="flex-1 overflow-y-auto p-5 relative">
+               <div id="visualEditor" class="visual-editor"></div>
+               <textarea id="jsonEditor" class="w-full h-full min-h-[400px] p-4 rounded-xl font-mono text-sm bg-slate-900 text-slate-100 border-0 focus:ring-2 focus:ring-indigo-500 shadow-inner" spellcheck="false" hidden></textarea>
+             </div>
+             
+             <!-- Apply Button for JSON -->
+             <div class="p-4 border-t border-slate-100/50 bg-slate-50/50">
+               <button id="applyButton" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm transition-all shadow-md active:scale-[0.99] hidden cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/50">应用 JSON 到预览</button>
+               <button id="resetAllButton" class="w-full mt-2 py-2 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 font-medium text-xs transition-colors hidden cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500/50">危险: 全部重置</button>
+             </div>
+          </div>
+        </section>
+
+        <!-- Right: Real-time Preview -->
+        <aside class="lg:col-span-4 flex flex-col gap-6">
+          <div class="glass-card rounded-2xl border border-white/40 shadow-lg bg-white/70 backdrop-blur-xl flex flex-col sticky top-24 max-h-[calc(100vh-8rem)]">
+            
+            <header class="p-4 border-b border-slate-100/50">
+              <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500 font-poppins mb-3 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                实时预览
+              </h2>
+              
+              <!-- Preview Controls Grid -->
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="relative">
+                  <select id="previewSelect" class="w-full appearance-none bg-slate-100/80 border-0 text-slate-700 py-2 pl-3 pr-8 rounded-lg focus:ring-2 focus:ring-indigo-500 cursor-pointer font-medium">
+                    <option value="pinyin">中文 26 键</option>
+                    <option value="alphabetic">英文 26 键</option>
+                    <option value="numeric">数字键盘</option>
+                    <option value="symbolic">符号键盘</option>
+                    <option value="panel">面板</option>
+                  </select>
+                  <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+                </div>
+                
+                <div class="relative">
+                  <select id="themeSelect" class="w-full appearance-none bg-slate-100/80 border-0 text-slate-700 py-2 pl-3 pr-8 rounded-lg focus:ring-2 focus:ring-indigo-500 cursor-pointer font-medium">
+                    <option value="light">浅色模式</option>
+                    <option value="dark">深色模式</option>
+                  </select>
+                  <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+                </div>
+                
+                <div class="relative">
+                  <select id="orientationSelect" class="w-full appearance-none bg-slate-100/80 border-0 text-slate-700 py-2 pl-3 pr-8 rounded-lg focus:ring-2 focus:ring-indigo-500 cursor-pointer font-medium">
+                    <option value="portrait">竖屏 (Portrait)</option>
+                    <option value="landscape">横屏 (Landscape)</option>
+                  </select>
+                  <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+                </div>
+
+                <div class="relative">
+                  <select id="shiftStateSelect" class="w-full appearance-none bg-slate-100/80 border-0 text-slate-700 py-2 pl-3 pr-8 rounded-lg focus:ring-2 focus:ring-indigo-500 cursor-pointer font-medium">
+                    <option value="normal">Shift: Normal</option>
+                    <option value="upper">Shift: Upper</option>
+                    <option value="locked">Shift: Locked</option>
+                  </select>
+                  <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+                </div>
+              </div>
+            </header>
+            
+            <div class="p-2 bg-slate-100/50 flex gap-2 justify-center text-[10px] font-mono text-slate-500 border-b border-slate-200/50">
+              <span id="previewMetaType" class="px-1.5 py-0.5 rounded bg-slate-200/50"></span>
+              <span id="previewMetaOrientation" class="px-1.5 py-0.5 rounded bg-slate-200/50"></span>
+              <span id="previewMetaTheme" class="px-1.5 py-0.5 rounded bg-slate-200/50"></span>
+            </div>
+
+            <!-- Preview Renderer -->
+            <div id="previewRoot" class="flex-1 overflow-auto bg-slate-200/50 relative flex items-center justify-center p-4">
+               <!-- injected by js -->
+            </div>
+            
+          </div>
+        </aside>
+
+      </main>
+    </div>
+
+    <!-- Hidden inputs for file I/O -->
+    <input id="projectFileInput" type="file" accept=".cskin,.json,.zip" hidden />
+    <input id="projectFolderInput" type="file" webkitdirectory directory multiple hidden />
+    
+    <!-- Status Logs overlay -->
+    <div id="statusLog" class="fixed bottom-4 left-4 z-50 flex flex-col gap-2 max-w-sm pointer-events-none"></div>
+
+    <button id="backToTopButton" class="fixed right-6 bottom-6 z-40 w-12 h-12 rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 flex items-center justify-center opacity-0 pointer-events-none transition-all hover:bg-indigo-700 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" type="button" aria-label="回到顶部" title="回到顶部">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+    </button>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>ml>
