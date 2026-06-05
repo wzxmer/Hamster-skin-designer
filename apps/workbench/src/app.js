@@ -36,6 +36,7 @@ const state = {
   keyDrag: null,
   skipNextKeyEditorClick: false,
   editingKey: null,
+  customKeyboardPanel: 'preview',
   keyboard26LayoutMode: 'portrait',
   metricsKeyboardId: 'keyboard26',
   metricsOrientation: 'portrait',
@@ -62,6 +63,8 @@ const PREVIEW_LONG_PRESS_DELAY_MS = 420;
 
 const VISITOR_ID_STORAGE_KEY = 'hamster-workbench-visitor-id';
 const DEFAULT_DOWNLOAD_PATH = '浏览器默认下载位置';
+const DEFAULT_SKIN_NAME_PREFIX = '皮肤';
+const DEFAULT_SKIN_AUTHOR = 'https://wzxmer.github.io/Hamster-skin-designer/';
 const KEYBOARD26_ROW_LABELS = {
   top: '上排',
   middle: '中排',
@@ -344,6 +347,7 @@ const el = {
   saveTemplateButton: document.getElementById('saveTemplateButton'),
   templateLibraryButton: document.getElementById('templateLibraryButton'),
   exportProjectButton: document.getElementById('exportProjectButton'),
+  importProjectButton: document.getElementById('importProjectButton'),
   importProjectInput: document.getElementById('importProjectInput'),
   resetModuleButton: document.getElementById('resetModuleButton'),
   jsonModeButton: document.getElementById('jsonModeButton'),
@@ -566,6 +570,68 @@ function updateCurrentValue(value) {
 
 function markDirty() {
   state.savedAt = null;
+}
+
+function formatLocalDateTime(date = new Date()) {
+  const pad = (value) => String(value).padStart(2, '0');
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join('-') + ` ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function defaultSkinName(index = 1) {
+  return `${DEFAULT_SKIN_NAME_PREFIX}${Math.max(1, Number(index) || 1)}`;
+}
+
+function defaultSkinIndex(name) {
+  const match = String(name || '').trim().match(/^皮肤(\d+)$/);
+  return match ? Number(match[1]) : 0;
+}
+
+function nextDefaultSkinIndex(records = []) {
+  return records.reduce((max, record) => Math.max(max, defaultSkinIndex(record?.name)), 0) + 1;
+}
+
+function applyDefaultSkinMeta(project, index = 1, now = formatLocalDateTime()) {
+  const next = deepClone(project);
+  next.meta = next.meta || {};
+  next.config = next.config || {};
+  next.meta.name = defaultSkinName(index);
+  next.meta.author = DEFAULT_SKIN_AUTHOR;
+  next.meta.createdAt = now;
+  next.meta.updatedAt = now;
+  next.config.name = next.meta.name;
+  next.config.author = next.meta.author;
+  return next;
+}
+
+function stampProjectForGeneration(project, now = formatLocalDateTime()) {
+  const next = deepClone(project);
+  next.meta = next.meta || {};
+  next.config = next.config || {};
+  if (!String(next.meta.name || '').trim() || next.meta.name === '示例模板1') {
+    next.meta.name = defaultSkinName(1);
+  }
+  if (!String(next.meta.author || '').trim() || ['浮生', '无名'].includes(next.meta.author)) {
+    next.meta.author = DEFAULT_SKIN_AUTHOR;
+  }
+  next.meta.createdAt = now;
+  next.meta.updatedAt = now;
+  next.config.name = next.meta.name;
+  next.config.author = next.meta.author;
+  return next;
+}
+
+function nextGeneratedProject(project, now = formatLocalDateTime()) {
+  const currentIndex = defaultSkinIndex(project?.meta?.name);
+  const nextIndex = currentIndex ? currentIndex + 1 : 1;
+  return applyDefaultSkinMeta(project, nextIndex, now);
+}
+
+function isLegacyDefaultSkinMeta(project) {
+  return project?.meta?.name === '示例模板1' && project?.meta?.author === '浮生';
 }
 
 function projectSignature(project) {
@@ -946,8 +1012,8 @@ function renderMetaEditor() {
     <section class="group-card">
       <h3>皮肤信息</h3>
       <div class="section-grid">
-        ${defaultInput({ path: 'meta.name', label: '皮肤名称', value: value.name, defaultValue: defaults.name || '示例模板1' })}
-        ${defaultInput({ path: 'meta.author', label: '作者', value: value.author, defaultValue: defaults.author || '浮生' })}
+        ${defaultInput({ path: 'meta.name', label: '皮肤名称', value: value.name, defaultValue: defaults.name || defaultSkinName(1) })}
+        ${defaultInput({ path: 'meta.author', label: '作者', value: value.author, defaultValue: defaults.author || DEFAULT_SKIN_AUTHOR })}
         <div class="field-card download-location-card">
           <label for="downloadLocationInput">下载位置</label>
           <div class="download-location-row">
@@ -1642,7 +1708,7 @@ function keyEditFieldsForKey(key) {
   const displayTypePath = `keyboards.keyboard26.keyDisplayTypes.${value}`;
   const displayTypeValue = getPath(state.project, displayTypePath) || 'text';
   return `
-    <section class="group-card key-edit-panel">
+    <section class="group-card key-edit-panel" data-key-edit-panel-path="${escapeHtml(path)}">
       <div class="field-card-title">
         <h3>按键编辑</h3>
         ${closeIconButton('data-keyboard-action="close-key-editor"', '关闭编辑')}
@@ -1706,7 +1772,7 @@ function spaceRightKeyEditFields(path, value) {
   const profile = keyboard26PreviewProfile();
   const profileLabel = profile === 'alphabetic' ? '英文键盘' : '中文键盘';
   return `
-    <section class="group-card key-edit-panel space-right-edit-panel">
+    <section class="group-card key-edit-panel space-right-edit-panel" data-key-edit-panel-path="${escapeHtml(path)}">
       <div class="field-card-title">
         <h3>空格右侧键</h3>
         ${closeIconButton('data-keyboard-action="close-key-editor"', '关闭编辑')}
@@ -1730,9 +1796,9 @@ function spaceRightKeyEditFields(path, value) {
   `;
 }
 
-function keyEditPanel(title, fields) {
+function keyEditPanel(title, fields, path = state.editingKey?.path || '') {
   return `
-    <section class="group-card key-edit-panel">
+    <section class="group-card key-edit-panel" data-key-edit-panel-path="${escapeHtml(path)}">
       <div class="field-card-title">
         <h3>${escapeHtml(title)}</h3>
         ${closeIconButton('data-keyboard-action="close-key-editor"', '关闭编辑')}
@@ -1754,7 +1820,7 @@ function numericKeyEditFields(path, value) {
   return keyEditPanel('按键编辑', [
     input({ path, label: '键值', value }),
     input({ path: textPath, label: '显示文本', value: displayValue }),
-  ]);
+  ], path);
 }
 
 function symbolicKeyEditFields(path, value) {
@@ -1766,14 +1832,14 @@ function symbolicKeyEditFields(path, value) {
   return keyEditPanel('按键编辑', [
     input({ path, label: '键值', value }),
     input({ path: textPath, label: '显示文本', value: displayValue }),
-  ]);
+  ], path);
 }
 
 function toolbarButtonEditFields(path, value) {
   const textPath = `toolbar.text.${value}`;
   const textValue = value ? getPath(state.project, textPath) || '' : '';
   return `
-    <section class="group-card key-edit-panel">
+    <section class="group-card key-edit-panel" data-key-edit-panel-path="${escapeHtml(path)}">
       <div class="field-card-title">
         <h3>按钮编辑</h3>
         ${closeIconButton('data-keyboard-action="close-key-editor"', '关闭编辑')}
@@ -2075,42 +2141,47 @@ function renderToolbar(value) {
 }
 
 const CUSTOM_KEYBOARD_PANELS = [
-  { id: 'keyboard26', label: '26 键' },
-  { id: 'numeric', label: '数字键盘' },
-  { id: 'symbolic', label: '符号键盘' },
-  { id: 'toolbar', label: '工具栏与候选栏' },
-  { id: 'panel', label: '自定义面板' },
+  { id: 'preview', label: '预览' },
+  { id: 'toolbar', label: '工具栏' },
 ];
 
-function activeCustomKeyboardPanel() {
+function activePreviewKeyboardPanel() {
   const scope = currentPreviewScope();
-  if (scope.candidateState === 'candidates' || scope.candidateState === 'expanded') return 'toolbar';
   if (scope.mode === 'numeric') return 'numeric';
   if (scope.mode === 'symbolic') return 'symbolic';
   if (scope.mode === 'panel') return 'panel';
   return 'keyboard26';
 }
 
+function activeCustomKeyboardPanel() {
+  return state.customKeyboardPanel === 'toolbar' ? 'toolbar' : 'preview';
+}
+
 function renderCustomKeyboardScopeHeader() {
   const activePanel = activeCustomKeyboardPanel();
   return `
-    ${renderPreviewScopeHeader('当前可编辑内容', '由右侧键盘预览自动匹配，需要编辑其他键盘时请切换右侧预览。')}
-    <div class="custom-keyboard-menu is-readonly" aria-label="当前预览匹配的自定义键盘类型">
+    ${renderPreviewScopeHeader(
+    activePanel === 'toolbar' ? '工具栏编辑' : '预览编辑',
+    activePanel === 'toolbar' ? '单独编辑工具栏按钮顺序、文案与候选栏边距。' : '跟随右侧键盘预览，需要编辑其他键盘时请切换右侧预览。',
+  )}
+    <div class="custom-keyboard-menu" role="tablist" aria-label="自定义键盘编辑范围">
       ${CUSTOM_KEYBOARD_PANELS.map((item) => `
-        <span class="${item.id === activePanel ? 'active' : ''}">${escapeHtml(item.label)}</span>
+        <button class="${item.id === activePanel ? 'active' : ''}" type="button" role="tab" aria-selected="${item.id === activePanel ? 'true' : 'false'}" data-custom-keyboard-panel="${escapeHtml(item.id)}">${escapeHtml(item.label)}</button>
       `).join('')}
     </div>
   `;
 }
 
 function customKeyboardPanelPath(panelId = activeCustomKeyboardPanel()) {
-  return {
+  if (panelId === 'preview') return customKeyboardPanelPath(activePreviewKeyboardPanel());
+  const paths = {
     keyboard26: 'keyboards.keyboard26',
     numeric: 'keyboards.numeric',
     symbolic: 'keyboards.symbolic',
     toolbar: 'toolbar',
     panel: 'keyboards.panel.text',
-  }[panelId] || 'keyboards.keyboard26';
+  };
+  return paths[panelId] || 'keyboards.keyboard26';
 }
 
 function customKeyboardPanelValue(panelId = activeCustomKeyboardPanel()) {
@@ -2119,12 +2190,15 @@ function customKeyboardPanelValue(panelId = activeCustomKeyboardPanel()) {
 
 function renderCustomKeyboards(value = {}) {
   const activePanel = activeCustomKeyboardPanel();
+  const previewPanel = activePreviewKeyboardPanel();
   const content = {
-    keyboard26: () => renderKeyboard26Text(value.keyboard26 || {}),
-    numeric: () => renderNumericKeyboard(value.numeric || {}),
-    symbolic: () => renderSymbolic(value.symbolic || {}),
+    preview: () => ({
+      keyboard26: () => renderKeyboard26Text(value.keyboard26 || {}),
+      numeric: () => renderNumericKeyboard(value.numeric || {}),
+      symbolic: () => renderSymbolic(value.symbolic || {}),
+      panel: () => renderStringMap(value.panel?.text || {}, 'keyboards.panel.text'),
+    }[previewPanel]?.() || renderKeyboard26Text(value.keyboard26 || {})),
     toolbar: () => renderToolbar(state.project.toolbar || {}),
-    panel: () => renderStringMap(value.panel?.text || {}, 'keyboards.panel.text'),
   }[activePanel]?.() || renderKeyboard26Text(value.keyboard26 || {});
   return `
     <section class="group-card custom-keyboard-shell">
@@ -2419,8 +2493,9 @@ function renderSwipeToken(profile, direction, key, entry = {}) {
 
 function renderSwipeEntry(profile, direction, key, entry = {}) {
   const action = actionToFields(entry.action);
+  const path = `data.swipes.${profile}.${direction}.${key}`;
   return `
-    <section class="group-card key-edit-panel swipe-edit-panel">
+    <section class="group-card key-edit-panel swipe-edit-panel" data-key-edit-panel-path="${escapeHtml(path)}">
       <div class="key-edit-fields swipe-edit-fields">
         ${input({ path: `data.swipes.${profile}.${direction}.${key}.label.text`, label: '显示文字', value: entry.label?.text || '' })}
         ${selectField({
@@ -2474,7 +2549,7 @@ function renderSwipes(value) {
     <section class="group-card keyboard-key-card swipe-profile-card${enabled ? '' : ' is-disabled'}">
       <div class="field-card-title row-heading">
         <span class="row-title">${escapeHtml(SWIPE_PROFILE_LABELS[profile] || profile)}</span>
-        <span class="swipe-default-center">偏移请到“偏移”模块统一设置</span>
+        <span class="swipe-default-center">点击按键编辑长按设置</span>
       </div>
       <div class="swipe-token-list">
         ${keys.map((key) => renderSwipeToken(profile, direction, key, entries[key] || {})).join('') || '<p class="empty-note">当前预览没有可操作按键。</p>'}
@@ -2558,8 +2633,9 @@ function renderHintToken(group, key) {
 }
 
 function renderHintEntryPanel(group, key, entry = {}) {
+  const path = `data.hints.${group}.${key}`;
   return `
-    <section class="group-card key-edit-panel hint-edit-panel">
+    <section class="group-card key-edit-panel hint-edit-panel" data-key-edit-panel-path="${escapeHtml(path)}">
       <div class="hint-entry-fields">
         ${input({ path: `data.hints.${group}.${key}.selectedIndex`, label: '默认选中序号', value: entry.selectedIndex ?? 0, type: 'number', step: '1' })}
         ${input({ path: `data.hints.${group}.${key}.size.width`, label: '宽度', value: entry.size?.width ?? '', type: 'number', step: '1' })}
@@ -2767,10 +2843,6 @@ function renderCollections(value = {}) {
       ? renderCategorizedCollection(sourceKey, source)
       : renderFlatCollection(sourceKey, source)
   )).join('') || '<p class="empty-note">暂无符号数据源。</p>'}
-    <details class="group-card collection-source-details">
-      <summary>源码兜底</summary>
-      ${renderJsonTextarea('data.collections', value)}
-    </details>
   `;
 }
 
@@ -3389,8 +3461,8 @@ function setActiveTheme(theme) {
   renderCurrentPreview();
 }
 
-function openConfirmDialog({ title = '确认操作', message, onConfirm }) {
-  state.confirmDialog = { title, message, onConfirm };
+function openConfirmDialog({ title = '确认操作', message, confirmLabel = '确认删除', confirmClass = 'danger-action', onConfirm }) {
+  state.confirmDialog = { title, message, confirmLabel, confirmClass, onConfirm };
   renderConfirmDialog();
 }
 
@@ -3410,7 +3482,7 @@ function renderConfirmDialog() {
       <p>${escapeHtml(state.confirmDialog.message)}</p>
       <div class="confirm-actions">
         <button class="tool-button secondary" type="button" data-confirm-action="cancel">取消</button>
-        <button class="tool-button primary danger-action" type="button" data-confirm-action="confirm">确认删除</button>
+        <button class="tool-button primary ${escapeHtml(state.confirmDialog.confirmClass || '')}" type="button" data-confirm-action="confirm">${escapeHtml(state.confirmDialog.confirmLabel || '确认')}</button>
       </div>
     </section>
   `;
@@ -4191,25 +4263,49 @@ async function chooseDownloadDirectory() {
 
 async function exportProjectPackage() {
   try {
-    const files = buildSkinPackageFiles(state.project);
+    const exportProject = stampProjectForGeneration(state.project);
+    const files = buildSkinPackageFiles(exportProject);
     const blob = createZipBlob(files);
-    const filename = defaultPackageFileName(state.project);
+    const filename = defaultPackageFileName(exportProject);
+    const advanceToNextProject = () => {
+      state.project = nextGeneratedProject(exportProject);
+      state.original = deepClone(state.project);
+      state.savedAt = null;
+      saveProject(state.project);
+      renderAll();
+    };
     if (state.downloadDirectoryHandle) {
       const permission = await state.downloadDirectoryHandle.requestPermission?.({ mode: 'readwrite' });
       if (permission && permission !== 'granted') {
         downloadBlob(filename, blob);
+        advanceToNextProject();
         return;
       }
       const fileHandle = await state.downloadDirectoryHandle.getFileHandle(filename, { create: true });
       const writable = await fileHandle.createWritable();
       await writable.write(blob);
       await writable.close();
+      advanceToNextProject();
       return;
     }
     downloadBlob(filename, blob);
+    advanceToNextProject();
   } catch (error) {
     alert(`导出失败：${error.message}`);
   }
+}
+
+function confirmImportProject() {
+  openConfirmDialog({
+    title: '导入皮肤',
+    message: '注意，导入的皮肤需要由本工具所制作！',
+    confirmLabel: '确认',
+    confirmClass: '',
+    onConfirm: () => {
+      el.importProjectInput.value = '';
+      el.importProjectInput.click();
+    },
+  });
 }
 
 function bindEvents() {
@@ -4272,6 +4368,13 @@ function bindEvents() {
     const button = event.target.closest('[data-keyboard-action]');
     if (!button) return;
     handleKeyboardLayoutAction(button);
+  });
+  el.editorRoot.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-custom-keyboard-panel]');
+    if (!button) return;
+    state.customKeyboardPanel = button.dataset.customKeyboardPanel === 'toolbar' ? 'toolbar' : 'preview';
+    state.editingKey = null;
+    renderEditor();
   });
   el.editorRoot.addEventListener('click', (event) => {
     const button = event.target.closest('[data-toolbar-action]');
@@ -4367,7 +4470,7 @@ function bindEvents() {
     }
     const panel = target.closest('.key-edit-panel');
     if (panel) {
-      const panelPath = state.editingKey?.path || '';
+      const panelPath = panel.dataset.keyEditPanelPath || state.editingKey?.path || '';
       const nextFocus = event.relatedTarget;
       if (nextFocus?.closest?.('[data-key-edit-path]')) return;
       window.setTimeout(() => {
@@ -4454,6 +4557,7 @@ function bindEvents() {
   el.undoButton.addEventListener('click', undoLastChange);
 
   el.exportProjectButton.addEventListener('click', exportProjectPackage);
+  el.importProjectButton.addEventListener('click', confirmImportProject);
 
   el.importProjectInput.addEventListener('change', async () => {
     const file = el.importProjectInput.files?.[0];
@@ -4615,15 +4719,20 @@ function mergeDefaultCollections(project, sampleProject) {
 async function boot() {
   const sampleProject = normalizeDataFontSize(await loadSampleProject());
   state.sampleProject = sampleProject;
-  state.project = deepClone(sampleProject);
-  state.original = deepClone(sampleProject);
+  const templateRecords = await listTemplateSnapshots().catch(() => []);
+  const defaultProject = applyDefaultSkinMeta(sampleProject, nextDefaultSkinIndex(templateRecords));
+  state.project = deepClone(defaultProject);
+  state.original = deepClone(defaultProject);
   const stored = loadProject();
   if (
     stored?.project
     && validateProject(stored.project).ok
     && stored.project.templateId === sampleProject.templateId
   ) {
-    state.project = mergeDefaultCollections(mergeDefaultSwipes(stored.project, sampleProject), sampleProject);
+    const merged = mergeDefaultCollections(mergeDefaultSwipes(stored.project, sampleProject), sampleProject);
+    state.project = isLegacyDefaultSkinMeta(merged)
+      ? applyDefaultSkinMeta(merged, nextDefaultSkinIndex(templateRecords))
+      : merged;
     state.original = deepClone(state.project);
     state.savedAt = stored.savedAt;
   }

@@ -560,6 +560,7 @@ button:disabled:hover {
 }
 
 .editor-root {
+  container-type: inline-size;
   padding: 18px 20px 22px;
   overflow-y: auto;
   overflow-x: hidden;
@@ -649,7 +650,7 @@ button:disabled:hover {
 }
 
 .two-column-field-grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .two-column-field-grid .field-card {
@@ -788,15 +789,8 @@ button:disabled:hover {
   grid-column: 1 / -1;
 }
 
-.collection-entry-object textarea,
-.collection-source-details textarea {
+.collection-entry-object textarea {
   min-height: 180px;
-}
-
-.collection-source-details summary {
-  cursor: pointer;
-  color: var(--text);
-  font-weight: 800;
 }
 
 .field-card > label:first-child {
@@ -816,17 +810,24 @@ button:disabled:hover {
 
 .download-location-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) max-content;
   gap: 8px;
-  align-items: center;
+  align-items: stretch;
+  min-height: 46px;
 }
 
 .download-location-row input {
+  height: 100%;
   min-width: 0;
 }
 
 .download-folder-button {
-  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 0;
+  padding: 0 12px;
   white-space: nowrap;
 }
 
@@ -1170,7 +1171,7 @@ button:disabled:hover {
   box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
-.custom-keyboard-menu span {
+.custom-keyboard-menu button {
   min-height: 32px;
   min-width: 92px;
   flex: 1 1 92px;
@@ -1183,19 +1184,19 @@ button:disabled:hover {
   font-weight: 850;
   box-shadow: none;
   transform: none;
+  cursor: pointer;
 }
 
-.custom-keyboard-menu span.active {
+.custom-keyboard-menu button.active {
   background: #fff;
   color: var(--accent);
   box-shadow: 0 3px 10px rgba(15, 23, 42, 0.12);
 }
 
-.custom-keyboard-menu.is-readonly span {
+.custom-keyboard-menu button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: default;
 }
 
 .inset-custom-list {
@@ -2514,6 +2515,12 @@ button:disabled:hover {
   }
 
   .point-map-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@container (max-width: 760px) {
+  .two-column-field-grid {
     grid-template-columns: 1fr;
   }
 }
