@@ -2,7 +2,7 @@
 
 元书输入法 Hamster3 皮肤工作台重构项目。
 
-当前项目以 `示例皮肤` 作为默认模板数据，并以 `project.json` 中间模型重新实现皮肤工作台。
+默认模板数据已固化到 `packages/project-schema/defaults/project.sample.json`，工作台以 `project.json` 中间模型重新实现皮肤编辑、预览和导出。
 
 ## 当前决策
 
@@ -10,11 +10,12 @@
 - 默认导出 YAML 皮肤包，用于实际安装。
 - 同时支持导出 Jsonnet 源码包，用于模板复用和高级修改。
 - 优先做 GitHub Pages 可部署的纯前端网页工作台。
+- 已部署测试地址：<https://wzxmer.github.io/Hamster-skin-designer/apps/workbench/>
 - 后续支持浏览器本地缓存，用户可手动保存模板而不必下载文件。
 
 ## 当前重点
 
-1. 审查 `示例皮肤/jsonnet/lib` 可调项，并同步到网页功能模块。
+1. 审查默认模板中尚未 UI 化的可调项，并同步到网页功能模块。
 2. 维护 `packages/project-schema/defaults/project.sample.json`。
 3. 建立 `project.json -> YAML / Jsonnet` 的导出链路。
 4. 继续完善新版 `apps/workbench`。

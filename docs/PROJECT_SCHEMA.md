@@ -33,11 +33,11 @@
 
 ```json
 {
-  "name": "示例模板1",
-  "author": "浮生",
-  "description": "C:\\Users\\Lenovo\\Downloads",
-  "createdAt": "2026-05-19",
-  "updatedAt": "2026-05-20"
+  "name": "皮肤1",
+  "author": "https://wzxmer.github.io/Hamster-skin-designer/",
+  "description": "浏览器默认下载位置",
+  "createdAt": "2026-06-05 20:22:40",
+  "updatedAt": "2026-06-05 20:22:40"
 }
 ```
 
@@ -261,8 +261,8 @@
 
 ```json
 {
-  "name": "示例模板1",
-  "author": "浮生",
+  "name": "皮肤1",
+  "author": "https://wzxmer.github.io/Hamster-skin-designer/",
   "pinyin": {
     "iPhone": {
       "portrait": "pinyin_26_portrait",

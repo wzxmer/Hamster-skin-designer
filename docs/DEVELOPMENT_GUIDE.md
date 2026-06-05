@@ -9,7 +9,7 @@
 核心链路：
 
 ```text
-示例皮肤
+旧示例皮肤数据
   -> project.json
   -> 网页编辑器
   -> 实时预览
@@ -25,8 +25,9 @@
 - 导出器必须是纯函数：输入 `project.json + assets`，输出文件树或 zip。
 - YAML 是默认安装产物。
 - Jsonnet 是高级模板源码产物。
-- 示例皮肤中所有可调参数必须沉淀到 `示例皮肤/jsonnet/lib` 下的配置文件，键盘生成层只引用配置。
-- GitHub Pages 是首要运行环境，不依赖本地服务和服务端 API。
+- 默认模板以 `packages/project-schema/defaults/project.sample.json` 为准，公开仓库不依赖旧参考资料目录。
+- GitHub Pages 是首要运行环境；核心编辑、预览、导入导出不依赖本地服务或服务端 API。
+- 访问统计等可选外部服务必须可降级，不能影响核心工作台功能。
 - 本地模板保存使用浏览器缓存，用户可以手动保存模板，不要求下载到磁盘。
 
 ## 当前事实
@@ -37,13 +38,13 @@
 - 旧编辑模型围绕 Jsonnet/lib 直接编辑，和新版 `project.json` 路线不一致。
 - 旧代码只作为预览、导出、模板读取和 zip 打包的参考来源。
 
-示例皮肤状态：
+默认模板状态：
 
-- `packages/project-schema/defaults/project.sample.json` 已以 `示例皮肤` 作为默认模板数据。
-- `示例皮肤/config.yaml` 已映射到 `project.config`，并同步项目名称、作者和各键盘文件映射。
+- `packages/project-schema/defaults/project.sample.json` 已固化旧示例皮肤的默认模板数据。
+- 旧示例皮肤的 `config.yaml` 已映射到 `project.config`，并同步项目名称、作者和各键盘文件映射。
 - `collectionData.libsonnet` 已进入 `data.collections`。
 - `swipeData.libsonnet` / `swipeData-en.libsonnet` 已进入 `data.swipes`。
-- 当前集中配置入口是 `示例皮肤/jsonnet/lib/config/keys.libsonnet`。
+- 旧 Jsonnet 配置入口已作为字段来源归档，当前公开仓库以 `project.sample.json`、schema、工作台 UI 和导出映射为准。
 - 已迁入按键 insets、图片素材引用、键盘高度、面板参数、按键文案、部分 text 样式和偏移。
 - `color.libsonnet`、`fontSize.libsonnet`、`center.libsonnet`、`keyboardLayout.libsonnet` 继续作为主题和布局配置入口。
 - `swipeData`、`hintSymbolsData`、`collectionData` 是数据型配置，暂不强行拆碎。
@@ -94,26 +95,24 @@ packages/preview-engine/
 - `apps/web/`：旧网页实现，只读参考。
 - `apps/builder/`：旧本地构建服务，只读参考。
 - `packages/shared-schema/`、`packages/template-adapters/`、`packages/preview-engine/`：按需迁移或重建。
-- `templates/hamster-ios/`：旧模板副本，和 `示例皮肤/` 对照使用。
+- `templates/hamster-ios/`：旧模板副本，仅作参考。
 
 ## 开发顺序
 
-### 1. 完成示例皮肤收口
+### 1. 完成默认模板字段收口
 
-目的：让示例皮肤成为稳定模板，不让可调参数散落在 keyboard 生成层。
+目的：让 `project.sample.json` 成为稳定模板，不让可调参数散落在不可控源码或旧参考资料中。
 
 任务：
 
-- 继续迁移 `numeric_9_portrait.jsonnet`、`numeric_9_landscape.jsonnet` 的布局参数。
-- 继续迁移 `symbolic_portrait.jsonnet` 的布局和 collection 尺寸参数。
-- 拆分 `toolbar.libsonnet`：配置留在 lib 配置层，生成逻辑留在生成器。
-- 抽取 `pinyin_26.jsonnet` 和 `alphabetic_26.jsonnet` 的重复生成逻辑，形成 `keyboard26Factory`。
+- 对照已归档字段映射，继续补齐数字键盘、符号键盘、collection 和 toolbar 的可调参数。
+- 新增可调项先进入 `project.sample.json` 和 schema，再补工作台编辑模块和导出映射。
 
 验收：
 
-- 新增可调参数只进入 `lib/config` 或明确的数据配置文件。
-- keyboard 文件只负责组装、引用、生成。
-- 执行 `rtk jsonnet "示例皮肤/jsonnet/main.jsonnet"` 通过。
+- 新增可调参数必须能通过 `project.json` 表达。
+- 工作台 UI、预览和导出结果读取同一份字段。
+- `rtk npm run validate:project-schema` 通过。
 
 ### 2. 建立 project schema 包
 
@@ -263,7 +262,6 @@ export function buildPreviewModel(project, viewport) {}
 项目已配置 RTK。执行 shell 命令时优先使用 `rtk`：
 
 ```powershell
-rtk jsonnet "示例皮肤/jsonnet/main.jsonnet"
 rtk npm run dev
 rtk npm run build
 rtk git status --short
@@ -281,7 +279,7 @@ PowerShell 自带文件读取、枚举命令不需要强行套 `rtk`。
 - `docs/SAMPLE_SKIN_FIELD_MAP.md`：示例皮肤字段到 `project.json` 的映射。
 - `docs/NEXT_DEVELOPMENT_PLAN.md`：下一步阶段计划。
 - `docs/WORKBENCH_REBUILD_PLAN.md`：重建路线和旧前端取舍。
-- `示例皮肤/jsonnet/lib/README.md`：示例皮肤 lib 结构说明。
+- `docs/SAMPLE_SKIN_FIELD_MAP.md`：旧示例皮肤字段来源与当前 `project.json` 映射。
 
 ## 风险与边界
 
@@ -293,7 +291,7 @@ PowerShell 自带文件读取、枚举命令不需要强行套 `rtk`。
 
 ## 当前可执行任务
 
-1. 持续审查 `示例皮肤/jsonnet/lib` 中新增的可调项，并同步到 `project.sample.json`。
+1. 持续审查默认模板中缺失的可调项，并同步到 `project.sample.json`。
 2. 在 `apps/workbench` 为新增字段补可视化编辑模块。
 3. 在 `packages/exporter` 实现 `project.json -> YAML 文件树` 的最小闭环。
 4. 再补 Jsonnet 源码包导出。
@@ -313,4 +311,4 @@ PowerShell 自带文件读取、枚举命令不需要强行套 `rtk`。
 - `hintSymbolsData.libsonnet`：长按候选模块，首版用 JSON 编辑。
 - `collectionData.libsonnet`：集合数据模块，首版用 JSON 编辑。
 
-后续原则：每次把新的可调项沉淀到 lib 后，都必须同步补三个位置：`project.sample.json`、工作台编辑模块、导出映射。
+后续原则：每次新增可调项，都必须同步补三个位置：`project.sample.json`、工作台编辑模块、导出映射。
