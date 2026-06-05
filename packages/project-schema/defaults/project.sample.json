@@ -1,0 +1,6635 @@
+{
+  "schemaVersion": "0.1.0",
+  "templateId": "sample-skin",
+  "meta": {
+    "name": "示例模板1",
+    "author": "浮生",
+    "description": "浏览器默认下载位置",
+    "version": "0.1.0",
+    "createdAt": "2026-05-19",
+    "updatedAt": "2026-05-20"
+  },
+  "assets": {
+    "images": {
+      "keyboardBackground": {
+        "file": "bg",
+        "image": "IMG1",
+        "source": "resources/bg.png"
+      },
+      "verticalCandidateBackground": {
+        "file": "bg",
+        "image": "IMG1",
+        "source": "resources/bg.png"
+      },
+      "holdBackground": {
+        "file": "hold_back",
+        "image": "IMG1",
+        "source": "resources/hold_back.png"
+      },
+      "hintBackground": {
+        "file": "hint",
+        "image": "IMG1",
+        "source": "resources/hint.png"
+      }
+    }
+  },
+  "theme": {
+    "shared": {
+      "fontSize": {
+        "未展开候选字体选中字体大小": 18,
+        "未展开comment字体大小": 14,
+        "展开候选字体选中字体大小": 16,
+        "展开comment字体大小": 13,
+        "preedit区字体大小": 16,
+        "上划文字大小": 9,
+        "下划文字大小": 9,
+        "划动气泡前景文字大小": 28,
+        "长按气泡文字大小": 20,
+        "长按气泡sf符号大小": 12,
+        "按键前景文字大小": 18,
+        "按键前景sf符号大小": 15,
+        "toolbar按键前景sf符号大小": 16,
+        "toolbar按键前景文字大小": 13,
+        "collection前景字体大小": 18,
+        "数字键盘数字前景字体大小": 20,
+        "中文九键字符键前景文字大小": 15,
+        "中文九键字根前景文字大小": 10,
+        "中文九键划动文字大小": 10,
+        "符号键盘左侧collection前景字体大小": 13,
+        "符号键盘右侧collection前景字体大小": 16,
+        "panel按键前景文字大小": 12,
+        "panel按键前景sf符号大小": 16
+      },
+      "center": {
+        "上划文字偏移": {
+          "x": 0.25,
+          "y": 0.28
+        },
+        "下划文字偏移": {
+          "x": 0.75,
+          "y": 0.28
+        },
+        "上划sf符号偏移": {
+          "x": 0.25,
+          "y": 0.68
+        },
+        "下划sf符号偏移": {
+          "x": 0.75,
+          "y": 0.68
+        },
+        "长按气泡文字偏移": {
+          "x": 0.5
+        },
+        "长按气泡sf符号偏移": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "划动气泡文字偏移": {
+          "x": 0.5,
+          "y": 0.6
+        },
+        "划动气泡sf符号偏移": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "按下气泡文字偏移": {
+          "x": 0.5,
+          "y": 0.6
+        },
+        "26键中文前景偏移": {
+          "x": 0.5,
+          "y": 0.54
+        },
+        "功能键前景文字偏移": {
+          "x": 0.5,
+          "y": 0.47
+        },
+        "中文九键字符前景偏移": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "中文九键下划字符前景偏移": {
+          "x": 0.5,
+          "y": 0.8
+        },
+        "数字键盘数字前景偏移": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "26键英文小写前景偏移": {
+          "x": 0.5,
+          "y": 0.54
+        },
+        "数字键盘上划文字偏移": {
+          "x": 0.82,
+          "y": 0.28
+        },
+        "数字键盘下划文字偏移": {
+          "x": 0.5,
+          "y": 0.78
+        },
+        "数字键盘上划sf符号偏移": {
+          "x": 0.82,
+          "y": 0.3
+        },
+        "数字键盘下划sf符号偏移": {
+          "x": 0.5,
+          "y": 0.7
+        },
+        "toolbar按键偏移": {
+          "x": 0.5,
+          "y": 0.55
+        },
+        "toolbar按键文字偏移": {
+          "x": 0.5
+        },
+        "toolbar按键sf符号偏移": {
+          "x": 0.5,
+          "y": 0.53
+        },
+        "panel键盘按键文字前景偏移": {
+          "y": 0.7
+        },
+        "panel键盘按键sf符号前景偏移": {
+          "y": 0.4
+        }
+      },
+      "scale": {
+        "26键中文前景缩放": 0.95,
+        "26键英文小写前景缩放": 1,
+        "toolbar按键缩放": 0.52,
+        "数字键盘前景缩放": 1
+      },
+      "animation": {
+        "26键按键动画": {
+          "animationType": "scale",
+          "isAutoReverse": true,
+          "scale": 0.87,
+          "pressDuration": 60,
+          "releaseDuration": 80
+        }
+      }
+    },
+    "light": {
+      "colors": {
+        "字母键背景颜色-普通": "#FFFFFF",
+        "字母键背景颜色-高亮": "#ABB0BA",
+        "功能键背景颜色-普通": "#979faf80",
+        "功能键背景颜色-高亮": "#FFFFFFE6",
+        "enter键背景(蓝色)": "#1162ff",
+        "气泡背景颜色": "#ffffff",
+        "气泡边缘颜色": "#606060",
+        "气泡高亮颜色": "#0279FE",
+        "底边缘颜色-普通": "#88898D",
+        "底边缘颜色-高亮": "#89898B",
+        "长按选中字体颜色": "#FFFFFF",
+        "长按非选中字体颜色": "#000000",
+        "长按选中背景颜色": "#007AFF",
+        "长按背景阴影颜色": "#797B7E",
+        "长按背景颜色": "#FFFFFF",
+        "候选字体选中字体颜色": "#000000",
+        "候选字体未选中字体颜色": "#000000",
+        "选中候选背景颜色": "#FFFFFF",
+        "toolbar按键颜色": "#4A4A4A",
+        "划动字符颜色": "#838383ff",
+        "方案名颜色": "#838383ff",
+        "按下气泡文字颜色": "#2E2E2E",
+        "collection前景颜色": "#000000",
+        "列表选中字体颜色": "#000000",
+        "列表未选中字体颜色": "#000000",
+        "符号键盘左侧collection背景颜色": "#979faf80",
+        "符号键盘左侧collection背景下边缘颜色": "#88898D",
+        "符号键盘右侧collection背景颜色": "#ffffff",
+        "符号键盘右侧collection背景下边缘颜色": "#88898D40",
+        "按键边缘颜色": "#C7C7CC",
+        "按键前景颜色": "#000000",
+        "键盘背景颜色": "#D0D3DA01"
+      },
+      "fontSize": {},
+      "center": {},
+      "animation": {}
+    },
+    "dark": {
+      "colors": {
+        "字母键背景颜色-普通": "#D1D1D165",
+        "字母键背景颜色-高亮": "#D1D1D624",
+        "功能键背景颜色-普通": "#D1D1D624",
+        "功能键背景颜色-高亮": "#D1D1D659",
+        "enter键背景(蓝色)": "#1162ff",
+        "气泡背景颜色": "#6B6B6B",
+        "气泡边缘颜色": "#606060",
+        "气泡高亮颜色": "#0279FE",
+        "底边缘颜色-普通": "#1E1E1E",
+        "底边缘颜色-高亮": "#1D1D1D",
+        "长按选中字体颜色": "#FFFFFF",
+        "长按非选中字体颜色": "#FFFFFF",
+        "长按选中背景颜色": "#007AFF",
+        "长按背景阴影颜色": "#00000050",
+        "长按背景颜色": "#6B6B6B",
+        "候选字体选中字体颜色": "#ffffff",
+        "候选字体未选中字体颜色": "#ffffff",
+        "选中候选背景颜色": "#D1D1D165",
+        "toolbar按键颜色": "#E5E5E5",
+        "划动字符颜色": "#b6b7b9",
+        "方案名颜色": "#b6b7b9",
+        "按下气泡文字颜色": "#E6E6E6",
+        "collection前景颜色": "#E4EAF0",
+        "列表选中字体颜色": "#FFFFFF",
+        "列表未选中字体颜色": "#FFFFFF",
+        "符号键盘左侧collection背景颜色": "#D1D1D624",
+        "符号键盘左侧collection背景下边缘颜色": "#1E1E1E",
+        "符号键盘右侧collection背景颜色": "#D1D1D165",
+        "符号键盘右侧collection背景下边缘颜色": "#343941",
+        "按键边缘颜色": "#C7C7CC",
+        "按键前景颜色": "#FFFFFF",
+        "键盘背景颜色": "#47474701"
+      },
+      "fontSize": {},
+      "center": {},
+      "animation": {}
+    }
+  },
+  "keyboardFrame": {
+    "portrait": {
+      "preeditHeight": 22,
+      "toolbarHeight": 41,
+      "keyboardHeight": 210
+    },
+    "landscape": {
+      "preeditHeight": 14,
+      "toolbarHeight": 30,
+      "keyboardHeight": 160
+    },
+    "panel": {
+      "floatTargetScale": {
+        "portrait": {
+          "x": 0.8,
+          "y": 0.6
+        },
+        "landscape": {
+          "x": 0.5,
+          "y": 0.85
+        }
+      },
+      "cornerRadius": 15
+    }
+  },
+  "keyStyles": {
+    "buttonInsets": {
+      "keyboard26": {
+        "mode": "regular",
+        "normal": {
+          "top": 5,
+          "left": 3,
+          "bottom": 5,
+          "right": 3
+        },
+        "functionKey": {
+          "top": 5,
+          "left": 3,
+          "bottom": 6,
+          "right": 3
+        },
+        "custom": []
+      },
+      "numeric": {
+        "mode": "regular",
+        "normal": {
+          "top": 4,
+          "left": 3,
+          "bottom": 4,
+          "right": 3
+        },
+        "functionKey": {
+          "top": 4,
+          "left": 3,
+          "bottom": 4,
+          "right": 3
+        },
+        "collection": {
+          "top": 5,
+          "left": 3,
+          "bottom": 5,
+          "right": 3
+        },
+        "collectionCell": {
+          "top": 6,
+          "left": 3,
+          "bottom": 6,
+          "right": 3
+        },
+        "custom": []
+      },
+      "symbolic": {
+        "mode": "regular",
+        "functionKey": {
+          "top": 4,
+          "left": 3,
+          "bottom": 4,
+          "right": 3
+        },
+        "categoryCollection": {
+          "top": 5,
+          "left": 3,
+          "bottom": 5,
+          "right": 3
+        },
+        "categoryCell": {
+          "top": 7,
+          "left": 4,
+          "bottom": 7,
+          "right": 4
+        },
+        "descriptionCollection": {
+          "top": 5,
+          "left": 3,
+          "bottom": 5,
+          "right": 3
+        },
+        "descriptionContent": {
+          "top": 4,
+          "left": 4,
+          "bottom": 4,
+          "right": 4
+        },
+        "custom": []
+      },
+      "panel": {
+        "normal": {
+          "top": 5,
+          "left": 3,
+          "bottom": 5,
+          "right": 3
+        },
+        "frame": {
+          "top": 15,
+          "left": 15,
+          "bottom": 15,
+          "right": 15
+        }
+      },
+      "toolbar": {
+        "mode": "regular",
+        "horizontalCandidates": {
+          "left": 3
+        },
+        "verticalCandidatesStyle": {
+          "left": 3,
+          "bottom": 1,
+          "top": 3
+        },
+        "verticalCandidateFunction": {
+          "top": 5,
+          "left": 3,
+          "bottom": 6,
+          "right": 3
+        },
+        "custom": []
+      },
+      "hint": {
+        "mode": "regular",
+        "symbols": {
+          "top": 3,
+          "left": 8,
+          "bottom": 3,
+          "right": 8
+        },
+        "selectedBackground": {
+          "top": 8,
+          "left": 4,
+          "bottom": 8,
+          "right": 3
+        },
+        "custom": []
+      }
+    }
+  },
+  "keyboards": {
+    "keyboard26": {
+      "layout": {
+        "portrait": {
+          "rows": [
+            {
+              "id": "row-1",
+              "label": "上排",
+              "keys": [
+                "q",
+                "w",
+                "e",
+                "r",
+                "t",
+                "y",
+                "u",
+                "i",
+                "o",
+                "p"
+              ]
+            },
+            {
+              "id": "row-2",
+              "label": "中排",
+              "keys": [
+                "a",
+                "s",
+                "d",
+                "f",
+                "g",
+                "h",
+                "j",
+                "k",
+                "l"
+              ]
+            },
+            {
+              "id": "row-3",
+              "label": "下排",
+              "keys": [
+                "shift",
+                "z",
+                "x",
+                "c",
+                "v",
+                "b",
+                "n",
+                "m",
+                "backspace"
+              ]
+            },
+            {
+              "id": "row-4",
+              "label": "底排",
+              "keys": [
+                "123",
+                "cnen",
+                "space",
+                "spaceRight",
+                "enter"
+              ]
+            }
+          ],
+          "top": [
+            "q",
+            "w",
+            "e",
+            "r",
+            "t",
+            "y",
+            "u",
+            "i",
+            "o",
+            "p"
+          ],
+          "middle": [
+            "a",
+            "s",
+            "d",
+            "f",
+            "g",
+            "h",
+            "j",
+            "k",
+            "l"
+          ],
+          "bottom": [
+            "shift",
+            "z",
+            "x",
+            "c",
+            "v",
+            "b",
+            "n",
+            "m",
+            "backspace"
+          ],
+          "footer": [
+            "123",
+            "cnen",
+            "space",
+            "spaceRight",
+            "enter"
+          ]
+        },
+        "landscape": {
+          "left": [
+            [
+              "q",
+              "w",
+              "e",
+              "r",
+              "t"
+            ],
+            [
+              "a",
+              "s",
+              "d",
+              "f",
+              "g"
+            ],
+            [
+              "shift",
+              "z",
+              "x",
+              "c",
+              "v"
+            ],
+            [
+              "123",
+              "cnen",
+              "space"
+            ]
+          ],
+          "middle": [],
+          "right": [
+            [
+              "y",
+              "u",
+              "i",
+              "o",
+              "p"
+            ],
+            [
+              "g",
+              "h",
+              "j",
+              "k",
+              "l"
+            ],
+            [
+              "v",
+              "b",
+              "n",
+              "m",
+              "backspace"
+            ],
+            [
+              "space",
+              "spaceRight",
+              "enter"
+            ]
+          ]
+        }
+      },
+      "metrics": {
+        "portrait": {
+          "123": {
+            "width": {
+              "percentage": 0.18
+            }
+          },
+          "normal": {
+            "width": {
+              "percentage": 0.1
+            }
+          },
+          "t": {
+            "width": {
+              "percentage": 0.1
+            }
+          },
+          "y": {
+            "width": {
+              "percentage": 0.1
+            }
+          },
+          "a": {
+            "width": {
+              "percentage": 0.15
+            },
+            "bounds": {
+              "width": "2/3",
+              "alignment": "right"
+            }
+          },
+          "l": {
+            "width": {
+              "percentage": 0.15
+            },
+            "bounds": {
+              "width": "2/3",
+              "alignment": "left"
+            }
+          },
+          "shift": {
+            "width": {
+              "percentage": 0.15
+            }
+          },
+          "backspace": {
+            "width": {
+              "percentage": 0.15
+            }
+          },
+          "cnen": {
+            "width": {
+              "percentage": 0.1
+            }
+          },
+          "symbol": {
+            "width": {
+              "percentage": 0.1
+            }
+          },
+          "space": {
+            "width": {
+              "percentage": 0.45
+            }
+          },
+          "spaceRight": {
+            "width": {
+              "percentage": 0.1
+            }
+          },
+          "enter": {
+            "width": {
+              "percentage": 0.18
+            }
+          }
+        },
+        "landscape": {
+          "123": {
+            "width": "173/784"
+          },
+          "normal": {
+            "width": "146/784"
+          },
+          "t": {
+            "width": "200/784",
+            "bounds": {
+              "width": "146/200",
+              "alignment": "left"
+            }
+          },
+          "y": {
+            "width": "200/784",
+            "bounds": {
+              "width": "146/200",
+              "alignment": "right"
+            }
+          },
+          "a": {
+            "width": "200/784",
+            "bounds": {
+              "width": "146/200",
+              "alignment": "right"
+            }
+          },
+          "l": {
+            "width": "200/784",
+            "bounds": {
+              "width": "146/200",
+              "alignment": "left"
+            }
+          },
+          "shift": {
+            "width": "200/784"
+          },
+          "backspace": {
+            "width": "200/784"
+          },
+          "cnen": {
+            "width": "173/784"
+          },
+          "symbol": {
+            "width": "173/784"
+          },
+          "space": {
+            "width": "438/784"
+          },
+          "spaceRight": {
+            "width": "173/784"
+          },
+          "enter": {
+            "width": "173/784"
+          }
+        }
+      },
+      "keyDisplays": {},
+      "text": {
+        "symbol": "#+=",
+        "numericSwitch": "123",
+        "space": "空格",
+        "enter": {
+          "default": "回车",
+          "search": "搜索",
+          "send": "发送",
+          "go": "前往",
+          "done": "完成"
+        }
+      },
+      "spaceRight": {
+        "pinyin": {
+          "primary": {
+            "text": "，",
+            "center": {
+              "x": 0.64,
+              "y": 0.45
+            }
+          },
+          "secondary": {
+            "text": "。",
+            "center": {
+              "x": 0.6,
+              "y": 0.3
+            }
+          }
+        },
+        "alphabetic": {
+          "primary": {
+            "text": ",",
+            "center": {
+              "x": 0.5,
+              "y": 0.34
+            }
+          },
+          "secondary": {
+            "text": ".",
+            "center": {
+              "x": 0.5,
+              "y": 0.54
+            }
+          }
+        }
+      },
+      "pinyinSchemaName": {
+        "text": "$rimeSchemaName",
+        "fontSize": 8,
+        "center": {
+          "x": 0.17,
+          "y": 0.2
+        },
+        "colorKey": "划动字符颜色"
+      }
+    },
+    "numeric": {
+      "layout": {
+        "portrait": {
+          "columns": [
+            [
+              "collection",
+              "symbol"
+            ],
+            [
+              "1",
+              "4",
+              "7",
+              "return"
+            ],
+            [
+              "2",
+              "5",
+              "8",
+              "0"
+            ],
+            [
+              "3",
+              "6",
+              "9",
+              "space"
+            ],
+            [
+              "backspace",
+              "period",
+              "equal",
+              "enter"
+            ]
+          ]
+        },
+        "landscape": {}
+      },
+      "keyDisplays": {},
+      "collectionSymbols": [
+        "+",
+        "-",
+        "×",
+        "/",
+        "()",
+        ".",
+        "@",
+        ",",
+        "#",
+        ":",
+        "_",
+        "?",
+        "￥"
+      ],
+      "text": {
+        "return": "返回",
+        "symbol": "#+=",
+        "space": "空格",
+        "period": ".",
+        "equal": "=",
+        "enter": "换行"
+      }
+    },
+    "symbolic": {
+      "layout": {
+        "portrait": {
+          "functionRows": [
+            [
+              "return",
+              "pageUp",
+              "pageDown",
+              "lock",
+              "backspace"
+            ]
+          ],
+          "categoryCellHeight": 31,
+          "descriptionCellHeight": 28
+        }
+      },
+      "keyDisplays": {},
+      "text": {
+        "return": "返回",
+        "iconCenter": {
+          "y": 0.53
+        }
+      },
+      "collections": {
+        "category": {},
+        "description": {}
+      }
+    },
+    "panel": {
+      "text": {
+        "Script": "元书",
+        "RimeSwitcher": "Switcher",
+        "KeyboardSetting": "键盘设置",
+        "EmbeddedInputMode": "内嵌开关",
+        "FileManager": "文件",
+        "HamsterSetting": "皮肤设置",
+        "KeyboardPiP": "画中画",
+        "Deploy": "部署",
+        "Simplified": "简繁",
+        "Lenovo": "联想"
+      }
+    }
+  },
+  "toolbar": {
+    "layout": [
+      "menu",
+      "symbol",
+      "translate",
+      "emoji",
+      "phrase",
+      "pasteboard",
+      "script",
+      "close"
+    ],
+    "text": {
+      "simplified": "简",
+      "traditional": "繁",
+      "verticalCandidateReturn": "返回"
+    },
+    "iconFontSize": 18,
+    "verticalCandidateIconCenter": {
+      "y": 0.53
+    },
+    "horizontalCandidates": {
+      "insets": {
+        "left": 3
+      }
+    },
+    "verticalCandidates": {
+      "styleInsets": {
+        "left": 3,
+        "bottom": 1,
+        "top": 3
+      },
+      "functionInsets": {
+        "top": 5,
+        "left": 3,
+        "bottom": 6,
+        "right": 3
+      }
+    }
+  },
+  "data": {
+    "swipes": {
+      "pinyin": {
+        "swipe_up": {
+          "123": {
+            "action": {
+              "shortcut": "#RimeSwitcher"
+            },
+            "label": {
+              "text": ""
+            }
+          },
+          "q": {
+            "action": {
+              "character": "1"
+            },
+            "label": {
+              "text": "1"
+            }
+          },
+          "w": {
+            "action": {
+              "character": "2"
+            },
+            "label": {
+              "text": "2"
+            }
+          },
+          "e": {
+            "action": {
+              "character": "3"
+            },
+            "label": {
+              "text": "3"
+            }
+          },
+          "r": {
+            "action": {
+              "character": "4"
+            },
+            "label": {
+              "text": "4"
+            }
+          },
+          "t": {
+            "action": {
+              "character": "5"
+            },
+            "label": {
+              "text": "5"
+            }
+          },
+          "y": {
+            "action": {
+              "character": "6"
+            },
+            "label": {
+              "text": "6"
+            }
+          },
+          "u": {
+            "action": {
+              "character": "7"
+            },
+            "label": {
+              "text": "7"
+            }
+          },
+          "i": {
+            "action": {
+              "character": "8"
+            },
+            "label": {
+              "text": "8"
+            }
+          },
+          "o": {
+            "action": {
+              "character": "9"
+            },
+            "label": {
+              "text": "9"
+            }
+          },
+          "p": {
+            "action": {
+              "character": "0"
+            },
+            "label": {
+              "text": "0"
+            }
+          },
+          "a": {
+            "action": {
+              "shortcut": "#selectText"
+            },
+            "label": {
+              "text": "select"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.25
+            }
+          },
+          "s": {
+            "action": {
+              "character": "-"
+            },
+            "label": {
+              "text": "-"
+            }
+          },
+          "d": {
+            "action": {
+              "character": "="
+            },
+            "label": {
+              "text": "="
+            }
+          },
+          "f": {
+            "action": {
+              "character": "["
+            },
+            "label": {
+              "text": "["
+            }
+          },
+          "g": {
+            "action": {
+              "character": "]"
+            },
+            "label": {
+              "text": "]"
+            }
+          },
+          "h": {
+            "action": {
+              "character": "\\"
+            },
+            "label": {
+              "text": "\\"
+            }
+          },
+          "j": {
+            "action": {
+              "character": "/"
+            },
+            "label": {
+              "text": "/"
+            }
+          },
+          "k": {
+            "action": {
+              "character": ";"
+            },
+            "label": {
+              "text": ";"
+            }
+          },
+          "l": {
+            "action": {
+              "character": "'"
+            },
+            "label": {
+              "text": "'"
+            }
+          },
+          "z": {
+            "action": {
+              "character": "`"
+            },
+            "label": {
+              "text": "`"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.25
+            }
+          },
+          "x": {
+            "action": {
+              "shortcut": "#cut"
+            },
+            "label": {
+              "text": "cut"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.25
+            }
+          },
+          "c": {
+            "action": {
+              "shortcut": "#copy"
+            },
+            "label": {
+              "text": "copy"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.25
+            }
+          },
+          "v": {
+            "action": {
+              "shortcut": "#paste"
+            },
+            "label": {
+              "text": "paste"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.25
+            }
+          },
+          "b": {
+            "action": "tab",
+            "label": {
+              "text": "tab"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.25
+            }
+          },
+          "n": {
+            "action": {
+              "shortcut": "#行首"
+            },
+            "label": {
+              "text": "home"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.25
+            }
+          },
+          "m": {
+            "action": {
+              "shortcut": "#行尾"
+            },
+            "label": {
+              "text": "end"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.25
+            }
+          },
+          "spaceRight": {
+            "action": {
+              "character": "。"
+            },
+            "label": {
+              "text": ""
+            }
+          },
+          "space": {
+            "action": {
+              "shortcut": "#次选上屏"
+            },
+            "label": {
+              "text": ""
+            }
+          },
+          "backspace": {
+            "action": {
+              "shortcut": "#undo"
+            },
+            "label": {
+              "text": ""
+            }
+          },
+          "enter": {
+            "action": {
+              "shortcut": "#Enter"
+            },
+            "label": {
+              "text": ""
+            }
+          },
+          "shift": {
+            "action": {
+              "shortcut": "#keyboardPerformance"
+            }
+          }
+        },
+        "swipe_down": {
+          "123": {
+            "action": {
+              "shortcut": "#方案切换"
+            }
+          },
+          "q": {
+            "action": {
+              "character": "!"
+            },
+            "label": {
+              "text": "!"
+            }
+          },
+          "w": {
+            "action": {
+              "character": "@"
+            },
+            "label": {
+              "text": "@"
+            }
+          },
+          "e": {
+            "action": {
+              "character": "#"
+            },
+            "label": {
+              "text": "#"
+            }
+          },
+          "r": {
+            "action": {
+              "character": "$"
+            },
+            "label": {
+              "text": "$"
+            }
+          },
+          "t": {
+            "action": {
+              "character": "%"
+            },
+            "label": {
+              "text": "%"
+            }
+          },
+          "y": {
+            "action": {
+              "character": "^"
+            },
+            "label": {
+              "text": "^"
+            }
+          },
+          "u": {
+            "action": {
+              "character": "&"
+            },
+            "label": {
+              "text": "&"
+            }
+          },
+          "i": {
+            "action": {
+              "character": "*"
+            },
+            "label": {
+              "text": "*"
+            }
+          },
+          "o": {
+            "action": {
+              "character": "("
+            },
+            "label": {
+              "text": "("
+            }
+          },
+          "p": {
+            "action": {
+              "character": ")"
+            },
+            "label": {
+              "text": ")"
+            }
+          },
+          "a": {
+            "action": {
+              "character": "~"
+            },
+            "label": {
+              "text": "~"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.8
+            }
+          },
+          "s": {
+            "action": {
+              "character": "_"
+            },
+            "label": {
+              "text": "_"
+            }
+          },
+          "d": {
+            "action": {
+              "character": "+"
+            },
+            "label": {
+              "text": "+"
+            }
+          },
+          "f": {
+            "action": {
+              "character": "{"
+            },
+            "label": {
+              "text": "{"
+            }
+          },
+          "g": {
+            "action": {
+              "character": "}"
+            },
+            "label": {
+              "text": "}"
+            }
+          },
+          "h": {
+            "action": {
+              "character": "|"
+            },
+            "label": {
+              "text": "|"
+            }
+          },
+          "j": {
+            "action": {
+              "character": "—"
+            },
+            "label": {
+              "text": "—"
+            }
+          },
+          "k": {
+            "action": {
+              "character": ":"
+            },
+            "label": {
+              "text": ":"
+            }
+          },
+          "l": {
+            "action": {
+              "character": "\""
+            },
+            "label": {
+              "text": "\""
+            }
+          },
+          "z": {
+            "action": "tab",
+            "label": {
+              "text": "⇥"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.8
+            }
+          },
+          "x": {
+            "action": {
+              "symbol": "「"
+            },
+            "label": {
+              "text": "「"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.85
+            }
+          },
+          "c": {
+            "action": {
+              "symbol": "」"
+            },
+            "label": {
+              "text": "」"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.75
+            }
+          },
+          "v": {
+            "action": {
+              "character": "<"
+            },
+            "label": {
+              "text": "<"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.8
+            }
+          },
+          "b": {
+            "action": {
+              "character": ">"
+            },
+            "label": {
+              "text": ">"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.8
+            }
+          },
+          "n": {
+            "action": {
+              "character": "？"
+            },
+            "label": {
+              "text": "?"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.8
+            }
+          },
+          "m": {
+            "action": {
+              "character": "..."
+            },
+            "label": {
+              "text": "..."
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.8
+            }
+          },
+          "backspace": {
+            "action": {
+              "shortcut": "#redo"
+            }
+          },
+          "space": {
+            "action": {
+              "shortcut": "#三选上屏"
+            }
+          }
+        }
+      },
+      "alphabetic": {
+        "swipe_up": {
+          "123": {
+            "action": {
+              "shortcut": "#RimeSwitcher"
+            },
+            "label": {
+              "text": ""
+            }
+          },
+          "q": {
+            "action": {
+              "symbol": "1"
+            },
+            "label": {
+              "text": "1"
+            }
+          },
+          "w": {
+            "action": {
+              "symbol": "2"
+            },
+            "label": {
+              "text": "2"
+            }
+          },
+          "e": {
+            "action": {
+              "symbol": "3"
+            },
+            "label": {
+              "text": "3"
+            }
+          },
+          "r": {
+            "action": {
+              "symbol": "4"
+            },
+            "label": {
+              "text": "4"
+            }
+          },
+          "t": {
+            "action": {
+              "symbol": "5"
+            },
+            "label": {
+              "text": "5"
+            }
+          },
+          "y": {
+            "action": {
+              "symbol": "6"
+            },
+            "label": {
+              "text": "6"
+            }
+          },
+          "u": {
+            "action": {
+              "symbol": "7"
+            },
+            "label": {
+              "text": "7"
+            }
+          },
+          "i": {
+            "action": {
+              "symbol": "8"
+            },
+            "label": {
+              "text": "8"
+            }
+          },
+          "o": {
+            "action": {
+              "symbol": "9"
+            },
+            "label": {
+              "text": "9"
+            }
+          },
+          "p": {
+            "action": {
+              "symbol": "0"
+            },
+            "label": {
+              "text": "0"
+            }
+          },
+          "a": {
+            "action": {
+              "shortcut": "#selectText"
+            },
+            "label": {
+              "text": "select"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.25
+            }
+          },
+          "s": {
+            "action": {
+              "symbol": "-"
+            },
+            "label": {
+              "text": "-"
+            }
+          },
+          "d": {
+            "action": {
+              "symbol": "="
+            },
+            "label": {
+              "text": "="
+            }
+          },
+          "f": {
+            "action": {
+              "symbol": "["
+            },
+            "label": {
+              "text": "["
+            }
+          },
+          "g": {
+            "action": {
+              "symbol": "]"
+            },
+            "label": {
+              "text": "]"
+            }
+          },
+          "h": {
+            "action": {
+              "symbol": "\\"
+            },
+            "label": {
+              "text": "\\"
+            }
+          },
+          "j": {
+            "action": {
+              "symbol": "/"
+            },
+            "label": {
+              "text": "/"
+            }
+          },
+          "k": {
+            "action": {
+              "symbol": ";"
+            },
+            "label": {
+              "text": ";"
+            }
+          },
+          "l": {
+            "action": {
+              "symbol": "'"
+            },
+            "label": {
+              "text": "'"
+            }
+          },
+          "z": {
+            "action": {
+              "symbol": "`"
+            },
+            "label": {
+              "text": "`"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.25
+            }
+          },
+          "x": {
+            "action": {
+              "shortcut": "#cut"
+            },
+            "label": {
+              "text": "cut"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.25
+            }
+          },
+          "c": {
+            "action": {
+              "shortcut": "#copy"
+            },
+            "label": {
+              "text": "copy"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.25
+            }
+          },
+          "v": {
+            "action": {
+              "shortcut": "#paste"
+            },
+            "label": {
+              "text": "paste"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.25
+            }
+          },
+          "b": {
+            "action": "tab",
+            "label": {
+              "text": "tab"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.25
+            }
+          },
+          "n": {
+            "action": {
+              "shortcut": "#行首"
+            },
+            "label": {
+              "text": "home"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.25
+            }
+          },
+          "m": {
+            "action": {
+              "shortcut": "#行尾"
+            },
+            "label": {
+              "text": "end"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.25
+            }
+          },
+          "spaceRight": {
+            "action": {
+              "symbol": ","
+            },
+            "label": {
+              "text": ""
+            }
+          },
+          "space": {
+            "action": {
+              "shortcut": "#次选上屏"
+            },
+            "label": {
+              "text": ""
+            }
+          },
+          "backspace": {
+            "action": {
+              "shortcut": "#undo"
+            },
+            "label": {
+              "text": ""
+            }
+          }
+        },
+        "swipe_down": {
+          "123": {
+            "action": {
+              "shortcut": "#方案切换"
+            }
+          },
+          "q": {
+            "action": {
+              "symbol": "!"
+            },
+            "label": {
+              "text": "!"
+            }
+          },
+          "w": {
+            "action": {
+              "symbol": "@"
+            },
+            "label": {
+              "text": "@"
+            }
+          },
+          "e": {
+            "action": {
+              "symbol": "#"
+            },
+            "label": {
+              "text": "#"
+            }
+          },
+          "r": {
+            "action": {
+              "symbol": "$"
+            },
+            "label": {
+              "text": "$"
+            }
+          },
+          "t": {
+            "action": {
+              "symbol": "%"
+            },
+            "label": {
+              "text": "%"
+            }
+          },
+          "y": {
+            "action": {
+              "symbol": "^"
+            },
+            "label": {
+              "text": "^"
+            }
+          },
+          "u": {
+            "action": {
+              "symbol": "&"
+            },
+            "label": {
+              "text": "&"
+            }
+          },
+          "i": {
+            "action": {
+              "symbol": "*"
+            },
+            "label": {
+              "text": "*"
+            }
+          },
+          "o": {
+            "action": {
+              "symbol": "("
+            },
+            "label": {
+              "text": "("
+            }
+          },
+          "p": {
+            "action": {
+              "symbol": ")"
+            },
+            "label": {
+              "text": ")"
+            }
+          },
+          "a": {
+            "action": {
+              "character": "~"
+            },
+            "label": {
+              "text": "~"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.8
+            }
+          },
+          "s": {
+            "action": {
+              "symbol": "_"
+            },
+            "label": {
+              "text": "_"
+            }
+          },
+          "d": {
+            "action": {
+              "symbol": "+"
+            },
+            "label": {
+              "text": "+"
+            }
+          },
+          "f": {
+            "action": {
+              "symbol": "{"
+            },
+            "label": {
+              "text": "{"
+            }
+          },
+          "g": {
+            "action": {
+              "symbol": "}"
+            },
+            "label": {
+              "text": "}"
+            }
+          },
+          "h": {
+            "action": {
+              "symbol": "|"
+            },
+            "label": {
+              "text": "|"
+            }
+          },
+          "j": {
+            "action": {
+              "symbol": "?"
+            },
+            "label": {
+              "text": "?"
+            }
+          },
+          "k": {
+            "action": {
+              "symbol": ":"
+            },
+            "label": {
+              "text": ":"
+            }
+          },
+          "l": {
+            "action": {
+              "symbol": "\""
+            },
+            "label": {
+              "text": "\""
+            }
+          },
+          "z": {
+            "action": "tab",
+            "label": {
+              "text": "⇥"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.8
+            }
+          },
+          "x": {
+            "action": {
+              "symbol": "「"
+            },
+            "label": {
+              "text": "「"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.85
+            }
+          },
+          "c": {
+            "action": {
+              "symbol": "」"
+            },
+            "label": {
+              "text": "」"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.75
+            }
+          },
+          "v": {
+            "action": {
+              "character": "<"
+            },
+            "label": {
+              "text": "<"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.8
+            }
+          },
+          "b": {
+            "action": {
+              "character": ">"
+            },
+            "label": {
+              "text": ">"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.8
+            }
+          },
+          "n": {
+            "action": {
+              "character": "？"
+            },
+            "label": {
+              "text": "?"
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.8
+            }
+          },
+          "m": {
+            "action": {
+              "character": "..."
+            },
+            "label": {
+              "text": "..."
+            },
+            "center": {
+              "x": 0.5,
+              "y": 0.8
+            }
+          },
+          "backspace": {
+            "action": {
+              "shortcut": "#redo"
+            }
+          },
+          "space": {
+            "action": {
+              "shortcut": "#三选上屏"
+            }
+          }
+        }
+      },
+      "numeric": {
+        "swipe_up": {},
+        "swipe_down": {}
+      }
+    },
+    "hints": {
+      "number": {
+        "number0": {
+          "list": [
+            {
+              "action": {
+                "symbol": "零"
+              },
+              "label": {
+                "text": "零"
+              }
+            },
+            {
+              "action": {
+                "symbol": "〇"
+              },
+              "label": {
+                "text": "〇"
+              }
+            },
+            {
+              "action": {
+                "symbol": "➉"
+              },
+              "label": {
+                "text": "➉"
+              }
+            }
+          ],
+          "selectedIndex": 1,
+          "size": {
+            "height": 53,
+            "width": 42
+          }
+        },
+        "number1": {
+          "list": [
+            {
+              "action": {
+                "symbol": "一"
+              },
+              "label": {
+                "text": "一"
+              }
+            },
+            {
+              "action": {
+                "symbol": "壹"
+              },
+              "label": {
+                "text": "壹"
+              }
+            },
+            {
+              "action": {
+                "symbol": "➀"
+              },
+              "label": {
+                "text": "➀"
+              }
+            }
+          ],
+          "selectedIndex": 1,
+          "size": {
+            "height": 53,
+            "width": 42
+          }
+        },
+        "number2": {
+          "list": [
+            {
+              "action": {
+                "symbol": "二"
+              },
+              "label": {
+                "text": "二"
+              }
+            },
+            {
+              "action": {
+                "symbol": "贰"
+              },
+              "label": {
+                "text": "贰"
+              }
+            },
+            {
+              "action": {
+                "symbol": "➁"
+              },
+              "label": {
+                "text": "➁"
+              }
+            }
+          ],
+          "selectedIndex": 1,
+          "size": {
+            "height": 53,
+            "width": 42
+          }
+        },
+        "number3": {
+          "list": [
+            {
+              "action": {
+                "symbol": "三"
+              },
+              "label": {
+                "text": "三"
+              }
+            },
+            {
+              "action": {
+                "symbol": "叁"
+              },
+              "label": {
+                "text": "叁"
+              }
+            },
+            {
+              "action": {
+                "symbol": "➂"
+              },
+              "label": {
+                "text": "➂"
+              }
+            }
+          ],
+          "selectedIndex": 1,
+          "size": {
+            "height": 53,
+            "width": 42
+          }
+        },
+        "number4": {
+          "list": [
+            {
+              "action": {
+                "symbol": "四"
+              },
+              "label": {
+                "text": "四"
+              }
+            },
+            {
+              "action": {
+                "symbol": "肆"
+              },
+              "label": {
+                "text": "肆"
+              }
+            },
+            {
+              "action": {
+                "symbol": "➃"
+              },
+              "label": {
+                "text": "➃"
+              }
+            }
+          ],
+          "selectedIndex": 1,
+          "size": {
+            "height": 53,
+            "width": 42
+          }
+        },
+        "number5": {
+          "list": [
+            {
+              "action": {
+                "symbol": "五"
+              },
+              "label": {
+                "text": "五"
+              }
+            },
+            {
+              "action": {
+                "symbol": "伍"
+              },
+              "label": {
+                "text": "伍"
+              }
+            },
+            {
+              "action": {
+                "symbol": "➄"
+              },
+              "label": {
+                "text": "➄"
+              }
+            }
+          ],
+          "selectedIndex": 1,
+          "size": {
+            "height": 53,
+            "width": 42
+          }
+        },
+        "number6": {
+          "list": [
+            {
+              "action": {
+                "symbol": "六"
+              },
+              "label": {
+                "text": "六"
+              }
+            },
+            {
+              "action": {
+                "symbol": "陆"
+              },
+              "label": {
+                "text": "陆"
+              }
+            },
+            {
+              "action": {
+                "symbol": "➅"
+              },
+              "label": {
+                "text": "➅"
+              }
+            }
+          ],
+          "selectedIndex": 1,
+          "size": {
+            "height": 53,
+            "width": 42
+          }
+        },
+        "number7": {
+          "list": [
+            {
+              "action": {
+                "symbol": "七"
+              },
+              "label": {
+                "text": "七"
+              }
+            },
+            {
+              "action": {
+                "symbol": "柒"
+              },
+              "label": {
+                "text": "柒"
+              }
+            },
+            {
+              "action": {
+                "symbol": "➆"
+              },
+              "label": {
+                "text": "➆"
+              }
+            }
+          ],
+          "selectedIndex": 1,
+          "size": {
+            "height": 53,
+            "width": 42
+          }
+        },
+        "number8": {
+          "list": [
+            {
+              "action": {
+                "symbol": "八"
+              },
+              "label": {
+                "text": "八"
+              }
+            },
+            {
+              "action": {
+                "symbol": "捌"
+              },
+              "label": {
+                "text": "捌"
+              }
+            },
+            {
+              "action": {
+                "symbol": "➇"
+              },
+              "label": {
+                "text": "➇"
+              }
+            }
+          ],
+          "selectedIndex": 1,
+          "size": {
+            "height": 53,
+            "width": 42
+          }
+        },
+        "number9": {
+          "list": [
+            {
+              "action": {
+                "symbol": "九"
+              },
+              "label": {
+                "text": "九"
+              }
+            },
+            {
+              "action": {
+                "symbol": "玖"
+              },
+              "label": {
+                "text": "玖"
+              }
+            },
+            {
+              "action": {
+                "symbol": "➈"
+              },
+              "label": {
+                "text": "➈"
+              }
+            }
+          ],
+          "selectedIndex": 1,
+          "size": {
+            "height": 53,
+            "width": 42
+          }
+        }
+      },
+      "pinyin": {
+        "123": {
+          "list": [
+            {
+              "action": {
+                "symbol": "+"
+              },
+              "label": {
+                "text": "+"
+              }
+            },
+            {
+              "action": {
+                "symbol": "-"
+              },
+              "label": {
+                "text": "-"
+              }
+            },
+            {
+              "action": {
+                "symbol": "="
+              },
+              "label": {
+                "text": "="
+              }
+            },
+            {
+              "action": {
+                "symbol": "×"
+              },
+              "label": {
+                "text": "×"
+              }
+            },
+            {
+              "action": {
+                "symbol": "÷"
+              },
+              "label": {
+                "text": "÷"
+              }
+            },
+            {
+              "action": {
+                "symbol": "√"
+              },
+              "label": {
+                "text": "√"
+              }
+            }
+          ],
+          "selectedIndex": 1,
+          "size": {
+            "height": 53,
+            "width": 40
+          }
+        },
+        "d": {
+          "list": [
+            {
+              "action": {
+                "sendKeys": "/date"
+              },
+              "label": {
+                "text": "日期"
+              }
+            },
+            {
+              "action": {
+                "sendKeys": "/fsj"
+              },
+              "label": {
+                "text": "时间"
+              }
+            },
+            {
+              "action": {
+                "sendKeys": "/fjq"
+              },
+              "label": {
+                "text": "节气"
+              }
+            }
+          ],
+          "selectedIndex": 1
+        },
+        "e": {
+          "list": [
+            {
+              "action": {
+                "symbol": "e"
+              },
+              "label": {
+                "text": "e"
+              }
+            },
+            {
+              "action": {
+                "symbol": "3"
+              },
+              "label": {
+                "text": "3"
+              }
+            },
+            {
+              "action": {
+                "symbol": "E"
+              },
+              "label": {
+                "text": "E"
+              }
+            }
+          ],
+          "selectedIndex": 1
+        },
+        "enter": {
+          "list": [
+            {
+              "action": {
+                "shortcut": "#换行"
+              },
+              "label": {
+                "text": "换行"
+              }
+            }
+          ],
+          "selectedIndex": 0,
+          "size": {
+            "height": 53,
+            "width": 50
+          }
+        },
+        "h": {
+          "list": [
+            {
+              "action": {
+                "symbol": "https://"
+              },
+              "label": {
+                "text": "https"
+              }
+            },
+            {
+              "action": {
+                "symbol": "http://"
+              },
+              "label": {
+                "text": "http"
+              }
+            }
+          ],
+          "selectedIndex": 1
+        },
+        "i": {
+          "list": [
+            {
+              "action": {
+                "symbol": "i"
+              },
+              "label": {
+                "text": "i"
+              }
+            },
+            {
+              "action": {
+                "symbol": "8"
+              },
+              "label": {
+                "text": "8"
+              }
+            },
+            {
+              "action": {
+                "symbol": "I"
+              },
+              "label": {
+                "text": "I"
+              }
+            }
+          ],
+          "selectedIndex": 1
+        },
+        "j": {
+          "list": [
+            {
+              "action": {
+                "openURL": "#pasteboardContent"
+              },
+              "label": {
+                "systemImageName": "link"
+              }
+            },
+            {
+              "action": {
+                "runTranslateScript": "谷歌中英互译"
+              },
+              "label": {
+                "systemImageName": "translate"
+              }
+            },
+            {
+              "action": {
+                "runScript": "DeepSeek"
+              },
+              "label": {
+                "systemImageName": "message.fill"
+              }
+            },
+            {
+              "action": {
+                "runScript": "Unicode"
+              },
+              "label": {
+                "text": "U编"
+              }
+            }
+          ],
+          "selectedIndex": 1
+        },
+        "m": {
+          "list": [
+            {
+              "action": {
+                "sendKeys": "/sjh"
+              },
+              "label": {
+                "text": "手机"
+              }
+            },
+            {
+              "action": {
+                "sendKeys": "/mail"
+              },
+              "label": {
+                "text": "邮箱"
+              }
+            }
+          ],
+          "selectedIndex": 1
+        },
+        "o": {
+          "list": [
+            {
+              "action": {
+                "symbol": "o"
+              },
+              "label": {
+                "text": "o"
+              }
+            },
+            {
+              "action": {
+                "symbol": "9"
+              },
+              "label": {
+                "text": "9"
+              }
+            },
+            {
+              "action": {
+                "symbol": "O"
+              },
+              "label": {
+                "text": "O"
+              }
+            }
+          ],
+          "selectedIndex": 1
+        },
+        "p": {
+          "list": [
+            {
+              "action": {
+                "symbol": "p"
+              },
+              "label": {
+                "text": "p"
+              }
+            },
+            {
+              "action": {
+                "symbol": "0"
+              },
+              "label": {
+                "text": "0"
+              }
+            },
+            {
+              "action": {
+                "symbol": "P"
+              },
+              "label": {
+                "text": "P"
+              }
+            }
+          ],
+          "selectedIndex": 2
+        },
+        "q": {
+          "list": [
+            {
+              "action": {
+                "symbol": "q"
+              },
+              "label": {
+                "text": "q"
+              }
+            },
+            {
+              "action": {
+                "symbol": "1"
+              },
+              "label": {
+                "text": "1"
+              }
+            },
+            {
+              "action": {
+                "symbol": "Q"
+              },
+              "label": {
+                "text": "Q"
+              }
+            }
+          ],
+          "selectedIndex": 0
+        },
+        "r": {
+          "list": [
+            {
+              "action": {
+                "symbol": "r"
+              },
+              "label": {
+                "text": "r"
+              }
+            },
+            {
+              "action": {
+                "symbol": "4"
+              },
+              "label": {
+                "text": "4"
+              }
+            },
+            {
+              "action": {
+                "symbol": "R"
+              },
+              "label": {
+                "text": "R"
+              }
+            }
+          ],
+          "selectedIndex": 1
+        },
+        "symbol": {
+          "list": [
+            {
+              "action": "nextKeyboard",
+              "label": {
+                "systemImageName": "globe"
+              }
+            }
+          ],
+          "selectedIndex": 0
+        },
+        "t": {
+          "list": [
+            {
+              "action": {
+                "symbol": "t"
+              },
+              "label": {
+                "text": "t"
+              }
+            },
+            {
+              "action": {
+                "symbol": "5"
+              },
+              "label": {
+                "text": "5"
+              }
+            },
+            {
+              "action": {
+                "symbol": "T"
+              },
+              "label": {
+                "text": "T"
+              }
+            }
+          ],
+          "selectedIndex": 1
+        },
+        "u": {
+          "list": [
+            {
+              "action": {
+                "symbol": "u"
+              },
+              "label": {
+                "text": "u"
+              }
+            },
+            {
+              "action": {
+                "symbol": "7"
+              },
+              "label": {
+                "text": "7"
+              }
+            },
+            {
+              "action": {
+                "symbol": "U"
+              },
+              "label": {
+                "text": "U"
+              }
+            }
+          ],
+          "selectedIndex": 1
+        },
+        "w": {
+          "list": [
+            {
+              "action": {
+                "symbol": "w"
+              },
+              "label": {
+                "text": "w"
+              }
+            },
+            {
+              "action": {
+                "symbol": "2"
+              },
+              "label": {
+                "text": "2"
+              }
+            },
+            {
+              "action": {
+                "symbol": "W"
+              },
+              "label": {
+                "text": "W"
+              }
+            }
+          ],
+          "selectedIndex": 1
+        },
+        "y": {
+          "list": [
+            {
+              "action": {
+                "symbol": "y"
+              },
+              "label": {
+                "text": "y"
+              }
+            },
+            {
+              "action": {
+                "symbol": "6"
+              },
+              "label": {
+                "text": "6"
+              }
+            },
+            {
+              "action": {
+                "symbol": "Y"
+              },
+              "label": {
+                "text": "Y"
+              }
+            }
+          ],
+          "selectedIndex": 1
+        }
+      },
+      "pinyin9": {
+        "number1": {
+          "list": [
+            {
+              "action": {
+                "symbol": "一"
+              },
+              "label": {
+                "text": "一"
+              }
+            },
+            {
+              "action": {
+                "symbol": "壹"
+              },
+              "label": {
+                "text": "壹"
+              }
+            },
+            {
+              "action": {
+                "symbol": "➀"
+              },
+              "label": {
+                "text": "➀"
+              }
+            }
+          ],
+          "selectedIndex": 1,
+          "size": {
+            "height": 53,
+            "width": 42
+          }
+        }
+      }
+    },
+    "collections": {
+      "emojiDataSource": {
+        "category": [
+          "常用",
+          "表情",
+          "人物",
+          "动物",
+          "植物",
+          "饮食",
+          "景观",
+          "交通",
+          "时间",
+          "天气",
+          "活动",
+          "物品",
+          "符号",
+          "旗帜"
+        ],
+        "交通": [
+          "🚂",
+          "🚃",
+          "🚄",
+          "🚅",
+          "🚆",
+          "🚇",
+          "🚈",
+          "🚉",
+          "🚊",
+          "🚝",
+          "🚞",
+          "🚋",
+          "🚌",
+          "🚍",
+          "🚎",
+          "🚐",
+          "🚑",
+          "🚒",
+          "🚓",
+          "🚔",
+          "🚕",
+          "🚖",
+          "🚗",
+          "🚘",
+          "🚙",
+          "🛻",
+          "🚚",
+          "🚛",
+          "🚜",
+          "🏎️",
+          "🏍️",
+          "🛵",
+          "🦽",
+          "🦼",
+          "🛺",
+          "🚲",
+          "🛴",
+          "🛹",
+          "🛼",
+          "🚏",
+          "🛣️",
+          "🛤️",
+          "🛢️",
+          "⛽",
+          "🛞",
+          "🚨",
+          "🚥",
+          "🚦",
+          "🛑",
+          "🚧",
+          "⚓",
+          "🛟",
+          "⛵",
+          "🛶",
+          "🚤",
+          "🛳️",
+          "⛴️",
+          "🛥️",
+          "🚢",
+          "✈️",
+          "🛩️",
+          "🛫",
+          "🛬",
+          "🪂",
+          "💺",
+          "🚁",
+          "🚟",
+          "🚠",
+          "🚡",
+          "🛰️",
+          "🚀",
+          "🛸"
+        ],
+        "人物": [
+          "👋",
+          "🤚",
+          "🖐️",
+          "✋",
+          "🖖",
+          "🫱",
+          "🫲",
+          "🫳",
+          "🫴",
+          "🫷",
+          "🫸",
+          "👌",
+          "🤌",
+          "🤏",
+          "✌️",
+          "🤞",
+          "🫰",
+          "🤟",
+          "🤘",
+          "🤙",
+          "👈",
+          "👉",
+          "👆",
+          "🖕",
+          "👇",
+          "☝️",
+          "🫵",
+          "👍",
+          "👎",
+          "✊",
+          "👊",
+          "🤛",
+          "🤜",
+          "👏",
+          "🙌",
+          "🫶",
+          "👐",
+          "🤲",
+          "🤝",
+          "🙏",
+          "✍️",
+          "💅",
+          "🤳",
+          "💪",
+          "🦾",
+          "🦿",
+          "🦵",
+          "🦶",
+          "👂",
+          "🦻",
+          "👃",
+          "🧠",
+          "🫀",
+          "🫁",
+          "🦷",
+          "🦴",
+          "👀",
+          "👁️",
+          "👅",
+          "👄",
+          "🫦",
+          "👶",
+          "🧒",
+          "👦",
+          "👧",
+          "🧑",
+          "👱",
+          "👨",
+          "🧔",
+          "🧔‍♂️",
+          "🧔‍♀️",
+          "👨‍🦰",
+          "👨‍🦱",
+          "👨‍🦳",
+          "👨‍🦲",
+          "👩",
+          "👩‍🦰",
+          "🧑‍🦰",
+          "👩‍🦱",
+          "🧑‍🦱",
+          "👩‍🦳",
+          "🧑‍🦳",
+          "👩‍🦲",
+          "🧑‍🦲",
+          "👱‍♀️",
+          "👱‍♂️",
+          "🧓",
+          "👴",
+          "👵",
+          "🙍",
+          "🙍‍♂️",
+          "🙍‍♀️",
+          "🙎",
+          "🙎‍♂️",
+          "🙎‍♀️",
+          "🙅",
+          "🙅‍♂️",
+          "🙅‍♀️",
+          "🙆",
+          "🙆‍♂️",
+          "🙆‍♀️",
+          "💁",
+          "💁‍♂️",
+          "💁‍♀️",
+          "🙋",
+          "🙋‍♂️",
+          "🙋‍♀️",
+          "🧏",
+          "🧏‍♂️",
+          "🧏‍♀️",
+          "🙇",
+          "🙇‍♂️",
+          "🙇‍♀️",
+          "🤦",
+          "🤦‍♂️",
+          "🤦‍♀️",
+          "🤷",
+          "🤷‍♂️",
+          "🤷‍♀️",
+          "🧑‍⚕️",
+          "👨‍⚕️",
+          "👩‍⚕️",
+          "🧑‍🎓",
+          "👨‍🎓",
+          "👩‍🎓",
+          "🧑‍🏫",
+          "👨‍🏫",
+          "👩‍🏫",
+          "🧑‍⚖️",
+          "👨‍⚖️",
+          "👩‍⚖️",
+          "🧑‍🌾",
+          "👨‍🌾",
+          "👩‍🌾",
+          "🧑‍🍳",
+          "👨‍🍳",
+          "👩‍🍳",
+          "🧑‍🔧",
+          "👨‍🔧",
+          "👩‍🔧",
+          "🧑‍🏭",
+          "👨‍🏭",
+          "👩‍🏭",
+          "🧑‍💼",
+          "👨‍💼",
+          "👩‍💼",
+          "🧑‍🔬",
+          "👨‍🔬",
+          "👩‍🔬",
+          "🧑‍💻",
+          "👨‍💻",
+          "👩‍💻",
+          "🧑‍🎤",
+          "👨‍🎤",
+          "👩‍🎤",
+          "🧑‍🎨",
+          "👨‍🎨",
+          "👩‍🎨",
+          "🧑‍✈️",
+          "👨‍✈️",
+          "👩‍✈️",
+          "🧑‍🚀",
+          "👨‍🚀",
+          "👩‍🚀",
+          "🧑‍🚒",
+          "👨‍🚒",
+          "👩‍🚒",
+          "👮",
+          "👮‍♂️",
+          "👮‍♀️",
+          "🕵️",
+          "🕵️‍♂️",
+          "🕵️‍♀️",
+          "💂",
+          "💂‍♂️",
+          "💂‍♀️",
+          "🥷",
+          "👷",
+          "👷‍♂️",
+          "👷‍♀️",
+          "🫅",
+          "🤴",
+          "👸",
+          "👳",
+          "👳‍♂️",
+          "👳‍♀️",
+          "👲",
+          "🧕",
+          "🤵",
+          "🤵‍♂️",
+          "🤵‍♀️",
+          "👰",
+          "👰‍♂️",
+          "👰‍♀️",
+          "🤰",
+          "🫃",
+          "🫄",
+          "🤱",
+          "👩‍🍼",
+          "👨‍🍼",
+          "🧑‍🍼",
+          "👼",
+          "🎅",
+          "🤶",
+          "🧑‍🎄",
+          "🦸",
+          "🦸‍♂️",
+          "🦸‍♀️",
+          "🦹",
+          "🦹‍♂️",
+          "🦹‍♀️",
+          "🧙",
+          "🧙‍♂️",
+          "🧙‍♀️",
+          "🧚",
+          "🧚‍♂️",
+          "🧚‍♀️",
+          "🧛",
+          "🧛‍♂️",
+          "🧛‍♀️",
+          "🧜",
+          "🧜‍♂️",
+          "🧜‍♀️",
+          "🧝",
+          "🧝‍♂️",
+          "🧝‍♀️",
+          "🧞",
+          "🧞‍♂️",
+          "🧞‍♀️",
+          "🧟",
+          "🧟‍♂️",
+          "🧟‍♀️",
+          "🧌",
+          "💆",
+          "💆‍♂️",
+          "💆‍♀️",
+          "💇",
+          "💇‍♂️",
+          "💇‍♀️",
+          "🚶",
+          "🚶‍♂️",
+          "🚶‍♀️",
+          "🧍",
+          "🧍‍♂️",
+          "🧍‍♀️",
+          "🧎",
+          "🧎‍♂️",
+          "🧎‍♀️",
+          "🧑‍🦯",
+          "👨‍🦯",
+          "👩‍🦯",
+          "🧑‍🦼",
+          "👨‍🦼",
+          "👩‍🦼",
+          "🧑‍🦽",
+          "👨‍🦽",
+          "👩‍🦽",
+          "🏃",
+          "🏃‍♂️",
+          "🏃‍♀️",
+          "💃",
+          "🕺",
+          "🕴️",
+          "👯",
+          "👯‍♂️",
+          "👯‍♀️",
+          "🧖",
+          "🧖‍♂️",
+          "🧖‍♀️",
+          "🧗",
+          "🧗‍♂️",
+          "🧗‍♀️",
+          "🤺",
+          "🏇",
+          "⛷️",
+          "🏂",
+          "🏌️",
+          "🏌️‍♂️",
+          "🏌️‍♀️",
+          "🏄",
+          "🏄‍♂️",
+          "🏄‍♀️",
+          "🚣",
+          "🚣‍♂️",
+          "🚣‍♀️",
+          "🏊",
+          "🏊‍♂️",
+          "🏊‍♀️",
+          "⛹️",
+          "⛹️‍♂️",
+          "⛹️‍♀️",
+          "🏋️",
+          "🏋️‍♂️",
+          "🏋️‍♀️",
+          "🚴",
+          "🚴‍♂️",
+          "🚴‍♀️",
+          "🚵",
+          "🚵‍♂️",
+          "🚵‍♀️",
+          "🤸",
+          "🤸‍♂️",
+          "🤸‍♀️",
+          "🤼",
+          "🤼‍♂️",
+          "🤼‍♀️",
+          "🤽",
+          "🤽‍♂️",
+          "🤽‍♀️",
+          "🤾",
+          "🤾‍♂️",
+          "🤾‍♀️",
+          "🤹",
+          "🤹‍♂️",
+          "🤹‍♀️",
+          "🧘",
+          "🧘‍♂️",
+          "🧘‍♀️",
+          "🛀",
+          "🛌",
+          "🧑‍🤝‍🧑",
+          "👭",
+          "👫",
+          "👬",
+          "💏",
+          "👩‍❤️‍💋‍👨",
+          "👨‍❤️‍💋‍👨",
+          "👩‍❤️‍💋‍👩",
+          "💑",
+          "👩‍❤️‍👨",
+          "👨‍❤️‍👨",
+          "👩‍❤️‍👩",
+          "👪",
+          "👨‍👩‍👦",
+          "👨‍👩‍👧",
+          "👨‍👩‍👧‍👦",
+          "👨‍👩‍👦‍👦",
+          "👨‍👩‍👧‍👧",
+          "👨‍👨‍👦",
+          "👨‍👨‍👧",
+          "👨‍👨‍👧‍👦",
+          "👨‍👨‍👦‍👦",
+          "👨‍👨‍👧‍👧",
+          "👩‍👩‍👦",
+          "👩‍👩‍👧",
+          "👩‍👩‍👧‍👦",
+          "👩‍👩‍👦‍👦",
+          "👩‍👩‍👧‍👧",
+          "👨‍👦",
+          "👨‍👦‍👦",
+          "👨‍👧",
+          "👨‍👧‍👦",
+          "👨‍👧‍👧",
+          "👩‍👦",
+          "👩‍👦‍👦",
+          "👩‍👧",
+          "👩‍👧‍👦",
+          "👩‍👧‍👧",
+          "🗣️",
+          "👤",
+          "👥",
+          "🫂",
+          "👣"
+        ],
+        "动物": [
+          "🐵",
+          "🐒",
+          "🦍",
+          "🦧",
+          "🐶",
+          "🐕",
+          "🦮",
+          "🐕‍🦺",
+          "🐩",
+          "🐺",
+          "🦊",
+          "🦝",
+          "🐱",
+          "🐈",
+          "🐈‍⬛",
+          "🦁",
+          "🐯",
+          "🐅",
+          "🐆",
+          "🐴",
+          "🫎",
+          "🫏",
+          "🐎",
+          "🦄",
+          "🦓",
+          "🦌",
+          "🦬",
+          "🐮",
+          "🐂",
+          "🐃",
+          "🐄",
+          "🐷",
+          "🐖",
+          "🐗",
+          "🐽",
+          "🐏",
+          "🐑",
+          "🐐",
+          "🐪",
+          "🐫",
+          "🦙",
+          "🦒",
+          "🐘",
+          "🦣",
+          "🦏",
+          "🦛",
+          "🐭",
+          "🐁",
+          "🐀",
+          "🐹",
+          "🐰",
+          "🐇",
+          "🐿️",
+          "🦫",
+          "🦔",
+          "🦇",
+          "🐻",
+          "🐻‍❄️",
+          "🐨",
+          "🐼",
+          "🦥",
+          "🦦",
+          "🦨",
+          "🦘",
+          "🦡",
+          "🐾",
+          "🦃",
+          "🐔",
+          "🐓",
+          "🐣",
+          "🐤",
+          "🐥",
+          "🐦",
+          "🐧",
+          "🕊️",
+          "🦅",
+          "🦆",
+          "🦢",
+          "🦉",
+          "🦤",
+          "🪶",
+          "🦩",
+          "🦚",
+          "🦜",
+          "🪽",
+          "🐦‍⬛",
+          "🪿",
+          "🐸",
+          "🐊",
+          "🐢",
+          "🦎",
+          "🐍",
+          "🐲",
+          "🐉",
+          "🦕",
+          "🦖",
+          "🐳",
+          "🐋",
+          "🐬",
+          "🦭",
+          "🐟",
+          "🐠",
+          "🐡",
+          "🦈",
+          "🐙",
+          "🐚",
+          "🪸",
+          "🪼",
+          "🐌",
+          "🦋",
+          "🐛",
+          "🐜",
+          "🐝",
+          "🪲",
+          "🐞",
+          "🦗",
+          "🪳",
+          "🕷️",
+          "🕸️",
+          "🦂",
+          "🦟",
+          "🪰",
+          "🪱",
+          "🦠"
+        ],
+        "天气": [
+          "☁️",
+          "⛅",
+          "⛈️",
+          "🌤️",
+          "🌥️",
+          "🌦️",
+          "🌧️",
+          "🌨️",
+          "🌩️",
+          "🌪️",
+          "🌫️",
+          "🌬️",
+          "🌀",
+          "🌈",
+          "🌂",
+          "☂️",
+          "☔",
+          "⛱️",
+          "⚡",
+          "❄️",
+          "☃️",
+          "⛄",
+          "☄️",
+          "🔥",
+          "💧",
+          "🌊"
+        ],
+        "旗帜": [
+          "🏁",
+          "🚩",
+          "🎌",
+          "🏴",
+          "🏳️",
+          "🏳️‍🌈",
+          "🏳️‍⚧️",
+          "🏴‍☠️",
+          "🇦🇨",
+          "🇦🇩",
+          "🇦🇪",
+          "🇦🇫",
+          "🇦🇬",
+          "🇦🇮",
+          "🇦🇱",
+          "🇦🇲",
+          "🇦🇴",
+          "🇦🇶",
+          "🇦🇷",
+          "🇦🇸",
+          "🇦🇹",
+          "🇦🇺",
+          "🇦🇼",
+          "🇦🇽",
+          "🇦🇿",
+          "🇧🇦",
+          "🇧🇧",
+          "🇧🇩",
+          "🇧🇪",
+          "🇧🇫",
+          "🇧🇬",
+          "🇧🇭",
+          "🇧🇮",
+          "🇧🇯",
+          "🇧🇱",
+          "🇧🇲",
+          "🇧🇳",
+          "🇧🇴",
+          "🇧🇶",
+          "🇧🇷",
+          "🇧🇸",
+          "🇧🇹",
+          "🇧🇻",
+          "🇧🇼",
+          "🇧🇾",
+          "🇧🇿",
+          "🇨🇦",
+          "🇨🇨",
+          "🇨🇩",
+          "🇨🇫",
+          "🇨🇬",
+          "🇨🇭",
+          "🇨🇮",
+          "🇨🇰",
+          "🇨🇱",
+          "🇨🇲",
+          "🇨🇳",
+          "🇨🇴",
+          "🇨🇵",
+          "🇨🇷",
+          "🇨🇺",
+          "🇨🇻",
+          "🇨🇼",
+          "🇨🇽",
+          "🇨🇾",
+          "🇨🇿",
+          "🇩🇪",
+          "🇩🇬",
+          "🇩🇯",
+          "🇩🇰",
+          "🇩🇲",
+          "🇩🇴",
+          "🇩🇿",
+          "🇪🇦",
+          "🇪🇨",
+          "🇪🇪",
+          "🇪🇬",
+          "🇪🇭",
+          "🇪🇷",
+          "🇪🇸",
+          "🇪🇹",
+          "🇪🇺",
+          "🇫🇮",
+          "🇫🇯",
+          "🇫🇰",
+          "🇫🇲",
+          "🇫🇴",
+          "🇫🇷",
+          "🇬🇦",
+          "🇬🇧",
+          "🇬🇩",
+          "🇬🇪",
+          "🇬🇫",
+          "🇬🇬",
+          "🇬🇭",
+          "🇬🇮",
+          "🇬🇱",
+          "🇬🇲",
+          "🇬🇳",
+          "🇬🇵",
+          "🇬🇶",
+          "🇬🇷",
+          "🇬🇸",
+          "🇬🇹",
+          "🇬🇺",
+          "🇬🇼",
+          "🇬🇾",
+          "🇭🇰",
+          "🇭🇲",
+          "🇭🇳",
+          "🇭🇷",
+          "🇭🇹",
+          "🇭🇺",
+          "🇮🇨",
+          "🇮🇩",
+          "🇮🇪",
+          "🇮🇱",
+          "🇮🇲",
+          "🇮🇳",
+          "🇮🇴",
+          "🇮🇶",
+          "🇮🇷",
+          "🇮🇸",
+          "🇮🇹",
+          "🇯🇪",
+          "🇯🇲",
+          "🇯🇴",
+          "🇯🇵",
+          "🇰🇪",
+          "🇰🇬",
+          "🇰🇭",
+          "🇰🇮",
+          "🇰🇲",
+          "🇰🇳",
+          "🇰🇵",
+          "🇰🇷",
+          "🇰🇼",
+          "🇰🇾",
+          "🇰🇿",
+          "🇱🇦",
+          "🇱🇧",
+          "🇱🇨",
+          "🇱🇮",
+          "🇱🇰",
+          "🇱🇷",
+          "🇱🇸",
+          "🇱🇹",
+          "🇱🇺",
+          "🇱🇻",
+          "🇱🇾",
+          "🇲🇦",
+          "🇲🇨",
+          "🇲🇩",
+          "🇲🇪",
+          "🇲🇫",
+          "🇲🇬",
+          "🇲🇭",
+          "🇲🇰",
+          "🇲🇱",
+          "🇲🇲",
+          "🇲🇳",
+          "🇲🇴",
+          "🇲🇵",
+          "🇲🇶",
+          "🇲🇷",
+          "🇲🇸",
+          "🇲🇹",
+          "🇲🇺",
+          "🇲🇻",
+          "🇲🇼",
+          "🇲🇽",
+          "🇲🇾",
+          "🇲🇿",
+          "🇳🇦",
+          "🇳🇨",
+          "🇳🇪",
+          "🇳🇫",
+          "🇳🇬",
+          "🇳🇮",
+          "🇳🇱",
+          "🇳🇴",
+          "🇳🇵",
+          "🇳🇷",
+          "🇳🇺",
+          "🇳🇿",
+          "🇴🇲",
+          "🇵🇦",
+          "🇵🇪",
+          "🇵🇫",
+          "🇵🇬",
+          "🇵🇭",
+          "🇵🇰",
+          "🇵🇱",
+          "🇵🇲",
+          "🇵🇳",
+          "🇵🇷",
+          "🇵🇸",
+          "🇵🇹",
+          "🇵🇼",
+          "🇵🇾",
+          "🇶🇦",
+          "🇷🇪",
+          "🇷🇴",
+          "🇷🇸",
+          "🇷🇺",
+          "🇷🇼",
+          "🇸🇦",
+          "🇸🇧",
+          "🇸🇨",
+          "🇸🇩",
+          "🇸🇪",
+          "🇸🇬",
+          "🇸🇭",
+          "🇸🇮",
+          "🇸🇯",
+          "🇸🇰",
+          "🇸🇱",
+          "🇸🇲",
+          "🇸🇳",
+          "🇸🇴",
+          "🇸🇷",
+          "🇸🇸",
+          "🇸🇹",
+          "🇸🇻",
+          "🇸🇽",
+          "🇸🇾",
+          "🇸🇿",
+          "🇹🇦",
+          "🇹🇨",
+          "🇹🇩",
+          "🇹🇫",
+          "🇹🇬",
+          "🇹🇭",
+          "🇹🇯",
+          "🇹🇰",
+          "🇹🇱",
+          "🇹🇲",
+          "🇹🇳",
+          "🇹🇴",
+          "🇹🇷",
+          "🇹🇹",
+          "🇹🇻",
+          "🇹🇼",
+          "🇹🇿",
+          "🇺🇦",
+          "🇺🇬",
+          "🇺🇲",
+          "🇺🇳",
+          "🇺🇸",
+          "🇺🇾",
+          "🇺🇿",
+          "🇻🇦",
+          "🇻🇨",
+          "🇻🇪",
+          "🇻🇬",
+          "🇻🇮",
+          "🇻🇳",
+          "🇻🇺",
+          "🇼🇫",
+          "🇼🇸",
+          "🇽🇰",
+          "🇾🇪",
+          "🇾🇹",
+          "🇿🇦",
+          "🇿🇲",
+          "🇿🇼",
+          "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
+          "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
+          "🏴󠁧󠁢󠁷󠁬󠁳󠁿"
+        ],
+        "时间": [
+          "🛎️",
+          "🧳",
+          "⌛",
+          "⏳",
+          "⌚",
+          "⏰",
+          "⏱️",
+          "⏲️",
+          "🕰️",
+          "🕛",
+          "🕧",
+          "🕐",
+          "🕜",
+          "🕑",
+          "🕝",
+          "🕒",
+          "🕞",
+          "🕓",
+          "🕟",
+          "🕔",
+          "🕠",
+          "🕕",
+          "🕡",
+          "🕖",
+          "🕢",
+          "🕗",
+          "🕣",
+          "🕘",
+          "🕤",
+          "🕙",
+          "🕥",
+          "🕚",
+          "🕦",
+          "🌑",
+          "🌒",
+          "🌓",
+          "🌔",
+          "🌕",
+          "🌖",
+          "🌗",
+          "🌘",
+          "🌙",
+          "🌚",
+          "🌛",
+          "🌜",
+          "🌡️",
+          "☀️",
+          "🌝",
+          "🌞",
+          "🪐",
+          "⭐",
+          "🌟",
+          "🌠",
+          "🌌"
+        ],
+        "景观": [
+          "🌍",
+          "🌎",
+          "🌏",
+          "🌐",
+          "🗺️",
+          "🗾",
+          "🧭",
+          "🏔️",
+          "⛰️",
+          "🌋",
+          "🗻",
+          "🏕️",
+          "🏖️",
+          "🏜️",
+          "🏝️",
+          "🏞️",
+          "🏟️",
+          "🏛️",
+          "🏗️",
+          "🧱",
+          "🪨",
+          "🪵",
+          "🛖",
+          "🏘️",
+          "🏚️",
+          "🏠",
+          "🏡",
+          "🏢",
+          "🏣",
+          "🏤",
+          "🏥",
+          "🏦",
+          "🏨",
+          "🏩",
+          "🏪",
+          "🏫",
+          "🏬",
+          "🏭",
+          "🏯",
+          "🏰",
+          "💒",
+          "🗼",
+          "🗽",
+          "⛪",
+          "🕌",
+          "🛕",
+          "🕍",
+          "⛩️",
+          "🕋",
+          "⛲",
+          "⛺",
+          "🌁",
+          "🌃",
+          "🏙️",
+          "🌄",
+          "🌅",
+          "🌆",
+          "🌇",
+          "🌉",
+          "♨️",
+          "🎠",
+          "🛝",
+          "🎡",
+          "🎢",
+          "💈",
+          "🎪"
+        ],
+        "植物": [
+          "💐",
+          "🌸",
+          "💮",
+          "🪷",
+          "🏵️",
+          "🌹",
+          "🥀",
+          "🌺",
+          "🌻",
+          "🌼",
+          "🌷",
+          "🪻",
+          "🌱",
+          "🪴",
+          "🌲",
+          "🌳",
+          "🌴",
+          "🌵",
+          "🌾",
+          "🌿",
+          "☘️",
+          "🍀",
+          "🍁",
+          "🍂",
+          "🍃",
+          "🪹",
+          "🪺",
+          "🍄"
+        ],
+        "活动": [
+          "🎃",
+          "🎄",
+          "🎆",
+          "🎇",
+          "🧨",
+          "✨",
+          "🎈",
+          "🎉",
+          "🎊",
+          "🎋",
+          "🎍",
+          "🎎",
+          "🎏",
+          "🎐",
+          "🎑",
+          "🧧",
+          "🎀",
+          "🎁",
+          "🎗️",
+          "🎟️",
+          "🎫",
+          "🎖️",
+          "🏆",
+          "🏅",
+          "🥇",
+          "🥈",
+          "🥉",
+          "⚽",
+          "⚾",
+          "🥎",
+          "🏀",
+          "🏐",
+          "🏈",
+          "🏉",
+          "🎾",
+          "🥏",
+          "🎳",
+          "🏏",
+          "🏑",
+          "🏒",
+          "🥍",
+          "🏓",
+          "🏸",
+          "🥊",
+          "🥋",
+          "🥅",
+          "⛳",
+          "⛸️",
+          "🎣",
+          "🤿",
+          "🎽",
+          "🎿",
+          "🛷",
+          "🥌",
+          "🎯",
+          "🪀",
+          "🪁",
+          "🔫",
+          "🎱",
+          "🔮",
+          "🪄",
+          "🎮",
+          "🕹️",
+          "🎰",
+          "🎲",
+          "🧩",
+          "🧸",
+          "🪅",
+          "🪩",
+          "🪆",
+          "♠️",
+          "♥️",
+          "♦️",
+          "♣️",
+          "♟️",
+          "🃏",
+          "🀄",
+          "🎴",
+          "🎭",
+          "🖼️",
+          "🎨",
+          "🧵",
+          "🪡",
+          "🧶",
+          "🪢"
+        ],
+        "物品": [
+          "👓",
+          "🕶️",
+          "🥽",
+          "🥼",
+          "🦺",
+          "👔",
+          "👕",
+          "👖",
+          "🧣",
+          "🧤",
+          "🧥",
+          "🧦",
+          "👗",
+          "👘",
+          "🥻",
+          "🩱",
+          "🩲",
+          "🩳",
+          "👙",
+          "👚",
+          "🪭",
+          "👛",
+          "👜",
+          "👝",
+          "🛍️",
+          "🎒",
+          "🩴",
+          "👞",
+          "👟",
+          "🥾",
+          "🥿",
+          "👠",
+          "👡",
+          "🩰",
+          "👢",
+          "🪮",
+          "👑",
+          "👒",
+          "🎩",
+          "🎓",
+          "🧢",
+          "🪖",
+          "⛑️",
+          "📿",
+          "💄",
+          "💍",
+          "💎",
+          "🔇",
+          "🔈",
+          "🔉",
+          "🔊",
+          "📢",
+          "📣",
+          "📯",
+          "🔔",
+          "🔕",
+          "🎼",
+          "🎵",
+          "🎶",
+          "🎙️",
+          "🎚️",
+          "🎛️",
+          "🎤",
+          "🎧",
+          "📻",
+          "🎷",
+          "🪗",
+          "🎸",
+          "🎹",
+          "🎺",
+          "🎻",
+          "🪕",
+          "🥁",
+          "🪘",
+          "🪇",
+          "🪈",
+          "📱",
+          "📲",
+          "☎️",
+          "📞",
+          "📟",
+          "📠",
+          "🔋",
+          "🪫",
+          "🔌",
+          "💻",
+          "🖥️",
+          "🖨️",
+          "⌨️",
+          "🖱️",
+          "🖲️",
+          "💽",
+          "💾",
+          "💿",
+          "📀",
+          "🧮",
+          "🎥",
+          "🎞️",
+          "📽️",
+          "🎬",
+          "📺",
+          "📷",
+          "📸",
+          "📹",
+          "📼",
+          "🔍",
+          "🔎",
+          "🕯️",
+          "💡",
+          "🔦",
+          "🏮",
+          "🪔",
+          "📔",
+          "📕",
+          "📖",
+          "📗",
+          "📘",
+          "📙",
+          "📚",
+          "📓",
+          "📒",
+          "📃",
+          "📜",
+          "📄",
+          "📰",
+          "🗞️",
+          "📑",
+          "🔖",
+          "🏷️",
+          "💰",
+          "🪙",
+          "💴",
+          "💵",
+          "💶",
+          "💷",
+          "💸",
+          "💳",
+          "🧾",
+          "💹",
+          "✉️",
+          "📧",
+          "📨",
+          "📩",
+          "📤",
+          "📥",
+          "📦",
+          "📫",
+          "📪",
+          "📬",
+          "📭",
+          "📮",
+          "🗳️",
+          "✏️",
+          "✒️",
+          "🖋️",
+          "🖊️",
+          "🖌️",
+          "🖍️",
+          "📝",
+          "💼",
+          "📁",
+          "📂",
+          "🗂️",
+          "📅",
+          "📆",
+          "🗒️",
+          "🗓️",
+          "📇",
+          "📈",
+          "📉",
+          "📊",
+          "📋",
+          "📌",
+          "📍",
+          "📎",
+          "🖇️",
+          "📏",
+          "📐",
+          "✂️",
+          "🗃️",
+          "🗄️",
+          "🗑️",
+          "🔒",
+          "🔓",
+          "🔏",
+          "🔐",
+          "🔑",
+          "🗝️",
+          "🔨",
+          "🪓",
+          "⛏️",
+          "⚒️",
+          "🛠️",
+          "🗡️",
+          "⚔️",
+          "💣",
+          "🪃",
+          "🏹",
+          "🛡️",
+          "🪚",
+          "🔧",
+          "🪛",
+          "🔩",
+          "⚙️",
+          "🗜️",
+          "⚖️",
+          "🦯",
+          "🔗",
+          "⛓️",
+          "🪝",
+          "🧰",
+          "🧲",
+          "🪜",
+          "⚗️",
+          "🧪",
+          "🧫",
+          "🧬",
+          "🔬",
+          "🔭",
+          "📡",
+          "💉",
+          "🩸",
+          "💊",
+          "🩹",
+          "🩼",
+          "🩺",
+          "🩻",
+          "🚪",
+          "🛗",
+          "🪞",
+          "🪟",
+          "🛏️",
+          "🛋️",
+          "🪑",
+          "🚽",
+          "🪠",
+          "🚿",
+          "🛁",
+          "🪤",
+          "🪒",
+          "🧴",
+          "🧷",
+          "🧹",
+          "🧺",
+          "🧻",
+          "🪣",
+          "🧼",
+          "🫧",
+          "🪥",
+          "🧽",
+          "🧯",
+          "🛒",
+          "🚬",
+          "⚰️",
+          "🪦",
+          "⚱️",
+          "🧿",
+          "🪬",
+          "🗿",
+          "🪧",
+          "🪪"
+        ],
+        "符号": [
+          "🏧",
+          "🚮",
+          "🚰",
+          "♿",
+          "🚹",
+          "🚺",
+          "🚻",
+          "🚼",
+          "🚾",
+          "🛂",
+          "🛃",
+          "🛄",
+          "🛅",
+          "⚠️",
+          "🚸",
+          "⛔",
+          "🚫",
+          "🚳",
+          "🚭",
+          "🚯",
+          "🚱",
+          "🚷",
+          "📵",
+          "🔞",
+          "☢️",
+          "☣️",
+          "⬆️",
+          "↗️",
+          "➡️",
+          "↘️",
+          "⬇️",
+          "↙️",
+          "⬅️",
+          "↖️",
+          "↕️",
+          "↔️",
+          "↩️",
+          "↪️",
+          "⤴️",
+          "⤵️",
+          "🔃",
+          "🔄",
+          "🔙",
+          "🔚",
+          "🔛",
+          "🔜",
+          "🔝",
+          "🛐",
+          "⚛️",
+          "🕉️",
+          "✡️",
+          "☸️",
+          "☯️",
+          "✝️",
+          "☦️",
+          "☪️",
+          "☮️",
+          "🕎",
+          "🔯",
+          "🪯",
+          "♈",
+          "♉",
+          "♊",
+          "♋",
+          "♌",
+          "♍",
+          "♎",
+          "♏",
+          "♐",
+          "♑",
+          "♒",
+          "♓",
+          "⛎",
+          "🔀",
+          "🔁",
+          "🔂",
+          "▶️",
+          "⏩",
+          "⏭️",
+          "⏯️",
+          "◀️",
+          "⏪",
+          "⏮️",
+          "🔼",
+          "⏫",
+          "🔽",
+          "⏬",
+          "⏸️",
+          "⏹️",
+          "⏺️",
+          "⏏️",
+          "🎦",
+          "🔅",
+          "🔆",
+          "📶",
+          "🛜",
+          "📳",
+          "📴",
+          "♀️",
+          "♂️",
+          "⚧️",
+          "✖️",
+          "➕",
+          "➖",
+          "➗",
+          "🟰",
+          "♾️",
+          "‼️",
+          "⁉️",
+          "❓",
+          "❔",
+          "❕",
+          "❗",
+          "〰️",
+          "💱",
+          "💲",
+          "⚕️",
+          "♻️",
+          "⚜️",
+          "🔱",
+          "📛",
+          "🔰",
+          "⭕",
+          "✅",
+          "☑️",
+          "✔️",
+          "❌",
+          "❎",
+          "➰",
+          "➿",
+          "〽️",
+          "✳️",
+          "✴️",
+          "❇️",
+          "©️",
+          "®️",
+          "™️",
+          "#️⃣",
+          "*️⃣",
+          "0️⃣",
+          "1️⃣",
+          "2️⃣",
+          "3️⃣",
+          "4️⃣",
+          "5️⃣",
+          "6️⃣",
+          "7️⃣",
+          "8️⃣",
+          "9️⃣",
+          "🔟",
+          "🔠",
+          "🔡",
+          "🔢",
+          "🔣",
+          "🔤",
+          "🅰️",
+          "🆎",
+          "🅱️",
+          "🆑",
+          "🆒",
+          "🆓",
+          "ℹ️",
+          "🆔",
+          "Ⓜ️",
+          "🆕",
+          "🆖",
+          "🅾️",
+          "🆗",
+          "🅿️",
+          "🆘",
+          "🆙",
+          "🆚",
+          "🈁",
+          "🈂️",
+          "🈷️",
+          "🈶",
+          "🈯",
+          "🉐",
+          "🈹",
+          "🈚",
+          "🈲",
+          "🉑",
+          "🈸",
+          "🈴",
+          "🈳",
+          "㊗️",
+          "㊙️",
+          "🈺",
+          "🈵",
+          "🔴",
+          "🟠",
+          "🟡",
+          "🟢",
+          "🔵",
+          "🟣",
+          "🟤",
+          "⚫",
+          "⚪",
+          "🟥",
+          "🟧",
+          "🟨",
+          "🟩",
+          "🟦",
+          "🟪",
+          "🟫",
+          "⬛",
+          "⬜",
+          "◼️",
+          "◻️",
+          "◾",
+          "◽",
+          "▪️",
+          "▫️",
+          "🔶",
+          "🔷",
+          "🔸",
+          "🔹",
+          "🔺",
+          "🔻",
+          "💠",
+          "🔘",
+          "🔳",
+          "🔲"
+        ],
+        "表情": [
+          "😀",
+          "😃",
+          "😄",
+          "😁",
+          "😆",
+          "😅",
+          "🤣",
+          "😂",
+          "🙂",
+          "🙃",
+          "🫠",
+          "😉",
+          "😊",
+          "😇",
+          "🥰",
+          "😍",
+          "🤩",
+          "😘",
+          "😗",
+          "☺️",
+          "😚",
+          "😙",
+          "🥲",
+          "😋",
+          "😛",
+          "😜",
+          "🤪",
+          "😝",
+          "🤑",
+          "🤗",
+          "🤭",
+          "🫢",
+          "🫣",
+          "🤫",
+          "🤔",
+          "🫡",
+          "🤐",
+          "🤨",
+          "😐",
+          "😑",
+          "😶",
+          "🫥",
+          "😶‍🌫️",
+          "😏",
+          "😒",
+          "🙄",
+          "😬",
+          "😮‍💨",
+          "🤥",
+          "🫨",
+          "😌",
+          "😔",
+          "😪",
+          "🤤",
+          "😴",
+          "😷",
+          "🤒",
+          "🤕",
+          "🤢",
+          "🤮",
+          "🤧",
+          "🥵",
+          "🥶",
+          "🥴",
+          "😵",
+          "😵‍💫",
+          "🤯",
+          "🤠",
+          "🥳",
+          "🥸",
+          "😎",
+          "🤓",
+          "🧐",
+          "😕",
+          "🫤",
+          "😟",
+          "🙁",
+          "☹️",
+          "😮",
+          "😯",
+          "😲",
+          "😳",
+          "🥺",
+          "🥹",
+          "😦",
+          "😧",
+          "😨",
+          "😰",
+          "😥",
+          "😢",
+          "😭",
+          "😱",
+          "😖",
+          "😣",
+          "😞",
+          "😓",
+          "😩",
+          "😫",
+          "🥱",
+          "😤",
+          "😡",
+          "😠",
+          "🤬",
+          "😈",
+          "👿",
+          "💀",
+          "☠️",
+          "💩",
+          "🤡",
+          "👹",
+          "👺",
+          "👻",
+          "👽",
+          "👾",
+          "🤖",
+          "😺",
+          "😸",
+          "😹",
+          "😻",
+          "😼",
+          "😽",
+          "🙀",
+          "😿",
+          "😾",
+          "🙈",
+          "🙉",
+          "🙊",
+          "💌",
+          "💘",
+          "💝",
+          "💖",
+          "💗",
+          "💓",
+          "💞",
+          "💕",
+          "💟",
+          "❣️",
+          "💔",
+          "❤️‍🔥",
+          "❤️‍🩹",
+          "❤️",
+          "🩷",
+          "🧡",
+          "💛",
+          "💚",
+          "💙",
+          "🩵",
+          "💜",
+          "🤎",
+          "🖤",
+          "🩶",
+          "🤍",
+          "💋",
+          "💯",
+          "💢",
+          "💥",
+          "💫",
+          "💦",
+          "💨",
+          "🕳️",
+          "💬",
+          "👁️‍🗨️",
+          "🗨️",
+          "🗯️",
+          "💭",
+          "💤"
+        ],
+        "饮食": [
+          "🍇",
+          "🍈",
+          "🍉",
+          "🍊",
+          "🍋",
+          "🍌",
+          "🍍",
+          "🥭",
+          "🍎",
+          "🍏",
+          "🍐",
+          "🍑",
+          "🍒",
+          "🍓",
+          "🫐",
+          "🥝",
+          "🍅",
+          "🫒",
+          "🥥",
+          "🥑",
+          "🍆",
+          "🥔",
+          "🥕",
+          "🌽",
+          "🌶️",
+          "🫑",
+          "🥒",
+          "🥬",
+          "🥦",
+          "🧄",
+          "🧅",
+          "🥜",
+          "🫘",
+          "🌰",
+          "🫚",
+          "🫛",
+          "🍞",
+          "🥐",
+          "🥖",
+          "🫓",
+          "🥨",
+          "🥯",
+          "🥞",
+          "🧇",
+          "🧀",
+          "🍖",
+          "🍗",
+          "🥩",
+          "🥓",
+          "🍔",
+          "🍟",
+          "🍕",
+          "🌭",
+          "🥪",
+          "🌮",
+          "🌯",
+          "🫔",
+          "🥙",
+          "🧆",
+          "🥚",
+          "🍳",
+          "🥘",
+          "🍲",
+          "🫕",
+          "🥣",
+          "🥗",
+          "🍿",
+          "🧈",
+          "🧂",
+          "🥫",
+          "🍱",
+          "🍘",
+          "🍙",
+          "🍚",
+          "🍛",
+          "🍜",
+          "🍝",
+          "🍠",
+          "🍢",
+          "🍣",
+          "🍤",
+          "🍥",
+          "🥮",
+          "🍡",
+          "🥟",
+          "🥠",
+          "🥡",
+          "🦀",
+          "🦞",
+          "🦐",
+          "🦑",
+          "🦪",
+          "🍦",
+          "🍧",
+          "🍨",
+          "🍩",
+          "🍪",
+          "🎂",
+          "🍰",
+          "🧁",
+          "🥧",
+          "🍫",
+          "🍬",
+          "🍭",
+          "🍮",
+          "🍯",
+          "🍼",
+          "🥛",
+          "☕",
+          "🫖",
+          "🍵",
+          "🍶",
+          "🍾",
+          "🍷",
+          "🍸",
+          "🍹",
+          "🍺",
+          "🍻",
+          "🥂",
+          "🥃",
+          "🫗",
+          "🥤",
+          "🧋",
+          "🧃",
+          "🧉",
+          "🧊",
+          "🥢",
+          "🍽️",
+          "🍴",
+          "🥄",
+          "🔪",
+          "🫙",
+          "🏺"
+        ]
+      },
+      "numericSymbols": [
+        {
+          "action": {
+            "character": "+"
+          },
+          "label": "+"
+        },
+        {
+          "action": {
+            "character": "-"
+          },
+          "label": "-"
+        },
+        {
+          "action": {
+            "character": "*"
+          },
+          "label": "×"
+        },
+        {
+          "action": {
+            "character": "/"
+          },
+          "label": "/"
+        },
+        "()",
+        ".",
+        "@",
+        ",",
+        "#",
+        ":",
+        "_",
+        "?",
+        "￥"
+      ],
+      "pinyin9Symbols": [
+        {
+          "label": ",",
+          "value": "，"
+        },
+        {
+          "label": "｡",
+          "value": "。"
+        },
+        {
+          "label": "!",
+          "value": "！"
+        },
+        {
+          "label": "?",
+          "value": "？"
+        }
+      ],
+      "symbolicDataSource": {
+        "category": [
+          "常用",
+          "中文",
+          "英文",
+          "数学",
+          "角标",
+          "序号",
+          "音标",
+          "平假",
+          "片假",
+          "箭头",
+          "特殊",
+          "拼音",
+          "注音",
+          "竖标",
+          "部首",
+          "俄文",
+          "希腊",
+          "拉丁",
+          "制表",
+          "土音",
+          "表情"
+        ],
+        "中文": [
+          "《》",
+          "‘’",
+          "〈〉",
+          "·",
+          "-",
+          "ˉ",
+          "ˇ",
+          "¨",
+          "々",
+          "‖",
+          "∶",
+          "＂",
+          "＇",
+          "｀",
+          "｜",
+          "〃",
+          "〔〕",
+          "「」",
+          "『』",
+          "．",
+          "〖〗",
+          "【】",
+          "［］",
+          "｛｝",
+          "：",
+          "；",
+          "（）",
+          "——",
+          "“”",
+          "……",
+          "～",
+          "、",
+          "？",
+          "！",
+          "，",
+          "。",
+          "㊊",
+          "㊋",
+          "㊌",
+          "㊍",
+          "㊎",
+          "㊏",
+          "㊐",
+          "㊑",
+          "㊒",
+          "㊓",
+          "㊔",
+          "㊕",
+          "㊖",
+          "㊗",
+          "㊘",
+          "㊙",
+          "㊚",
+          "㊛",
+          "㊜",
+          "㊝",
+          "㊞",
+          "㊟",
+          "㊠",
+          "㊡",
+          "㊢",
+          "㊤",
+          "㊥",
+          "㊦",
+          "㊧",
+          "㊨",
+          "㊩",
+          "㊪",
+          "㊫",
+          "㊬",
+          "㊭",
+          "㊮",
+          "㊯",
+          "㊰"
+        ],
+        "俄文": [
+          "а",
+          "б",
+          "в",
+          "г",
+          "д",
+          "е",
+          "ё",
+          "ж",
+          "з",
+          "и",
+          "й",
+          "к",
+          "л",
+          "м",
+          "н",
+          "о",
+          "п",
+          "р",
+          "с",
+          "т",
+          "у",
+          "ф",
+          "х",
+          "ц",
+          "ч",
+          "ш",
+          "щ",
+          "ъ",
+          "ы",
+          "ь",
+          "э",
+          "ю",
+          "я",
+          "А",
+          "Б",
+          "В",
+          "Г",
+          "Д",
+          "Е",
+          "Ё",
+          "Ж",
+          "З",
+          "И",
+          "Й",
+          "К",
+          "Л",
+          "М",
+          "Н",
+          "О",
+          "П",
+          "Р",
+          "С",
+          "Т",
+          "У",
+          "Ф",
+          "Х",
+          "Ц",
+          "Ч",
+          "Ш",
+          "Щ",
+          "Ъ",
+          "Ы",
+          "Ь",
+          "Э",
+          "Ю",
+          "Я"
+        ],
+        "制表": [
+          "┝",
+          "┞",
+          "┟",
+          "┠",
+          "┡",
+          "┢",
+          "═",
+          "╞",
+          "╟",
+          "╡",
+          "╢",
+          "╪",
+          "┭",
+          "┮",
+          "┯",
+          "┰",
+          "┱",
+          "┲",
+          "║",
+          "╤",
+          "╥",
+          "╧",
+          "╨",
+          "╫",
+          "┥",
+          "┦",
+          "┧",
+          "┨",
+          "┩",
+          "┪",
+          "┽",
+          "┾",
+          "┿",
+          "╀",
+          "╁",
+          "╂",
+          "┵",
+          "┶",
+          "┷",
+          "┸",
+          "┹",
+          "┺",
+          "╄",
+          "╅",
+          "╆",
+          "╇",
+          "╈",
+          "╉",
+          "┈",
+          "┉",
+          "┊",
+          "┋",
+          "╃",
+          "╊",
+          "┍",
+          "┑",
+          "┕",
+          "┙",
+          "┎",
+          "┒",
+          "┖",
+          "┚",
+          "╒",
+          "╕",
+          "╘",
+          "╛",
+          "╓",
+          "╖",
+          "╙",
+          "╜",
+          "┄",
+          "┅",
+          "┆",
+          "┇",
+          "┌",
+          "┬",
+          "┐",
+          "├",
+          "┼",
+          "┤",
+          "└",
+          "┴",
+          "┘",
+          "┏",
+          "┳",
+          "┓",
+          "┣",
+          "╋",
+          "┫",
+          "┗",
+          "┻",
+          "┛",
+          "╔",
+          "╦",
+          "╗",
+          "╠",
+          "╬",
+          "╣",
+          "╚",
+          "╩",
+          "╝"
+        ],
+        "土音": [
+          "ᐁ",
+          "ᐂ",
+          "ᐃ",
+          "ᐄ",
+          "ᐅ",
+          "ᐆ",
+          "ᐇ",
+          "ᐈ",
+          "ᐉ",
+          "ᐊ",
+          "ᐋ",
+          "ᐒ",
+          "ᐓ",
+          "ᐜ",
+          "ᐷ",
+          "ᐶ",
+          "ᐵ",
+          "ᐴ",
+          "ᐳ",
+          "ᑄ",
+          "ᑅ",
+          "ᑌ",
+          "ᑍ",
+          "ᑏ",
+          "ᑎ",
+          "ᑒ",
+          "ᑓ",
+          "ᑔ",
+          "ᑞ",
+          "ᑡ",
+          "ᑫ",
+          "ᑬ",
+          "ᑭ",
+          "ᑮ",
+          "ᑯ",
+          "ᑱ",
+          "ᑰ",
+          "ᑳ",
+          "ᑴ",
+          "ᑷ",
+          "ᒎ",
+          "ᒏ",
+          "ᒑ",
+          "ᒠ",
+          "ᒢ",
+          "ᒡ",
+          "ᒤ",
+          "ᒥ",
+          "ᒦ",
+          "ᓀ",
+          "ᓂ",
+          "ᓁ",
+          "ᓃ",
+          "ᓄ",
+          "ᓉ",
+          "ᓋ",
+          "ᓔ",
+          "ᓖ",
+          "ᓙ",
+          "ᓛ",
+          "ᓳ",
+          "ᓻ",
+          "ᓵ",
+          "ᓲ",
+          "ᓰ",
+          "ᔂ",
+          "ᓿ",
+          "ᓾ",
+          "ᗤ",
+          "ᗥ",
+          "ᗦ",
+          "ᘑ",
+          "ᘗ",
+          "ᘜ",
+          "ᘲ",
+          "ᙀ",
+          "ᙁ"
+        ],
+        "希腊": [
+          "Α",
+          "Β",
+          "Γ",
+          "Δ",
+          "Ε",
+          "Ζ",
+          "Η",
+          "Θ",
+          "Ι",
+          "Κ",
+          "Λ",
+          "Μ",
+          "Ν",
+          "Ξ",
+          "Ο",
+          "Π",
+          "Ρ",
+          "Σ",
+          "Τ",
+          "Υ",
+          "Φ",
+          "Χ",
+          "Ψ",
+          "Ω",
+          "α",
+          "β",
+          "γ",
+          "δ",
+          "ε",
+          "ζ",
+          "η",
+          "θ",
+          "ι",
+          "κ",
+          "λ",
+          "μ",
+          "ν",
+          "ξ",
+          "ο",
+          "π",
+          "ρ",
+          "σ",
+          "τ",
+          "υ",
+          "φ",
+          "χ",
+          "ψ",
+          "ω"
+        ],
+        "常用": [
+          "，",
+          "。",
+          "？",
+          "！",
+          "、",
+          ".",
+          "……",
+          "：",
+          ">",
+          "@"
+        ],
+        "平假": [
+          "あ",
+          "い",
+          "う",
+          "え",
+          "お",
+          "ぁ",
+          "ぃ",
+          "ぅ",
+          "ぇ",
+          "ぉ",
+          "か",
+          "き",
+          "く",
+          "け",
+          "こ",
+          "が",
+          "ぎ",
+          "ぐ",
+          "げ",
+          "ご",
+          "さ",
+          "し",
+          "す",
+          "せ",
+          "そ",
+          "ざ",
+          "じ",
+          "ず",
+          "ぜ",
+          "ぞ",
+          "た",
+          "ち",
+          "つ",
+          "て",
+          "と",
+          "だ",
+          "ぢ",
+          "づ",
+          "で",
+          "ど",
+          "っ",
+          "な",
+          "に",
+          "ぬ",
+          "ね",
+          "の",
+          "は",
+          "ひ",
+          "ふ",
+          "へ",
+          "ほ",
+          "ば",
+          "び",
+          "ぶ",
+          "べ",
+          "ぼ",
+          "ぱ",
+          "ぴ",
+          "ぷ",
+          "ぺ",
+          "ぽ",
+          "ま",
+          "み",
+          "む",
+          "め",
+          "も",
+          "や",
+          "ゆ",
+          "よ",
+          "ゃ",
+          "ゅ",
+          "ょ",
+          "ら",
+          "り",
+          "る",
+          "れ",
+          "ろ",
+          "わ",
+          "を",
+          "ん",
+          "ゎ"
+        ],
+        "序号": [
+          "①",
+          "②",
+          "③",
+          "④",
+          "⑤",
+          "⑥",
+          "⑦",
+          "⑧",
+          "⑨",
+          "⑩",
+          "❶",
+          "❷",
+          "❸",
+          "❹",
+          "❺",
+          "❻",
+          "❼",
+          "❽",
+          "❾",
+          "❿",
+          "⓵",
+          "⓶",
+          "⓷",
+          "⓸",
+          "⓹",
+          "⓺",
+          "⓻",
+          "⓼",
+          "⓽",
+          "⓾",
+          "⒈",
+          "⒉",
+          "⒊",
+          "⒋",
+          "⒌",
+          "⒍",
+          "⒎",
+          "⒏",
+          "⒐",
+          "⒑",
+          "⑴",
+          "⑵",
+          "⑶",
+          "⑷",
+          "⑸",
+          "⑹",
+          "⑺",
+          "⑻",
+          "⑼",
+          "⑽",
+          "㈠",
+          "㈡",
+          "㈢",
+          "㈣",
+          "㈤",
+          "㈥",
+          "㈦",
+          "㈧",
+          "㈨",
+          "㈩",
+          "壹",
+          "贰",
+          "叁",
+          "肆",
+          "伍",
+          "陆",
+          "柒",
+          "捌",
+          "玖",
+          "拾",
+          "佰",
+          "仟",
+          "萬",
+          "億",
+          "ⅰ",
+          "ⅱ",
+          "ⅲ",
+          "ⅳ",
+          "ⅴ",
+          "ⅵ",
+          "ⅶ",
+          "ⅷ",
+          "ⅸ",
+          "ⅹ",
+          "Ⅰ",
+          "Ⅱ",
+          "Ⅲ",
+          "Ⅳ",
+          "Ⅴ",
+          "Ⅵ",
+          "Ⅶ",
+          "Ⅷ",
+          "Ⅸ",
+          "Ⅹ",
+          "Ⅺ",
+          "Ⅻ"
+        ],
+        "拉丁": [
+          "À",
+          "Á",
+          "Â",
+          "Ã",
+          "Ä",
+          "Å",
+          "Ā",
+          "Æ",
+          "Ç",
+          "È",
+          "É",
+          "Ê",
+          "Ë",
+          "Ē",
+          "Ì",
+          "Í",
+          "Î",
+          "Ï",
+          "Ī",
+          "Ð",
+          "Ñ",
+          "Ò",
+          "Ó",
+          "Ô",
+          "Õ",
+          "Ö",
+          "Ō",
+          "Ø",
+          "Œ",
+          "Ù",
+          "Ú",
+          "Û",
+          "Ü",
+          "Ū",
+          "Ý",
+          "Ÿ",
+          "Þ",
+          "Š",
+          "à",
+          "á",
+          "â",
+          "ã",
+          "ä",
+          "å",
+          "æ",
+          "ç",
+          "è",
+          "é",
+          "ê",
+          "ë",
+          "ē",
+          "ì",
+          "í",
+          "î",
+          "ǐ",
+          "ï",
+          "ī",
+          "ð",
+          "ñ",
+          "ò",
+          "ó",
+          "õ",
+          "ǒ",
+          "ô",
+          "ö",
+          "ō",
+          "ø",
+          "œ",
+          "ù",
+          "ú",
+          "ǔ",
+          "û",
+          "ü",
+          "ū",
+          "ý",
+          "þ",
+          "š",
+          "ÿ"
+        ],
+        "拼音": [
+          "ā",
+          "á",
+          "ǎ",
+          "à",
+          "ō",
+          "ó",
+          "ǒ",
+          "ò",
+          "ē",
+          "é",
+          "ě",
+          "è",
+          "ī",
+          "í",
+          "ǐ",
+          "ì",
+          "ū",
+          "ú",
+          "ǔ",
+          "ù",
+          "ǖ",
+          "ǘ",
+          "ǚ",
+          "ǜ",
+          "ü"
+        ],
+        "数学": [
+          "=",
+          "+",
+          "-",
+          "·",
+          "/",
+          "×",
+          "÷",
+          "^",
+          "＞",
+          "＜",
+          "≥",
+          "≤",
+          "≮",
+          "≯",
+          "≡",
+          "≠",
+          "≈",
+          "≒",
+          "±",
+          "√",
+          "³",
+          "√",
+          "π",
+          "%",
+          "‰",
+          "％",
+          "℅",
+          "½",
+          "⅓",
+          "⅔",
+          "¼",
+          "¾",
+          "∶",
+          "∵",
+          "∴",
+          "∷",
+          "㏒",
+          "㏑",
+          "∫",
+          "∬",
+          "∭",
+          "∮",
+          "∯",
+          "∰",
+          "∂",
+          "∑",
+          "∏",
+          "∈",
+          "∉",
+          "∅",
+          "⊂",
+          "⊃",
+          "⊆",
+          "⊇",
+          "⊄",
+          "⊅",
+          "⊊",
+          "⊈",
+          "⫋",
+          "⫌",
+          "∀",
+          "∃",
+          "∩",
+          "∪",
+          "∧",
+          "∨",
+          "⊙",
+          "⊕",
+          "∥",
+          "⊥",
+          "⌒",
+          "∟",
+          "∠",
+          "△",
+          "⊿",
+          "∝",
+          "∽",
+          "∞",
+          "≌",
+          "°",
+          "℃",
+          "℉",
+          "㎎",
+          "㎏",
+          "μ",
+          "m",
+          "㎜",
+          "㎝",
+          "㎞",
+          "㎡",
+          "m",
+          "³",
+          "㏄",
+          "㏕"
+        ],
+        "注音": [
+          "ㄅ",
+          "ㄆ",
+          "ㄇ",
+          "ㄈ",
+          "ㄉ",
+          "ㄊ",
+          "ㄋ",
+          "ㄌ",
+          "ㄍ",
+          "ㄎ",
+          "ㄏ",
+          "ㄐ",
+          "ㄑ",
+          "ㄒ",
+          "ㄓ",
+          "ㄔ",
+          "ㄕ",
+          "ㄖ",
+          "ㄗ",
+          "ㄘ",
+          "ㄙ",
+          "ㄧ",
+          "ㄨ",
+          "ㄩ",
+          "ㄚ",
+          "ㄛ",
+          "ㄜ",
+          "ㄝ",
+          "ㄞ",
+          "ㄟ",
+          "ㄠ",
+          "ㄡ",
+          "ㄢ",
+          "ㄣ",
+          "ㄤ",
+          "ㄥ",
+          "ㄦ"
+        ],
+        "片假": [
+          "ア",
+          "イ",
+          "ウ",
+          "エ",
+          "オ",
+          "ァ",
+          "ィ",
+          "ゥ",
+          "ェ",
+          "ォ",
+          "カ",
+          "キ",
+          "ク",
+          "ケ",
+          "コ",
+          "ガ",
+          "ギ",
+          "グ",
+          "ゲ",
+          "ゴ",
+          "サ",
+          "シ",
+          "ス",
+          "セ",
+          "ソ",
+          "ザ",
+          "ジ",
+          "ズ",
+          "ゼ",
+          "ゾ",
+          "タ",
+          "チ",
+          "ツ",
+          "テ",
+          "ト",
+          "ダ",
+          "ヂ",
+          "ヅ",
+          "デ",
+          "ド",
+          "ッ",
+          "ナ",
+          "ニ",
+          "ヌ",
+          "ネ",
+          "ノ",
+          "ハ",
+          "ヒ",
+          "フ",
+          "ヘ",
+          "ホ",
+          "バ",
+          "ビ",
+          "ブ",
+          "ベ",
+          "ボ",
+          "パ",
+          "ピ",
+          "プ",
+          "ペ",
+          "ポ",
+          "マ",
+          "ミ",
+          "ム",
+          "メ",
+          "モ",
+          "ヤ",
+          "ユ",
+          "ヨ",
+          "ャ",
+          "ュ",
+          "ョ",
+          "ラ",
+          "リ",
+          "ル",
+          "レ",
+          "ロ",
+          "ワ",
+          "ヲ",
+          "ン",
+          "ヮ"
+        ],
+        "特殊": [
+          "△",
+          "▽",
+          "○",
+          "◇",
+          "□",
+          "☆",
+          "▷",
+          "◁",
+          "♤",
+          "♡",
+          "♢",
+          "♧",
+          "▲",
+          "▼",
+          "●",
+          "◆",
+          "■",
+          "★",
+          "▶",
+          "◀",
+          "♠",
+          "♥",
+          "♦",
+          "♣",
+          "囍",
+          "☼",
+          "☽",
+          "☺",
+          "◐",
+          "☑",
+          "√",
+          "✔",
+          "㏂",
+          "☀",
+          "☾",
+          "♂",
+          "☹",
+          "◑",
+          "×",
+          "✕",
+          "✘",
+          "☚",
+          "☛",
+          "㏘",
+          "▪",
+          "•",
+          "‥",
+          "…",
+          "▁",
+          "▂",
+          "▃",
+          "▄",
+          "▅",
+          "▆",
+          "▇",
+          "█",
+          "∷",
+          "※",
+          "░",
+          "▒",
+          "▓",
+          "▏",
+          "▎",
+          "▍",
+          "▌",
+          "▋",
+          "▊",
+          "▉",
+          "♩",
+          "♪",
+          "♫",
+          "♬",
+          "§",
+          "〼",
+          "◎",
+          "¤",
+          "۞",
+          "℗",
+          "®",
+          "©",
+          "♭",
+          "♯",
+          "♮",
+          "‖",
+          "¶",
+          "卍",
+          "卐",
+          "▬",
+          "〓",
+          "℡",
+          "™",
+          "㏇",
+          "☌",
+          "☍",
+          "☋",
+          "☊",
+          "㉿",
+          "◮",
+          "◪",
+          "◔",
+          "◕",
+          "@",
+          "㈱",
+          "№",
+          "♈",
+          "♉",
+          "♊",
+          "♋",
+          "♌",
+          "♎",
+          "♏",
+          "♐",
+          "♑",
+          "♓",
+          "♒",
+          "♍",
+          "☰",
+          "☱",
+          "☲",
+          "☳",
+          "☯",
+          "☴",
+          "☵",
+          "☶",
+          "☷",
+          "*",
+          "＊",
+          "✲",
+          "❈",
+          "❉",
+          "✿",
+          "❀",
+          "❃",
+          "❁",
+          "☸",
+          "✖",
+          "✚",
+          "✪",
+          "❤",
+          "ღ",
+          "❦",
+          "❧",
+          "₪",
+          "✎",
+          "✍",
+          "📝",
+          "✌",
+          "☁",
+          "☂",
+          "☃",
+          "☄",
+          "♨",
+          "☇",
+          "☈",
+          "☡",
+          "➷",
+          "⊹",
+          "✉",
+          "☏",
+          "☢",
+          "☣",
+          "☠",
+          "☮",
+          "〄",
+          "➹",
+          "☩",
+          "ஐ",
+          "☎",
+          "✈",
+          "〠",
+          "۩",
+          "✙",
+          "✟",
+          "☤",
+          "☥",
+          "☦",
+          "☧",
+          "☨",
+          "☫",
+          "☬",
+          "♟",
+          "♙",
+          "♜",
+          "♖",
+          "♞",
+          "♘",
+          "♝",
+          "♗",
+          "♛",
+          "♕",
+          "♚",
+          "♔",
+          "✄",
+          "✁",
+          "✃",
+          "❥",
+          "✪",
+          "☒",
+          "❅",
+          "✣",
+          "✰",
+          "⚀",
+          "⚁",
+          "⚂",
+          "⚃",
+          "⚄",
+          "⚅"
+        ],
+        "竖标": [
+          "︐",
+          "︑",
+          "︒",
+          "︓",
+          "︔",
+          "︕",
+          "︖",
+          "︵",
+          "︶",
+          "︷",
+          "︸",
+          "︹",
+          "︺",
+          "︿",
+          "﹀",
+          "︽",
+          "︾",
+          "﹁",
+          "﹂",
+          "﹃",
+          "﹄",
+          "︻",
+          "︼",
+          "︗",
+          "︘",
+          "_",
+          "¯",
+          "＿",
+          "￣",
+          "﹏",
+          "﹋",
+          "﹍",
+          "﹉",
+          "﹎",
+          "﹊",
+          "¦",
+          "︴",
+          "¡",
+          "¿",
+          "^",
+          "ˇ",
+          "¨",
+          "ˊ"
+        ],
+        "箭头": [
+          "→",
+          "←",
+          "↑",
+          "↓",
+          "↖",
+          "↗",
+          "↙",
+          "↘",
+          "↔",
+          "↕",
+          "⇞",
+          "⇟",
+          "⇆",
+          "⇅",
+          "⇔",
+          "⇕",
+          "↰",
+          "↱",
+          "↲",
+          "↴",
+          "↶",
+          "↷",
+          "↺",
+          "↻",
+          "↜",
+          "↝",
+          "↞",
+          "↟",
+          "↠",
+          "↡",
+          "➺",
+          "➻",
+          "➼",
+          "➳",
+          "➽",
+          "➸",
+          "➹",
+          "➷",
+          "⇎",
+          "➠",
+          "↣",
+          "☞",
+          "☜",
+          "☟",
+          "⇦",
+          "⇧",
+          "⇨",
+          "⇩",
+          "⇪",
+          "➩",
+          "➪",
+          "➫",
+          "➬",
+          "➯",
+          "➱",
+          "➮",
+          "➭",
+          "➠",
+          "➡",
+          "➢",
+          "➣",
+          "➤",
+          "➥",
+          "➦",
+          "➧",
+          "➨"
+        ],
+        "英文": [
+          ",",
+          ".",
+          "?",
+          "!",
+          ":",
+          "/",
+          "@",
+          ".",
+          ".",
+          ".",
+          "\"",
+          ";",
+          "'",
+          "~",
+          "()",
+          "<>",
+          "()",
+          "[]",
+          "{}",
+          "<>",
+          "*",
+          "&",
+          "[",
+          "]",
+          "\"",
+          "`",
+          "#",
+          "%",
+          "^",
+          "_",
+          "+",
+          "-",
+          "=",
+          "{",
+          "}",
+          "|",
+          "¥",
+          "£",
+          "€",
+          "﹉",
+          "–",
+          ".",
+          ".",
+          "´",
+          "＂",
+          "＇",
+          "¢",
+          "฿"
+        ],
+        "表情": [
+          ":-D",
+          ":-)",
+          ":-(",
+          ":-P",
+          ":-O",
+          ";-)",
+          "(⌒▽⌒)",
+          "(｡◕‿◕｡)",
+          "(◕‿◕✿)",
+          "(◠‿◠)",
+          "(✿◠‿◠)",
+          "(>‿◠)✌",
+          "(∩_∩)",
+          "(｡♥‿♥｡)",
+          "(●'◡'●)",
+          "ಥ‿ಥ",
+          "(✖╭╮✖)",
+          "(╥_╥)",
+          "(╯°□°)╯",
+          "(╯°□°)╯︵",
+          "┬─┬ノ( º",
+          "(；一_一)",
+          "(--;)",
+          "(￣▽￣*)ゞ",
+          "(＾▽＾)",
+          "(⊙ω⊙)",
+          "(°ー°〃)",
+          "(｡•́︿•̀｡",
+          "(´･･)",
+          "(｀_´)ゞ",
+          "(・∀・)",
+          "(￣ω￣)",
+          "(｀・ω・´)",
+          "(´･ω･)",
+          "o(≧▽≦)o",
+          "ヽ(✿ﾟ▽ﾟ)ノ",
+          "(=^･ω･^=)",
+          "(◕ᴗ◕✿)",
+          "(｡♥‿♥｡)",
+          "(っ˘ω˘ς)",
+          "╮(╯▽╰)╭",
+          "╮(╯_╰)╭",
+          "(ㆆᴗㆆ)",
+          "(๑•́ ₃ •",
+          "(´･･`)",
+          "ᕙ(⇀‸↼‶)ᕗ",
+          "(｡◕‿◕｡)",
+          "(●ˇ∀ˇ●)",
+          "(<<)",
+          "(>_>)",
+          "(∪ ω ∪)",
+          "(￣(oo)￣)ﾉ",
+          "(○｀（●●）´○)ﾉ",
+          "＼（＾∀＾）メ（＾∀＾）ノ"
+        ],
+        "角标": [
+          "º",
+          "⁰",
+          "¹",
+          "²",
+          "³",
+          "⁴",
+          "⁵",
+          "⁶",
+          "⁷",
+          "⁸",
+          "⁹",
+          "ⁱ",
+          "⁺",
+          "⁻",
+          "⁼",
+          "⁽",
+          "⁾",
+          "ˣ",
+          "ʸ",
+          "ⁿ",
+          "ᶻ",
+          "ˢ",
+          "₀",
+          "₁",
+          "₂",
+          "₃",
+          "₄",
+          "₅",
+          "₆",
+          "₇",
+          "₈",
+          "₉",
+          "₊",
+          "₋",
+          "₌",
+          "₍",
+          "₎",
+          "ₐ",
+          "ₑ",
+          "ₒ",
+          "ₓ",
+          "ᵧ",
+          "ₔ",
+          "ᴬ",
+          "ᴮ",
+          "ᶜ",
+          "ᴰ",
+          "ᴱ",
+          "ᶠ",
+          "ᴳ",
+          "ᴴ",
+          "ᴵ",
+          "ᴶ",
+          "ᴷ",
+          "ᴸ",
+          "ᴹ",
+          "ᴺ",
+          "ᴼ",
+          "ᴾ",
+          "ᶞ",
+          "ᴿ",
+          "ᵀ",
+          "ᵁ",
+          "ᵛ",
+          "ᵂ",
+          "ᵃ",
+          "ᵇ",
+          "ᶜ",
+          "ᵈ",
+          "ᵉ",
+          "ᶠ",
+          "ᵍ",
+          "ʰ",
+          "ⁱ",
+          "ʲ",
+          "ᵏ",
+          "ˡ",
+          "ᵐ",
+          "ⁿ",
+          "ᵒ",
+          "ᵖ",
+          "ʳ",
+          "ˢ",
+          "ᵗ",
+          "ᵘ",
+          "ᵛ",
+          "ʷ",
+          "ˣ",
+          "ʸ",
+          "ᶻ"
+        ],
+        "部首": [
+          "丨",
+          "亅",
+          "丿",
+          "乛",
+          "一",
+          "乙",
+          "乚",
+          "丶",
+          "八",
+          "勹",
+          "匕",
+          "冫",
+          "卜",
+          "厂",
+          "刀",
+          "刂",
+          "儿",
+          "二",
+          "匚",
+          "阝",
+          "丷",
+          "几",
+          "卩",
+          "冂",
+          "力",
+          "冖",
+          "凵",
+          "人",
+          "亻",
+          "入",
+          "十",
+          "厶",
+          "亠",
+          "匸",
+          "讠",
+          "廴",
+          "又",
+          "艹",
+          "屮",
+          "彳",
+          "巛",
+          "川",
+          "辶",
+          "寸",
+          "大",
+          "飞",
+          "干",
+          "工",
+          "弓",
+          "廾",
+          "广",
+          "己",
+          "彐",
+          "彑",
+          "巾",
+          "口",
+          "马",
+          "门",
+          "宀",
+          "女",
+          "犭",
+          "山",
+          "彡",
+          "尸",
+          "饣",
+          "士",
+          "扌",
+          "氵",
+          "纟",
+          "巳",
+          "土",
+          "囗",
+          "兀",
+          "夕",
+          "小",
+          "忄",
+          "幺",
+          "弋",
+          "尢",
+          "夂",
+          "子",
+          "贝",
+          "比",
+          "灬",
+          "长",
+          "车",
+          "歹",
+          "斗",
+          "厄",
+          "方",
+          "风",
+          "父",
+          "戈",
+          "卝",
+          "户",
+          "火",
+          "旡",
+          "见",
+          "斤",
+          "耂",
+          "毛",
+          "木",
+          "肀",
+          "牛",
+          "牜",
+          "爿",
+          "片",
+          "攴",
+          "攵",
+          "气",
+          "欠",
+          "犬",
+          "日",
+          "氏",
+          "礻",
+          "手",
+          "殳",
+          "水",
+          "瓦",
+          "尣",
+          "王",
+          "韦",
+          "文",
+          "毋",
+          "心",
+          "牙",
+          "爻",
+          "曰",
+          "月",
+          "爫",
+          "支",
+          "止",
+          "爪",
+          "白",
+          "癶",
+          "歺",
+          "甘",
+          "瓜",
+          "禾",
+          "钅",
+          "立",
+          "龙",
+          "矛",
+          "皿",
+          "母",
+          "目",
+          "疒",
+          "鸟",
+          "皮",
+          "生",
+          "石",
+          "矢",
+          "示",
+          "罒",
+          "田",
+          "玄",
+          "穴",
+          "疋",
+          "业",
+          "衤",
+          "用",
+          "玉",
+          "耒",
+          "艸",
+          "臣",
+          "虫",
+          "而",
+          "耳",
+          "缶",
+          "艮",
+          "虍",
+          "臼",
+          "米",
+          "齐",
+          "肉",
+          "色",
+          "舌",
+          "覀",
+          "页",
+          "先",
+          "行",
+          "血",
+          "羊",
+          "聿",
+          "至",
+          "舟",
+          "衣",
+          "竹",
+          "自",
+          "羽",
+          "糸",
+          "糹",
+          "貝",
+          "采",
+          "镸",
+          "車",
+          "辰",
+          "赤",
+          "辵",
+          "豆",
+          "谷",
+          "見",
+          "角",
+          "克",
+          "里",
+          "卤",
+          "麦",
+          "身",
+          "豕",
+          "辛",
+          "言",
+          "邑",
+          "酉",
+          "豸",
+          "走",
+          "足",
+          "青",
+          "靑",
+          "雨",
+          "齿",
+          "長",
+          "非",
+          "阜",
+          "金",
+          "釒",
+          "隶",
+          "門",
+          "靣",
+          "飠",
+          "鱼",
+          "隹",
+          "風",
+          "革",
+          "骨",
+          "鬼",
+          "韭",
+          "面",
+          "首",
+          "韋",
+          "香",
+          "頁",
+          "音",
+          "髟",
+          "鬯",
+          "鬥",
+          "高",
+          "鬲",
+          "馬",
+          "黄",
+          "鹵",
+          "鹿",
+          "麻",
+          "麥",
+          "鳥",
+          "魚",
+          "鼎",
+          "黑",
+          "黽",
+          "黍",
+          "黹",
+          "鼓",
+          "鼠",
+          "鼻",
+          "齊",
+          "齒",
+          "龍",
+          "龠"
+        ],
+        "音标": [
+          "ɑː",
+          "ɔ:",
+          "ɜː",
+          "i:",
+          "u:",
+          "ʌ",
+          "ɒ",
+          "ə",
+          "ɪ",
+          "ʊ",
+          "e",
+          "æ",
+          "eɪ",
+          "aɪ",
+          "ɔɪ",
+          "ɪə",
+          "eə",
+          "ʊə",
+          "əʊ",
+          "aʊ",
+          "p",
+          "t",
+          "k",
+          "f",
+          "θ",
+          "s",
+          "b",
+          "d",
+          "g",
+          "v",
+          "ð",
+          "z",
+          "ʃ",
+          "h",
+          "ts",
+          "tʃ",
+          "j",
+          "tr",
+          "ʒ",
+          "r",
+          "dz",
+          "dʒ",
+          "dr",
+          "w",
+          "m",
+          "n",
+          "ŋ",
+          "l"
+        ]
+      }
+    }
+  },
+  "export": {
+    "targets": {
+      "yaml": true,
+      "jsonnet": true
+    },
+    "mapping": {
+      "pinyin": {},
+      "alphabetic": {},
+      "numeric": {},
+      "symbolic": {},
+      "panel": {}
+    }
+  },
+  "config": {
+    "name": "示例模板1",
+    "author": "浮生",
+    "pinyin": {
+      "iPhone": {
+        "portrait": "pinyin_26_portrait",
+        "landscape": "pinyin_26_landscape"
+      },
+      "iPad": {
+        "portrait": "pinyin_26_landscape",
+        "landscape": "pinyin_26_landscape",
+        "floating": "pinyin_26_portrait"
+      }
+    },
+    "alphabetic": {
+      "iPhone": {
+        "portrait": "alphabetic_26_portrait",
+        "landscape": "alphabetic_26_landscape"
+      },
+      "iPad": {
+        "portrait": "alphabetic_26_landscape",
+        "landscape": "alphabetic_26_landscape",
+        "floating": "alphabetic_26_portrait"
+      }
+    },
+    "numeric": {
+      "iPhone": {
+        "portrait": "numeric_9_portrait",
+        "landscape": "numeric_9_landscape"
+      },
+      "iPad": {
+        "portrait": "numeric_9_portrait",
+        "landscape": "numeric_9_landscape",
+        "floating": "numeric_9_portrait"
+      }
+    },
+    "symbolic": {
+      "iPhone": {
+        "portrait": "symbolic_portrait",
+        "landscape": "numeric_9_landscape"
+      },
+      "iPad": {
+        "portrait": "symbolic_portrait",
+        "landscape": "numeric_9_landscape",
+        "floating": "symbolic_portrait"
+      }
+    },
+    "panel": {
+      "iPhone": {
+        "portrait": "panel_portrait",
+        "landscape": "panel_landscape"
+      }
+    }
+  },
+  "previewKeyboards": [],
+  "hiddenPreviewKeyboards": []
+}

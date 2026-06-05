@@ -1,0 +1,40 @@
+wing: hamster_skin_designer
+rooms:
+- name: apps
+  description: Files from apps/
+  keywords:
+  - apps
+  - apps
+- name: design_system
+  description: Files from design-system/
+  keywords:
+  - design_system
+  - design-system
+- name: hamsterdoc
+  description: Files from HamsterDoc/
+  keywords:
+  - hamsterdoc
+  - hamsterdoc
+- name: packages
+  description: Files from packages/
+  keywords:
+  - packages
+  - packages
+- name: templates
+  description: Files from templates/
+  keywords:
+  - templates
+  - templates
+- name: "\u8766\u7C73\u8F38\u5165\u6CD5"
+  description: "Files from \u8766\u7C73\u8F38\u5165\u6CD5/"
+  keywords:
+  - "\u8766\u7C73\u8F38\u5165\u6CD5"
+  - "\u8766\u7C73\u8F38\u5165\u6CD5"
+- name: documentation
+  description: Files from docs/
+  keywords:
+  - documentation
+  - docs
+- name: general
+  description: Files that don't fit other rooms
+  keywords: []
