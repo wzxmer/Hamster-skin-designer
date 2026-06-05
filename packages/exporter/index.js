@@ -2,6 +2,8 @@ import { assertValidProject } from '../project-schema/validators/project-validat
 
 const TEXT_ENCODER = new TextEncoder();
 const YAML_FILE_NAMES = new Set(['config.yaml']);
+const DEFAULT_SKIN_NAME = '皮肤1';
+const DEFAULT_SKIN_AUTHOR = 'https://wzxmer.github.io/Hamster-skin-designer/';
 const JSONNET_LIB_PATH = 'jsonnet/lib';
 
 function emptySwipeData() {
@@ -150,8 +152,8 @@ function buildConfigPayload(project) {
   }
   return {
     ...config,
-    author: project.meta.author || config.author || '浮生',
-    name: project.meta.name || config.name || '元书输入法皮肤',
+    author: project.meta.author || config.author || DEFAULT_SKIN_AUTHOR,
+    name: project.meta.name || config.name || DEFAULT_SKIN_NAME,
   };
 }
 
@@ -290,7 +292,7 @@ export function buildYamlSkinFiles(project) {
 
 function buildExportReadme(project) {
   return [
-    `# ${project.meta.name || '元书输入法皮肤'}`,
+    `# ${project.meta.name || DEFAULT_SKIN_NAME}`,
     '',
     '此目录由元书输入法皮肤工作台导出。',
     '',
