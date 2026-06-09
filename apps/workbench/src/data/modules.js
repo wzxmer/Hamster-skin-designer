@@ -1,5 +1,13 @@
 const MODULE_DEFINITIONS = [
   {
+    id: 'keyboardCombo',
+    title: '使用引导',
+    kicker: 'keyboardCombo',
+    description: '组合中文、英文、数字、符号、Emoji、面板、工具栏和划动策略。',
+    path: 'keyboardCombo',
+    kind: 'keyboardCombo',
+  },
+  {
     id: 'meta',
     title: '皮肤配置',
     kicker: 'config.yaml',
@@ -89,7 +97,7 @@ const MODULE_DEFINITIONS = [
   },
   {
     id: 'swipes',
-    title: '滑动设置',
+    title: '划动设置',
     kicker: 'swipeData.libsonnet',
     description: '中文、英文、数字键盘的上划/下划动作数据。',
     path: 'data.swipes',

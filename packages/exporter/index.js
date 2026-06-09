@@ -10,9 +10,215 @@ function emptySwipeData() {
   return { swipe_up: {}, swipe_down: {} };
 }
 
+function cloneSwipeLabelsHidden(value) {
+  if (Array.isArray(value)) return value.map((item) => cloneSwipeLabelsHidden(item));
+  if (!isPlainObject(value)) return value;
+  const next = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (key === 'label' && isPlainObject(item)) {
+      next[key] = { text: '' };
+      continue;
+    }
+    next[key] = cloneSwipeLabelsHidden(item);
+  }
+  return next;
+}
+
+function effectiveConfigForExport(config = {}, keyboardCombo = {}) {
+  const next = structuredClone(config || {});
+  const slots = keyboardCombo.slots || {};
+  const inputStrategy = keyboardCombo.inputStrategy || 'separateAlphabetic';
+  next.pinyin = next.pinyin || {};
+  next.alphabetic = next.alphabetic || {};
+  next.numeric = next.numeric || {};
+  next.symbolic = next.symbolic || {};
+  next.emoji = next.emoji || {};
+  next.panel = next.panel || {};
+
+  if (['9', '14', '17', '18'].includes(slots.pinyin?.variant)) {
+    for (const device of ['iPhone', 'iPad']) {
+      next.pinyin[device] = next.pinyin[device] || {};
+      next.pinyin[device].portrait = `pinyin_${slots.pinyin.variant}_portrait`;
+      next.pinyin[device].landscape = `pinyin_${slots.pinyin.variant}_landscape`;
+      if (device === 'iPad') next.pinyin[device].floating = `pinyin_${slots.pinyin.variant}_portrait`;
+    }
+  }
+
+  if (inputStrategy !== 'separateAlphabetic' || slots.alphabetic?.source === 'disabled') {
+    next.alphabetic = {};
+  }
+
+  if (slots.numeric?.variant === 'ios') {
+    for (const device of ['iPhone', 'iPad']) {
+      next.numeric[device] = next.numeric[device] || {};
+      next.numeric[device].portrait = 'numeric_ios_portrait';
+      next.numeric[device].landscape = 'numeric_ios_landscape';
+      if (device === 'iPad') next.numeric[device].floating = 'numeric_ios_portrait';
+    }
+  }
+
+  if (slots.symbolic?.source === 'system') {
+    for (const device of ['iPhone', 'iPad']) {
+      next.symbolic[device] = next.symbolic[device] || {};
+      next.symbolic[device].portrait = 'symbolic_system';
+      next.symbolic[device].landscape = 'symbolic_system';
+      if (device === 'iPad') next.symbolic[device].floating = 'symbolic_system';
+    }
+  }
+  if (slots.symbolic?.source === 'custom') {
+    for (const device of ['iPhone', 'iPad']) {
+      next.symbolic[device] = next.symbolic[device] || {};
+      next.symbolic[device].portrait = 'symbolic_portrait';
+      next.symbolic[device].landscape = 'symbolic_landscape';
+      if (device === 'iPad') next.symbolic[device].floating = 'symbolic_portrait';
+    }
+  }
+  if (slots.symbolic?.source === 'disabled' || slots.symbolic?.enabled === false) {
+    next.symbolic = {};
+  }
+
+  if (slots.emoji?.source === 'system') {
+    for (const device of ['iPhone', 'iPad']) {
+      next.emoji[device] = next.emoji[device] || {};
+      next.emoji[device].portrait = 'emoji_system';
+      next.emoji[device].landscape = 'emoji_system';
+      if (device === 'iPad') next.emoji[device].floating = 'emoji_system';
+    }
+  }
+  if (slots.emoji?.source === 'custom') {
+    for (const device of ['iPhone', 'iPad']) {
+      next.emoji[device] = next.emoji[device] || {};
+      next.emoji[device].portrait = 'emoji_portrait';
+      next.emoji[device].landscape = 'emoji_landscape';
+      if (device === 'iPad') next.emoji[device].floating = 'emoji_portrait';
+    }
+  }
+  if (slots.emoji?.source === 'disabled' || slots.emoji?.enabled === false) {
+    next.emoji = {};
+  }
+
+  if (slots.panel?.source === 'disabled' || slots.panel?.enabled === false) {
+    next.panel = {};
+  }
+
+  return next;
+}
+
+const ACTION_AUX_KEYS = new Set(['actionType', 'actionValue', 'actionKeyboardSelection', 'presetValue']);
+
+function normalizeActionObject(value) {
+  if (typeof value === 'string') return value ? { shortcut: value } : {};
+  if (!isPlainObject(value)) return {};
+  if (isPlainObject(value.action) || typeof value.action === 'string') {
+    return normalizeActionObject(value.action);
+  }
+  const realEntry = Object.entries(value).find(([key]) => !ACTION_AUX_KEYS.has(key));
+  if (realEntry) {
+    const [type, actionValue] = realEntry;
+    return actionValue === undefined || actionValue === null || actionValue === ''
+      ? {}
+      : { [type]: actionValue };
+  }
+  const type = typeof value.actionType === 'string' && value.actionType ? value.actionType : 'character';
+  const actionValue = value.actionValue === undefined || value.actionValue === null ? '' : String(value.actionValue).trim();
+  return actionValue ? { [type]: actionValue } : {};
+}
+
+function normalizeEmbeddedActionNodes(value) {
+  if (Array.isArray(value)) return value.map((item) => normalizeEmbeddedActionNodes(item));
+  if (!isPlainObject(value)) return value;
+  const next = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (ACTION_AUX_KEYS.has(key)) continue;
+    if (key === 'action') {
+      const normalizedAction = normalizeActionObject(item);
+      if (Object.keys(normalizedAction).length) next.action = normalizedAction;
+      continue;
+    }
+    next[key] = normalizeEmbeddedActionNodes(item);
+  }
+  return next;
+}
+
+function normalizeToolbarActions(actions = {}) {
+  if (!isPlainObject(actions)) return {};
+  const next = {};
+  for (const [key, value] of Object.entries(actions)) {
+    next[key] = normalizeActionObject(value);
+  }
+  return next;
+}
+
+function effectiveToolbarForExport(toolbar = {}, keyboardCombo = {}) {
+  const next = structuredClone(toolbar || {});
+  const layout = Array.isArray(next.layout) ? next.layout : [];
+  next.layout = (keyboardCombo.toolbar?.enabled === false ? [] : layout).filter((button) => {
+    if (button === 'menu') return keyboardCombo.slots?.panel?.source !== 'disabled' && keyboardCombo.slots?.panel?.enabled !== false;
+    if (button === 'symbol') return keyboardCombo.slots?.symbolic?.source !== 'disabled' && keyboardCombo.slots?.symbolic?.enabled !== false;
+    if (button === 'emoji') return keyboardCombo.slots?.emoji?.source !== 'disabled' && keyboardCombo.slots?.emoji?.enabled !== false;
+    return true;
+  });
+  if (keyboardCombo.toolbar?.displayStyle === 'text') {
+    next.display = next.display || {};
+    for (const key of Object.keys(next.display)) {
+      next.display[key] = { ...(next.display[key] || {}), type: 'text' };
+    }
+  }
+  next.actions = normalizeToolbarActions(next.actions);
+  return next;
+}
+
+function effectiveProjectForExport(project) {
+  const next = structuredClone(project);
+  next.keyboardCombo = next.keyboardCombo || {};
+  next.config = effectiveConfigForExport(next.config, next.keyboardCombo);
+  next.toolbar = effectiveToolbarForExport(next.toolbar, next.keyboardCombo);
+  next.keyboards = normalizeEmbeddedActionNodes(next.keyboards || {});
+  next.data = normalizeEmbeddedActionNodes(next.data || {});
+  next.keyboards.keyboard26 = next.keyboards.keyboard26 || {};
+  next.keyboards.keyboard26.pinyinSchemaName = next.keyboards.keyboard26.pinyinSchemaName || {};
+  next.keyboards.keyboard26.spaceRight = next.keyboards.keyboard26.spaceRight || {};
+  next.keyboards.keyboard26.spaceRight.pinyin = next.keyboards.keyboard26.spaceRight.pinyin || {};
+  next.keyboards.keyboard26.spaceRight.pinyin.secondary = next.keyboards.keyboard26.spaceRight.pinyin.secondary || {};
+  if (next.keyboardCombo?.spaceRow?.showSchemaNameOnSpace === false) {
+    next.keyboards.keyboard26.pinyinSchemaName.text = '';
+  }
+  if (typeof next.keyboardCombo?.spaceRow?.commaKey?.swipeUp === 'string') {
+    next.keyboards.keyboard26.spaceRight.pinyin.secondary.text = next.keyboardCombo.spaceRow.commaKey.swipeUp;
+    next.data = next.data || {};
+    next.data.swipes = next.data.swipes || {};
+    next.data.swipes.pinyin = next.data.swipes.pinyin || {};
+    next.data.swipes.pinyin.swipe_up = next.data.swipes.pinyin.swipe_up || {};
+    next.data.swipes.pinyin.swipe_up.spaceRight = next.data.swipes.pinyin.swipe_up.spaceRight || {};
+    next.data.swipes.pinyin.swipe_up.spaceRight.action = { character: next.keyboardCombo.spaceRow.commaKey.swipeUp };
+    next.data.swipes.pinyin.swipe_up.spaceRight.label = { text: '' };
+  }
+  if (next.keyboardCombo?.spaceRow?.semicolonKey?.enabled === true) {
+    next.data = next.data || {};
+    next.data.swipes = next.data.swipes || {};
+    next.data.swipes.pinyin = next.data.swipes.pinyin || {};
+    next.data.swipes.pinyin.swipe_up = next.data.swipes.pinyin.swipe_up || {};
+    next.data.swipes.pinyin.swipe_up.semicolon = next.data.swipes.pinyin.swipe_up.semicolon || {};
+    next.data.swipes.pinyin.swipe_up.semicolon.action = { shortcut: next.keyboardCombo.spaceRow.semicolonKey.swipeUpAction || '#次选上屏' };
+    next.data.swipes.pinyin.swipe_up.semicolon.label = { text: '' };
+  }
+  if (next.keyboardCombo?.swipeBehavior?.mode === 'hidden') {
+    next.data = next.data || {};
+    next.data.swipes = cloneSwipeLabelsHidden(next.data.swipes || {});
+  }
+  return next;
+}
+
 function swipesFor(project, kind) {
-  if (project.data?.swipesEnabled === false) return emptySwipeData();
-  return cleanPerItemFontSize((kind === 'alphabetic' ? project.data.swipes?.alphabetic : project.data.swipes?.pinyin) || emptySwipeData());
+  if (project.data?.swipesEnabled === false || project.keyboardCombo?.swipeBehavior?.mode === 'disabled') {
+    return emptySwipeData();
+  }
+  const source = {
+    pinyin: project.data?.swipes?.pinyin,
+    alphabetic: project.data?.swipes?.alphabetic,
+    numeric: project.data?.swipes?.numeric,
+  }[kind];
+  return cleanPerItemFontSize(source || emptySwipeData());
 }
 
 function cleanPerItemFontSize(value) {
@@ -168,16 +374,17 @@ function toLibsonnet(value) {
 
 export function buildJsonnetSourceFiles(project) {
   assertValidProject(project);
-  const sourceProject = projectWithoutPerItemFontSize(project);
+  const exportProject = effectiveProjectForExport(project);
+  const sourceProject = projectWithoutPerItemFontSize(exportProject);
   const files = [
-    { path: 'config.yaml', content: buildConfigYaml(project) },
+    { path: 'config.yaml', content: buildConfigYaml(exportProject) },
     { path: 'project.json', content: ensureTrailingNewline(JSON.stringify(sourceProject, null, 2)) },
   ];
 
   for (const [fileName, buildValue] of Object.entries(JSONNET_LIB_BUILDERS)) {
     files.push({
       path: `${JSONNET_LIB_PATH}/${fileName}`,
-      content: toLibsonnet(buildValue(project)),
+      content: toLibsonnet(buildValue(exportProject)),
     });
   }
 
@@ -187,6 +394,7 @@ export function buildJsonnetSourceFiles(project) {
 function collectMappedKeyboardNames(project) {
   const names = new Set();
   const hiddenNames = new Set(Array.isArray(project.hiddenPreviewKeyboards) ? project.hiddenPreviewKeyboards : []);
+  const keyboardCombo = project.keyboardCombo || {};
   for (const group of Object.values(project.config || {})) {
     if (!isPlainObject(group)) continue;
     for (const device of Object.values(group)) {
@@ -198,12 +406,21 @@ function collectMappedKeyboardNames(project) {
       }
     }
   }
+  if (keyboardCombo.slots?.symbolic?.source === 'system') {
+    names.delete('symbolic_system');
+  }
+  if (keyboardCombo.slots?.emoji?.source === 'system') {
+    names.delete('emoji_system');
+    names.delete('emoji_portrait');
+    names.delete('emoji_landscape');
+  }
   return [...names].sort();
 }
 
 function resolveKeyboardKind(name) {
   if (name.startsWith('numeric')) return 'numeric';
   if (name.startsWith('symbolic')) return 'symbolic';
+  if (name.startsWith('emoji')) return 'emoji';
   if (name.startsWith('panel')) return 'panel';
   if (name.startsWith('alphabetic')) return 'alphabetic';
   return 'pinyin';
@@ -217,7 +434,15 @@ function resolveOrientation(name) {
 function keyboardLayoutFor(project, kind, orientation) {
   if (kind === 'numeric') return project.keyboards.numeric?.layout?.[orientation] || {};
   if (kind === 'symbolic') return project.keyboards.symbolic?.layout?.[orientation] || project.keyboards.symbolic?.layout || {};
+  if (kind === 'emoji') return project.keyboards.symbolic?.layout?.[orientation] || project.keyboards.symbolic?.layout || {};
   if (kind === 'panel') return project.keyboards.panel?.layout?.[orientation] || project.keyboards.panel?.layout || {};
+  const variant = project.keyboardCombo?.slots?.pinyin?.variant;
+  const variantLayout = project.keyboards.keyboard26?.variants?.[variant];
+  if (variant && variant !== '26' && variantLayout) {
+    return {
+      rows: structuredClone(variantLayout[orientation === 'landscape' ? 'landscapeRows' : 'portraitRows'] || variantLayout.portraitRows || []),
+    };
+  }
   return project.keyboards.keyboard26.layout?.[orientation] || project.keyboards.keyboard26.layout?.portrait || {};
 }
 
@@ -257,8 +482,10 @@ function buildKeyboardPayload(project, themeName, keyboardName) {
         },
       },
       data: {
-        swipes: swipesFor(project, kind),
-        collections: project.data.collections,
+        swipes: kind === 'emoji' ? emptySwipeData() : swipesFor(project, kind),
+        collections: kind === 'emoji'
+          ? { emojiDataSource: project.data.collections?.emojiDataSource || {} }
+          : project.data.collections,
         hints: cleanPerItemFontSize(project.data.hints || {}),
       },
       assets: project.assets.images,
@@ -268,23 +495,24 @@ function buildKeyboardPayload(project, themeName, keyboardName) {
 
 export function buildYamlSkinFiles(project) {
   assertValidProject(project);
+  const exportProject = effectiveProjectForExport(project);
   const files = [
-    { path: 'config.yaml', content: buildConfigYaml(project) },
+    { path: 'config.yaml', content: buildConfigYaml(exportProject) },
   ];
-  const keyboardNames = collectMappedKeyboardNames(project);
+  const keyboardNames = collectMappedKeyboardNames(exportProject);
 
   for (const themeName of ['light', 'dark']) {
     for (const keyboardName of keyboardNames) {
       files.push({
         path: `${themeName}/${keyboardName}.yaml`,
-        content: ensureTrailingNewline(toYaml(buildKeyboardPayload(project, themeName, keyboardName))),
+        content: ensureTrailingNewline(toYaml(buildKeyboardPayload(exportProject, themeName, keyboardName))),
       });
     }
   }
 
   files.push({
     path: 'resources/asset-manifest.yaml',
-    content: ensureTrailingNewline(toYaml(project.assets.images)),
+    content: ensureTrailingNewline(toYaml(exportProject.assets.images)),
   });
 
   return files;
