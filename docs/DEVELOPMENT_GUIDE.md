@@ -62,6 +62,7 @@
 - 自定义布局、数字键盘、符号键盘和工具栏已统一为可视化 token 编辑方式，点击按键后在当前行下方显示编辑条。
 - 26 键按键编辑支持设置按键类型 `symbols` / `character`，以及显示类型 `text` / `systemImageName`；`systemImageName` 对应前景 SF Symbol 图标，不等同于 `normalImage` 背景图片引用。
 - 工具栏按键编辑已支持 `toolbar.display.<key>` 和 `toolbar.actions.<key>`：可设置显示方式 `text` / `systemImageName`、图标名、动作类型、默认搭配和手动命令输入；选择默认搭配时会自动切换对应功能和值。
+- 已新增“键盘组合”模块，作为 `project.json.keyboardCombo` 的表单入口。当前已接通的组合层能力包括：划动三态、工具栏图标/纯文字模式、英文键盘显隐、数字键盘 iOS / 9 键模板名切换；更深层的键盘来源与系统内置键盘映射仍在继续接入。
 
 ## 当前目录
 
