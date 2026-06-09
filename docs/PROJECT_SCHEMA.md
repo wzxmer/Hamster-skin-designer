@@ -22,6 +22,7 @@
   "data": {},
   "export": {},
   "config": {},
+  "keyboardCombo": {},
   "previewKeyboards": [],
   "hiddenPreviewKeyboards": []
 }
@@ -169,9 +170,19 @@
       "primary": { "text": ",", "center": { "x": 0.5, "y": 0.34 } },
       "secondary": { "text": ".", "center": { "x": 0.5, "y": 0.54 } }
     }
+  },
+  "variants": {
+    "9": {
+      "portraitRows": [["number1", "number2", "number3"], ["number4", "number5", "number6"], ["number7", "number8", "number9"], ["123", "space", "enter"]]
+    },
+    "14": {
+      "portraitRows": [["qw", "er", "ty", "ui", "op"], ["as", "df", "gh", "jk", "l"], ["shift", "zx", "cv", "bn", "m", "backspace"], ["123", "spaceRight", "space", "cnen", "enter"]]
+    }
   }
 }
 ```
+
+其中 `keyboards.keyboard26.variants` 用于保存中文 9 / 14 / 17 / 18 / 26 等不同布局骨架；当前工作台会优先根据 `keyboardCombo.slots.pinyin.variant` 选择对应变体的 `portraitRows` 预览。
 
 ## keyboards.numeric
 
@@ -293,6 +304,65 @@
 ```
 
 工作台的“皮肤配置”模块直接编辑这些映射。预览区也以这些真实键盘文件名作为主要列表来源，选择 `*_portrait` 时显示竖屏预览，选择 `*_landscape` 时显示横屏预览。
+
+## keyboardCombo
+
+`keyboardCombo` 用于描述“用户最终想怎么组合这套键盘”。它先表达组合策略，再由工作台把组合结果映射回已有 `config`、`toolbar`、`data.swipes` 和具体键盘布局。
+
+```json
+{
+  "inputStrategy": "separateAlphabetic",
+  "slots": {
+    "pinyin": { "enabled": true, "source": "custom", "variant": "26" },
+    "alphabetic": { "enabled": true, "source": "custom", "variant": "26" },
+    "numeric": { "enabled": true, "source": "custom", "variant": "9" },
+    "symbolic": { "enabled": true, "source": "custom", "variant": "custom" },
+    "emoji": { "enabled": true, "source": "system", "variant": "system" },
+    "panel": { "enabled": true, "source": "custom", "variant": "panel" }
+  },
+  "toolbar": {
+    "enabled": true,
+    "displayStyle": "icon",
+    "allowCustomCount": true
+  },
+  "swipeBehavior": {
+    "mode": "visible"
+  },
+  "spaceRow": {
+    "showSchemaNameOnSpace": true,
+    "commaKey": { "enabled": true, "swipeUp": "。" },
+    "semicolonKey": { "enabled": false, "swipeUpAction": "#次选上屏" }
+  }
+}
+```
+
+当前约定：
+
+- `inputStrategy`
+  - `separateAlphabetic`：独立英文键盘
+  - `inlineAlphabetic`：中文键盘内切英文
+  - `schemaToggle`：通过方案/开关切换英文输入
+- `slots.<slot>.source`
+  - `custom`：使用工作台自定义键盘
+  - `system`：使用输入法 App 内置键盘
+  - `disabled`：禁用该槽位
+- `slots.<slot>.variant`
+  - 中文键盘可取 `9` / `14` / `17` / `18` / `26`
+  - 英文键盘当前可取 `26`
+  - 数字键盘可取 `9` / `ios`
+  - `symbolic` / `emoji` / `panel` 先用 `system` / `custom` / `panel` 等枚举表达来源
+- `swipeBehavior.mode`
+  - `disabled`：无上下划动功能
+  - `hidden`：有上下划动功能但不显示
+  - `visible`：有上下划动功能并显示在按键上
+- `toolbar.displayStyle`
+  - `icon`：优先使用系统图标
+  - `text`：使用纯文字按键名
+
+当前导出约定：
+
+- `symbolic.source = system` 时，`config.yaml` 保留 `symbolic_system` 映射，但不再生成对应的自定义 symbolic YAML 文件。
+- `emoji.source = system` 时，`config.yaml` 仍可保留系统 Emoji 键盘入口，但不再导出 `emoji_portrait` / `emoji_landscape` 这类自定义 Emoji YAML 文件。
 
 ## previewKeyboards
 
