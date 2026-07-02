@@ -143,7 +143,7 @@
     schemaKey: '中文键盘方案',
     cnenTarget: 'alphabetic',
     symbolLabel: '#+=',
-    spaceLabel: '空格',
+    spaceLabel: '',
     schemaLabel: {
       text: '$rimeSchemaName',
       fontSize: 8,
@@ -174,7 +174,7 @@
     schemaKey: '英文键盘方案',
     cnenTarget: 'pinyin',
     symbolLabel: '#+=',
-    spaceLabel: '空格',
+    spaceLabel: '',
     spaceRight: {
       action: { symbol: '.' },
       labels: [

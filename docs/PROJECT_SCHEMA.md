@@ -23,6 +23,7 @@
   "export": {},
   "config": {},
   "keyboardCombo": {},
+  "nativeKeyboardPayloads": {},
   "previewKeyboards": [],
   "hiddenPreviewKeyboards": []
 }
@@ -116,10 +117,17 @@
 
 ## keyStyles
 
-按键样式配置。这里放通用 insets、圆角、背景素材引用，不放具体键盘布局。
+按键样式配置。这里放通用 insets、立体样式参数，不放具体键盘布局。
 
 ```json
 {
+  "surfaceStyles": {
+    "keyboard26": {
+      "normal": { "cornerRadius": 7, "borderSize": 0.6, "shadowRadius": 2.4, "shadowOpacity": 1, "shadowOffset": { "x": 0, "y": 1.2 } },
+      "functionKey": { "cornerRadius": 7, "borderSize": 0.6, "shadowRadius": 2.4, "shadowOpacity": 1, "shadowOffset": { "x": 0, "y": 1.2 } },
+      "enterAccent": { "cornerRadius": 7, "borderSize": 0.6, "shadowRadius": 2.4, "shadowOpacity": 1, "shadowOffset": { "x": 0, "y": 1.2 } }
+    }
+  },
   "buttonInsets": {
     "keyboard26": {
       "normal": { "top": 5, "left": 3, "bottom": 5, "right": 3 },
@@ -240,7 +248,7 @@
     "phrase": { "type": "systemImageName", "systemImageName": "list.bullet.clipboard" }
   },
   "actions": {
-    "menu": { "floatKeyboardType": "panel" },
+    "menu": { "keyboardType": "panel" },
     "symbol": { "keyboardType": "symbolic" },
     "emoji": { "keyboardType": "emojis" },
     "phrase": { "shortcut": "#showPhraseView" },
@@ -351,6 +359,32 @@
   - 英文键盘当前可取 `26`
   - 数字键盘可取 `9` / `ios`
   - `symbolic` / `emoji` / `panel` 先用 `system` / `custom` / `panel` 等枚举表达来源
+
+## nativeKeyboardPayloads
+
+`nativeKeyboardPayloads` 是可选的高级原生键盘 seed / 兼容输入，用于保存从示例皮肤 YAML 读取到的实际键盘 payload。
+
+```json
+{
+  "light": {
+    "pinyin_26_portrait": {
+      "preeditHeight": 22,
+      "toolbarHeight": 41,
+      "keyboardHeight": 216,
+      "keyboardLayout": []
+    }
+  },
+  "dark": {}
+}
+```
+
+当前约定：
+
+- 示例键盘预设可把对应示例皮肤的真实 YAML payload 写入这里，作为 `packages/skin-effect` 生成效果模型的 seed。
+- 右侧预览不直接读取这里；预览通过 `SkinEffectModel` 获取 resolved native payload。
+- YAML 导出不直接读取这里；导出通过 `buildSkinEffectFileEntries()` 获取文件级效果模型。
+- 左侧模块不应写 raw payload。左侧只写 `project.json` 的受控字段，例如 `theme`、`keyStyles`、`toolbar`、`keyboardCombo`、`keyboards.*.metrics`。
+- `nativeKeyboardPayloads` 只保留示例皮肤原始结构和导入兼容价值，不再作为长期运行真源。
 - `swipeBehavior.mode`
   - `disabled`：无上下划动功能
   - `hidden`：有上下划动功能但不显示
@@ -361,8 +395,13 @@
 
 当前导出约定：
 
-- `symbolic.source = system` 时，`config.yaml` 保留 `symbolic_system` 映射，但不再生成对应的自定义 symbolic YAML 文件。
-- `emoji.source = system` 时，`config.yaml` 仍可保留系统 Emoji 键盘入口，但不再导出 `emoji_portrait` / `emoji_landscape` 这类自定义 Emoji YAML 文件。
+- `symbolic.source = system` 时，直接应用包的 `config.yaml` 不写入 `symbolic` 映射，也不生成 `symbolic_system`；工具栏按钮保留 `keyboardType: symbolic` 指令，由 App 调用内置符号键盘。
+- `emoji.source = system` 时，直接应用包的 `config.yaml` 不写入 `emoji` 映射，也不生成 `emoji_system`；工具栏按钮保留 `keyboardType: emojis` 指令，由 App 调用内置 Emoji 键盘。
+- 默认“导出皮肤”生成完整皮肤目录包，包含 `config.yaml`、`light/`、`dark/`、`jsonnet/` 和 `demo.png`。
+- Jsonnet 不再作为单独导出入口，而是随皮肤包一起导出。
+- `jsonnet/generated/effect-files.libsonnet` 保存 SkinEffectModel 生成的对象数据，供源码审查。
+- `jsonnet/generated/effect-yaml.libsonnet` 保存与直接 YAML 导出字节同源的 YAML 字符串。
+- `jsonnet/main.jsonnet` 读取 `effect-yaml.libsonnet` 输出多文件 YAML；用 `jsonnet -S -m <out> jsonnet/main.jsonnet` 编译时，应与包内 `config.yaml`、`light/`、`dark/` 关键文件一致。
 
 ## previewKeyboards
 

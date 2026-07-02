@@ -99,7 +99,7 @@
       selectedIndex: 1,
       list: [
         { action: { openURL: '#pasteboardContent' }, label: { systemImageName: 'link' }, fontSize: 14 },
-        { action: { runTranslateScript: '谷歌中英互译' }, label: { systemImageName: 'translate' }, fontSize: 14 },
+        { action: { runScript: '谷歌中英互译' }, label: { systemImageName: 'translate' }, fontSize: 14 },
         { action: { runScript: 'DeepSeek' }, label: { systemImageName: 'message.fill' }, fontSize: 14 },
         { action: { runScript: 'Unicode' }, label: { text: 'U编' }, fontSize: 14 },
       ],

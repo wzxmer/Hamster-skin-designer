@@ -6,20 +6,20 @@
 
 ```text
 project.json
-  -> 网页编辑器
+  -> SkinEffectModel
   -> 实时预览
-  -> YAML 皮肤包
-  -> Jsonnet 源码包
+  -> Jsonnet source
+  -> 完整皮肤包（YAML + Jsonnet + demo）
   -> 浏览器本地模板缓存
 ```
 
 ## 核心原则
 
 - `project.json` 是工作台唯一内部数据模型。
-- YAML 是默认导出结果，用于实际安装。
-- Jsonnet 是模板工程源码，用于高级修改和模板复用。
+- `SkinEffectModel` 是预览和导出的 resolved effect 层，负责消化 preset seed、组合层、主题 token、metrics 和动作归一化。
+- 默认导出完整皮肤包，用于实际安装，也包含 Jsonnet 模板工程源码供高级修改和复用。
 - 用户只编辑工作台暴露的受控参数，不直接面对完整 YAML 或完整 Jsonnet。
-- 旧 `apps/web` 不继续修补，保留为参考，新工作台另起干净实现。
+- 旧 `apps/web` 运行代码已移除，仅保留 `apps/web/data/templates/` 作为导出资源数据来源。
 
 ## 产品形态
 
@@ -30,8 +30,7 @@ project.json
 - 读取默认模板项目。
 - 编辑颜色、字号、偏移、键盘高度、按键 insets、按键文案、素材引用。
 - 按 Hamster3 CALayer 风格预览 26 键、数字键盘、候选栏、展开候选、toolbar、横屏键盘和划动标记。
-- 导出 YAML 皮肤 zip。
-- 导出 Jsonnet 源码 zip。
+- 导出包含 `config.yaml`、`light/`、`dark/`、`jsonnet/`、`demo.png` 的完整皮肤 zip。
 - 浏览器本地保存模板。
 
 后续能力：
@@ -76,12 +75,15 @@ packages/preview-engine/
   -> project.json
   -> 编辑器变更
   -> 内存状态
+  -> SkinEffectModel
   -> 预览模型
   -> 本地缓存
   -> 导出器
 ```
 
-导出器不读取 DOM，不依赖 UI 状态，只接收 `project.json` 和素材文件。
+导出器不读取 DOM，不依赖 UI 状态，只接收 `project.json` 和素材文件。导出器通过 `packages/skin-effect` 生成文件级效果模型，再输出 `config.yaml`、`light/`、`dark/`、`jsonnet/generated/effect-files.libsonnet` 和 `jsonnet/generated/effect-yaml.libsonnet`。
+
+`nativeKeyboardPayloads` 只作为示例皮肤 preset seed 和导入兼容输入存在。预览不直接读 raw payload，导出也不直接读 raw payload；两边都走 `SkinEffectModel`。
 
 ## 本地保存
 

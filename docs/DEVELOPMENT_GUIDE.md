@@ -12,9 +12,9 @@
 旧示例皮肤数据
   -> project.json
   -> 网页编辑器
+  -> SkinEffectModel
   -> 实时预览
-  -> YAML 皮肤包
-  -> Jsonnet 源码包
+  -> 完整皮肤包（YAML + Jsonnet + demo）
   -> 浏览器本地模板缓存
 ```
 
@@ -22,9 +22,9 @@
 
 - `project.json` 是工作台唯一内部数据模型。
 - UI 只修改 `project.json`，不直接修改 YAML 或 Jsonnet 文件。
+- 预览和导出都必须先经过 `packages/skin-effect` 的 `SkinEffectModel` / 文件级效果模型。
 - 导出器必须是纯函数：输入 `project.json + assets`，输出文件树或 zip。
-- YAML 是默认安装产物。
-- Jsonnet 是高级模板源码产物。
+- 默认导出完整皮肤包，YAML 是安装产物，Jsonnet 是同包内的高级模板源码产物。
 - 默认模板以 `packages/project-schema/defaults/project.sample.json` 为准，公开仓库不依赖旧参考资料目录。
 - GitHub Pages 是首要运行环境；核心编辑、预览、导入导出不依赖本地服务或服务端 API。
 - 访问统计等可选外部服务必须可降级，不能影响核心工作台功能。
@@ -34,9 +34,9 @@
 
 旧前端状态：
 
-- `apps/web/app.js` 已有语法错误，不建议继续修补。
+- 旧 `apps/web` 运行代码已移除。
 - 旧编辑模型围绕 Jsonnet/lib 直接编辑，和新版 `project.json` 路线不一致。
-- 旧代码只作为预览、导出、模板读取和 zip 打包的参考来源。
+- 当前只保留 `apps/web/data/templates/`，作为导出复用的历史模板资源数据。
 
 默认模板状态：
 
@@ -52,6 +52,9 @@
 新版工作台状态：
 
 - `apps/workbench` 是当前主入口，根 `index.html` 会跳转到该目录。
+- `packages/skin-effect` 是当前预览与导出的共享效果层，导出文件和右侧预览都从这里取 resolved native payload。
+- `nativeKeyboardPayloads` 只作为示例皮肤 preset seed 和导入兼容输入，不作为左侧编辑模块直接写入的真源。
+- `jsonnet/main.jsonnet` 读取 `jsonnet/generated/effect-yaml.libsonnet` 输出多文件 YAML；`jsonnet/generated/effect-files.libsonnet` 保留对象数据供源码审查。
 - 页面标题使用“元书输入法皮肤工作台”。
 - “皮肤配置”模块的默认值来自示例模板，名称、作者、下载位置为空时以灰色提示显示，并可编辑 `config.yaml` 中各设备键盘文件映射。
 - 下载位置默认提示使用浏览器或系统默认下载目录，不在公开文档记录个人电脑路径。
@@ -87,6 +90,9 @@ packages/exporter/
   jsonnet/
   zip/
 
+packages/skin-effect/
+  index.js
+
 packages/preview-engine/
   index.js
 ```
@@ -94,7 +100,7 @@ packages/preview-engine/
 现有旧目录暂不删除：
 
 - `apps/workbench/`：新版纯前端工作台，当前根入口会跳转到这里。
-- `apps/web/`：旧网页实现，只读参考。
+- `apps/web/data/templates/`：导出复用的历史模板资源数据。
 - `apps/builder/`：旧本地构建服务，只读参考。
 - `packages/shared-schema/`、`packages/template-adapters/`、`packages/preview-engine/`：按需迁移或重建。
 - `templates/hamster-ios/`：旧模板副本，仅作参考。
@@ -118,7 +124,7 @@ packages/preview-engine/
 
 ### 2. 建立 project schema 包
 
-目的：让工作台、预览和导出共用同一个数据模型。
+目的：让工作台、预览和导出共用同一个数据模型和同一个 resolved effect 层。
 
 建议先建：
 
@@ -127,6 +133,9 @@ packages/project-schema/
   index.js
   defaults/project.sample.json
   validators/project-validator.js
+
+packages/skin-effect/
+  index.js
 ```
 
 首版字段：
@@ -148,6 +157,7 @@ packages/project-schema/
 - `project.sample.json` 能覆盖示例皮肤当前已确认的可调参数。
 - light / dark 差异可以独立表达。
 - schema 字段能映射到 YAML 和 Jsonnet 两个导出目标。
+- 预览与导出都能从 `SkinEffectModel` 读到同一份 native payload。
 
 ### 3. 实现无 UI 导出核心
 
@@ -181,9 +191,9 @@ export async function buildSkinZip(project, assets, options) {}
 验收：
 
 - 固定 `project.sample.json` 能生成完整 YAML 文件树。
-- 能生成 Jsonnet 源码文件树。
+- 能生成 Jsonnet 源码文件树，包含对象数据 `effect-files.libsonnet` 和同源 YAML 字符串 `effect-yaml.libsonnet`。
 - zip 内包含配置文件、light/dark 文件和资源文件。
-- Jsonnet 源码包可以被 jsonnet 编译。
+- Jsonnet 源码包可以用 `jsonnet -S -m` 编译，关键 YAML 输出应与直接导出一致。
 
 ### 4. 建立预览引擎
 
@@ -223,7 +233,7 @@ export function buildPreviewModel(project, viewport) {}
 
 目的：做一个干净的可运行 MVP。
 
-建议新建 `apps/workbench`，不沿用旧 `apps/web/app.js`。
+新版已落在 `apps/workbench`，不再沿用旧 `apps/web/app.js`。
 
 首版页面结构：
 
@@ -255,8 +265,7 @@ export function buildPreviewModel(project, viewport) {}
 - GitHub Pages 静态部署可用。
 - 无服务端依赖。
 - 可编辑参数并实时预览。
-- 可导出 YAML zip。
-- 可导出 Jsonnet 源码 zip。
+- 可导出完整皮肤 zip，包含 YAML、Jsonnet、config 和 demo 预览图。
 - 可手动保存模板并在刷新后恢复。
 
 ## 命令约定

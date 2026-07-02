@@ -1,237 +1,20 @@
 import { assertValidProject } from '../project-schema/validators/project-validator.js';
+import {
+  buildEffectiveNativeKeyboardPayload,
+  buildEffectiveProject,
+  buildSkinEffectFileEntries,
+  cleanPerItemFontSize,
+  swipesFor,
+} from '../skin-effect/index.js';
+import TEMPLATE_PACKAGE_ASSETS from '../../apps/web/data/templates/hamster-ios/package-assets.json' with { type: 'json' };
+
+export { buildEffectiveNativeKeyboardPayload } from '../skin-effect/index.js';
 
 const TEXT_ENCODER = new TextEncoder();
 const YAML_FILE_NAMES = new Set(['config.yaml']);
 const DEFAULT_SKIN_NAME = '皮肤1';
-const DEFAULT_SKIN_AUTHOR = 'https://wzxmer.github.io/Hamster-skin-designer/';
 const JSONNET_LIB_PATH = 'jsonnet/lib';
-
-function emptySwipeData() {
-  return { swipe_up: {}, swipe_down: {} };
-}
-
-function cloneSwipeLabelsHidden(value) {
-  if (Array.isArray(value)) return value.map((item) => cloneSwipeLabelsHidden(item));
-  if (!isPlainObject(value)) return value;
-  const next = {};
-  for (const [key, item] of Object.entries(value)) {
-    if (key === 'label' && isPlainObject(item)) {
-      next[key] = { text: '' };
-      continue;
-    }
-    next[key] = cloneSwipeLabelsHidden(item);
-  }
-  return next;
-}
-
-function effectiveConfigForExport(config = {}, keyboardCombo = {}) {
-  const next = structuredClone(config || {});
-  const slots = keyboardCombo.slots || {};
-  const inputStrategy = keyboardCombo.inputStrategy || 'separateAlphabetic';
-  next.pinyin = next.pinyin || {};
-  next.alphabetic = next.alphabetic || {};
-  next.numeric = next.numeric || {};
-  next.symbolic = next.symbolic || {};
-  next.emoji = next.emoji || {};
-  next.panel = next.panel || {};
-
-  if (['9', '14', '17', '18'].includes(slots.pinyin?.variant)) {
-    for (const device of ['iPhone', 'iPad']) {
-      next.pinyin[device] = next.pinyin[device] || {};
-      next.pinyin[device].portrait = `pinyin_${slots.pinyin.variant}_portrait`;
-      next.pinyin[device].landscape = `pinyin_${slots.pinyin.variant}_landscape`;
-      if (device === 'iPad') next.pinyin[device].floating = `pinyin_${slots.pinyin.variant}_portrait`;
-    }
-  }
-
-  if (inputStrategy !== 'separateAlphabetic' || slots.alphabetic?.source === 'disabled') {
-    next.alphabetic = {};
-  }
-
-  if (slots.numeric?.variant === 'ios') {
-    for (const device of ['iPhone', 'iPad']) {
-      next.numeric[device] = next.numeric[device] || {};
-      next.numeric[device].portrait = 'numeric_ios_portrait';
-      next.numeric[device].landscape = 'numeric_ios_landscape';
-      if (device === 'iPad') next.numeric[device].floating = 'numeric_ios_portrait';
-    }
-  }
-
-  if (slots.symbolic?.source === 'system') {
-    for (const device of ['iPhone', 'iPad']) {
-      next.symbolic[device] = next.symbolic[device] || {};
-      next.symbolic[device].portrait = 'symbolic_system';
-      next.symbolic[device].landscape = 'symbolic_system';
-      if (device === 'iPad') next.symbolic[device].floating = 'symbolic_system';
-    }
-  }
-  if (slots.symbolic?.source === 'custom') {
-    for (const device of ['iPhone', 'iPad']) {
-      next.symbolic[device] = next.symbolic[device] || {};
-      next.symbolic[device].portrait = 'symbolic_portrait';
-      next.symbolic[device].landscape = 'symbolic_landscape';
-      if (device === 'iPad') next.symbolic[device].floating = 'symbolic_portrait';
-    }
-  }
-  if (slots.symbolic?.source === 'disabled' || slots.symbolic?.enabled === false) {
-    next.symbolic = {};
-  }
-
-  if (slots.emoji?.source === 'system') {
-    for (const device of ['iPhone', 'iPad']) {
-      next.emoji[device] = next.emoji[device] || {};
-      next.emoji[device].portrait = 'emoji_system';
-      next.emoji[device].landscape = 'emoji_system';
-      if (device === 'iPad') next.emoji[device].floating = 'emoji_system';
-    }
-  }
-  if (slots.emoji?.source === 'custom') {
-    for (const device of ['iPhone', 'iPad']) {
-      next.emoji[device] = next.emoji[device] || {};
-      next.emoji[device].portrait = 'emoji_portrait';
-      next.emoji[device].landscape = 'emoji_landscape';
-      if (device === 'iPad') next.emoji[device].floating = 'emoji_portrait';
-    }
-  }
-  if (slots.emoji?.source === 'disabled' || slots.emoji?.enabled === false) {
-    next.emoji = {};
-  }
-
-  if (slots.panel?.source === 'disabled' || slots.panel?.enabled === false) {
-    next.panel = {};
-  }
-
-  return next;
-}
-
-const ACTION_AUX_KEYS = new Set(['actionType', 'actionValue', 'actionKeyboardSelection', 'presetValue']);
-
-function normalizeActionObject(value) {
-  if (typeof value === 'string') return value ? { shortcut: value } : {};
-  if (!isPlainObject(value)) return {};
-  if (isPlainObject(value.action) || typeof value.action === 'string') {
-    return normalizeActionObject(value.action);
-  }
-  const realEntry = Object.entries(value).find(([key]) => !ACTION_AUX_KEYS.has(key));
-  if (realEntry) {
-    const [type, actionValue] = realEntry;
-    return actionValue === undefined || actionValue === null || actionValue === ''
-      ? {}
-      : { [type]: actionValue };
-  }
-  const type = typeof value.actionType === 'string' && value.actionType ? value.actionType : 'character';
-  const actionValue = value.actionValue === undefined || value.actionValue === null ? '' : String(value.actionValue).trim();
-  return actionValue ? { [type]: actionValue } : {};
-}
-
-function normalizeEmbeddedActionNodes(value) {
-  if (Array.isArray(value)) return value.map((item) => normalizeEmbeddedActionNodes(item));
-  if (!isPlainObject(value)) return value;
-  const next = {};
-  for (const [key, item] of Object.entries(value)) {
-    if (ACTION_AUX_KEYS.has(key)) continue;
-    if (key === 'action') {
-      const normalizedAction = normalizeActionObject(item);
-      if (Object.keys(normalizedAction).length) next.action = normalizedAction;
-      continue;
-    }
-    next[key] = normalizeEmbeddedActionNodes(item);
-  }
-  return next;
-}
-
-function normalizeToolbarActions(actions = {}) {
-  if (!isPlainObject(actions)) return {};
-  const next = {};
-  for (const [key, value] of Object.entries(actions)) {
-    next[key] = normalizeActionObject(value);
-  }
-  return next;
-}
-
-function effectiveToolbarForExport(toolbar = {}, keyboardCombo = {}) {
-  const next = structuredClone(toolbar || {});
-  const layout = Array.isArray(next.layout) ? next.layout : [];
-  next.layout = (keyboardCombo.toolbar?.enabled === false ? [] : layout).filter((button) => {
-    if (button === 'menu') return keyboardCombo.slots?.panel?.source !== 'disabled' && keyboardCombo.slots?.panel?.enabled !== false;
-    if (button === 'symbol') return keyboardCombo.slots?.symbolic?.source !== 'disabled' && keyboardCombo.slots?.symbolic?.enabled !== false;
-    if (button === 'emoji') return keyboardCombo.slots?.emoji?.source !== 'disabled' && keyboardCombo.slots?.emoji?.enabled !== false;
-    return true;
-  });
-  if (keyboardCombo.toolbar?.displayStyle === 'text') {
-    next.display = next.display || {};
-    for (const key of Object.keys(next.display)) {
-      next.display[key] = { ...(next.display[key] || {}), type: 'text' };
-    }
-  }
-  next.actions = normalizeToolbarActions(next.actions);
-  return next;
-}
-
-function effectiveProjectForExport(project) {
-  const next = structuredClone(project);
-  next.keyboardCombo = next.keyboardCombo || {};
-  next.config = effectiveConfigForExport(next.config, next.keyboardCombo);
-  next.toolbar = effectiveToolbarForExport(next.toolbar, next.keyboardCombo);
-  next.keyboards = normalizeEmbeddedActionNodes(next.keyboards || {});
-  next.data = normalizeEmbeddedActionNodes(next.data || {});
-  next.keyboards.keyboard26 = next.keyboards.keyboard26 || {};
-  next.keyboards.keyboard26.pinyinSchemaName = next.keyboards.keyboard26.pinyinSchemaName || {};
-  next.keyboards.keyboard26.spaceRight = next.keyboards.keyboard26.spaceRight || {};
-  next.keyboards.keyboard26.spaceRight.pinyin = next.keyboards.keyboard26.spaceRight.pinyin || {};
-  next.keyboards.keyboard26.spaceRight.pinyin.secondary = next.keyboards.keyboard26.spaceRight.pinyin.secondary || {};
-  if (next.keyboardCombo?.spaceRow?.showSchemaNameOnSpace === false) {
-    next.keyboards.keyboard26.pinyinSchemaName.text = '';
-  }
-  if (typeof next.keyboardCombo?.spaceRow?.commaKey?.swipeUp === 'string') {
-    next.keyboards.keyboard26.spaceRight.pinyin.secondary.text = next.keyboardCombo.spaceRow.commaKey.swipeUp;
-    next.data = next.data || {};
-    next.data.swipes = next.data.swipes || {};
-    next.data.swipes.pinyin = next.data.swipes.pinyin || {};
-    next.data.swipes.pinyin.swipe_up = next.data.swipes.pinyin.swipe_up || {};
-    next.data.swipes.pinyin.swipe_up.spaceRight = next.data.swipes.pinyin.swipe_up.spaceRight || {};
-    next.data.swipes.pinyin.swipe_up.spaceRight.action = { character: next.keyboardCombo.spaceRow.commaKey.swipeUp };
-    next.data.swipes.pinyin.swipe_up.spaceRight.label = { text: '' };
-  }
-  if (next.keyboardCombo?.spaceRow?.semicolonKey?.enabled === true) {
-    next.data = next.data || {};
-    next.data.swipes = next.data.swipes || {};
-    next.data.swipes.pinyin = next.data.swipes.pinyin || {};
-    next.data.swipes.pinyin.swipe_up = next.data.swipes.pinyin.swipe_up || {};
-    next.data.swipes.pinyin.swipe_up.semicolon = next.data.swipes.pinyin.swipe_up.semicolon || {};
-    next.data.swipes.pinyin.swipe_up.semicolon.action = { shortcut: next.keyboardCombo.spaceRow.semicolonKey.swipeUpAction || '#次选上屏' };
-    next.data.swipes.pinyin.swipe_up.semicolon.label = { text: '' };
-  }
-  if (next.keyboardCombo?.swipeBehavior?.mode === 'hidden') {
-    next.data = next.data || {};
-    next.data.swipes = cloneSwipeLabelsHidden(next.data.swipes || {});
-  }
-  return next;
-}
-
-function swipesFor(project, kind) {
-  if (project.data?.swipesEnabled === false || project.keyboardCombo?.swipeBehavior?.mode === 'disabled') {
-    return emptySwipeData();
-  }
-  const source = {
-    pinyin: project.data?.swipes?.pinyin,
-    alphabetic: project.data?.swipes?.alphabetic,
-    numeric: project.data?.swipes?.numeric,
-  }[kind];
-  return cleanPerItemFontSize(source || emptySwipeData());
-}
-
-function cleanPerItemFontSize(value) {
-  if (Array.isArray(value)) {
-    return value.map((item) => cleanPerItemFontSize(item));
-  }
-  if (!isPlainObject(value)) return value;
-  const next = {};
-  for (const [key, item] of Object.entries(value)) {
-    if (key !== 'fontSize') next[key] = cleanPerItemFontSize(item);
-  }
-  return next;
-}
+const EFFECT_FILE_PATH_FILTER = (file) => file.path === 'config.yaml' || file.path.startsWith('light/') || file.path.startsWith('dark/');
 
 function projectWithoutPerItemFontSize(project) {
   const next = structuredClone(project);
@@ -287,6 +70,22 @@ function ensureTrailingNewline(text) {
   return text.endsWith('\n') ? text : `${text}\n`;
 }
 
+function decodeBase64ToBytes(input) {
+  const value = String(input || '');
+  if (typeof Buffer !== 'undefined') {
+    return new Uint8Array(Buffer.from(value, 'base64'));
+  }
+  if (typeof atob === 'function') {
+    const binary = atob(value);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return bytes;
+  }
+  throw new Error('当前环境不支持 base64 资源解码。');
+}
+
 function quoteYamlString(value) {
   return JSON.stringify(String(value));
 }
@@ -337,48 +136,56 @@ export function normalizeFileName(value, fallback = 'hamster-skin') {
   return cleaned || fallback;
 }
 
-function buildConfigPayload(project) {
-  const hiddenNames = new Set(Array.isArray(project.hiddenPreviewKeyboards) ? project.hiddenPreviewKeyboards : []);
-  const config = JSON.parse(JSON.stringify(project.config || {}));
-  for (const group of Object.values(config)) {
-    if (!isPlainObject(group)) continue;
-    for (const device of Object.values(group)) {
-      if (!isPlainObject(device)) continue;
-      for (const [orientation, keyboardName] of Object.entries(device)) {
-        if (hiddenNames.has(keyboardName)) delete device[orientation];
-      }
-    }
-  }
-  for (const [groupName, group] of Object.entries(config)) {
-    if (!isPlainObject(group)) continue;
-    for (const [deviceName, device] of Object.entries(group)) {
-      if (isPlainObject(device) && !Object.keys(device).length) delete group[deviceName];
-    }
-    if (!Object.keys(group).length) delete config[groupName];
-  }
-  return {
-    ...config,
-    author: project.meta.author || config.author || DEFAULT_SKIN_AUTHOR,
-    name: project.meta.name || config.name || DEFAULT_SKIN_NAME,
-  };
-}
-
 export function buildConfigYaml(project) {
   assertValidProject(project);
-  return ensureTrailingNewline(toYaml(buildConfigPayload(project)));
+  const exportProject = buildEffectiveProject(project);
+  const configEntry = buildSkinEffectFileEntries(exportProject).find((entry) => entry.path === 'config.yaml');
+  return ensureTrailingNewline(toYaml(configEntry?.value || {}));
 }
 
 function toLibsonnet(value) {
   return ensureTrailingNewline(JSON.stringify(value ?? {}, null, 2));
 }
 
+function buildJsonnetMainFile() {
+  return ensureTrailingNewline([
+    "local files = import 'generated/effect-yaml.libsonnet';",
+    '',
+    '{',
+    '  [path]: files[path]',
+    '  for path in std.sort(std.objectFields(files))',
+    '}',
+  ].join('\n'));
+}
+
+function buildJsonnetEffectEntries(project) {
+  return buildSkinEffectFileEntries(project).filter(EFFECT_FILE_PATH_FILTER);
+}
+
+function buildJsonnetEffectFiles(entries) {
+  const files = {};
+  for (const entry of entries) files[entry.path] = entry.value;
+  return files;
+}
+
+function buildJsonnetEffectYamlFiles(entries) {
+  const files = {};
+  for (const entry of entries) files[entry.path] = ensureTrailingNewline(toYaml(entry.value));
+  return files;
+}
+
 export function buildJsonnetSourceFiles(project) {
   assertValidProject(project);
-  const exportProject = effectiveProjectForExport(project);
+  const exportProject = buildEffectiveProject(project);
   const sourceProject = projectWithoutPerItemFontSize(exportProject);
+  const effectEntries = buildJsonnetEffectEntries(exportProject);
+  const configEntry = effectEntries.find((entry) => entry.path === 'config.yaml');
   const files = [
-    { path: 'config.yaml', content: buildConfigYaml(exportProject) },
+    { path: 'config.yaml', content: ensureTrailingNewline(toYaml(configEntry?.value || {})) },
     { path: 'project.json', content: ensureTrailingNewline(JSON.stringify(sourceProject, null, 2)) },
+    { path: 'jsonnet/main.jsonnet', content: buildJsonnetMainFile() },
+    { path: 'jsonnet/generated/effect-files.libsonnet', content: toLibsonnet(buildJsonnetEffectFiles(effectEntries)) },
+    { path: 'jsonnet/generated/effect-yaml.libsonnet', content: toLibsonnet(buildJsonnetEffectYamlFiles(effectEntries)) },
   ];
 
   for (const [fileName, buildValue] of Object.entries(JSONNET_LIB_BUILDERS)) {
@@ -391,131 +198,13 @@ export function buildJsonnetSourceFiles(project) {
   return files;
 }
 
-function collectMappedKeyboardNames(project) {
-  const names = new Set();
-  const hiddenNames = new Set(Array.isArray(project.hiddenPreviewKeyboards) ? project.hiddenPreviewKeyboards : []);
-  const keyboardCombo = project.keyboardCombo || {};
-  for (const group of Object.values(project.config || {})) {
-    if (!isPlainObject(group)) continue;
-    for (const device of Object.values(group)) {
-      if (!isPlainObject(device)) continue;
-      for (const keyboardName of Object.values(device)) {
-        if (typeof keyboardName === 'string' && keyboardName && !hiddenNames.has(keyboardName)) {
-          names.add(keyboardName);
-        }
-      }
-    }
-  }
-  if (keyboardCombo.slots?.symbolic?.source === 'system') {
-    names.delete('symbolic_system');
-  }
-  if (keyboardCombo.slots?.emoji?.source === 'system') {
-    names.delete('emoji_system');
-    names.delete('emoji_portrait');
-    names.delete('emoji_landscape');
-  }
-  return [...names].sort();
-}
-
-function resolveKeyboardKind(name) {
-  if (name.startsWith('numeric')) return 'numeric';
-  if (name.startsWith('symbolic')) return 'symbolic';
-  if (name.startsWith('emoji')) return 'emoji';
-  if (name.startsWith('panel')) return 'panel';
-  if (name.startsWith('alphabetic')) return 'alphabetic';
-  return 'pinyin';
-}
-
-function resolveOrientation(name) {
-  if (name.includes('landscape')) return 'landscape';
-  return 'portrait';
-}
-
-function keyboardLayoutFor(project, kind, orientation) {
-  if (kind === 'numeric') return project.keyboards.numeric?.layout?.[orientation] || {};
-  if (kind === 'symbolic') return project.keyboards.symbolic?.layout?.[orientation] || project.keyboards.symbolic?.layout || {};
-  if (kind === 'emoji') return project.keyboards.symbolic?.layout?.[orientation] || project.keyboards.symbolic?.layout || {};
-  if (kind === 'panel') return project.keyboards.panel?.layout?.[orientation] || project.keyboards.panel?.layout || {};
-  const variant = project.keyboardCombo?.slots?.pinyin?.variant;
-  const variantLayout = project.keyboards.keyboard26?.variants?.[variant];
-  if (variant && variant !== '26' && variantLayout) {
-    return {
-      rows: structuredClone(variantLayout[orientation === 'landscape' ? 'landscapeRows' : 'portraitRows'] || variantLayout.portraitRows || []),
-    };
-  }
-  return project.keyboards.keyboard26.layout?.[orientation] || project.keyboards.keyboard26.layout?.portrait || {};
-}
-
-function buildKeyboardPayload(project, themeName, keyboardName) {
-  const kind = resolveKeyboardKind(keyboardName);
-  const orientation = resolveOrientation(keyboardName);
-  const theme = project.theme[themeName];
-  return {
-    name: keyboardName,
-    meta: {
-      project: project.meta.name,
-      author: project.meta.author,
-      templateId: project.templateId,
-      schemaVersion: project.schemaVersion,
-    },
-    theme: themeName,
-    keyboard: {
-      kind,
-      orientation,
-      frame: project.keyboardFrame[orientation] || project.keyboardFrame.portrait,
-      layout: keyboardLayoutFor(project, kind, orientation),
-      toolbar: project.toolbar,
-      styles: {
-        colors: theme.colors,
-        fontSize: {
-          ...project.theme.shared.fontSize,
-          ...theme.fontSize,
-        },
-        center: {
-          ...project.theme.shared.center,
-          ...theme.center,
-        },
-        buttonInsets: project.keyStyles.buttonInsets,
-        animation: {
-          ...project.theme.shared.animation,
-          ...theme.animation,
-        },
-      },
-      data: {
-        swipes: kind === 'emoji' ? emptySwipeData() : swipesFor(project, kind),
-        collections: kind === 'emoji'
-          ? { emojiDataSource: project.data.collections?.emojiDataSource || {} }
-          : project.data.collections,
-        hints: cleanPerItemFontSize(project.data.hints || {}),
-      },
-      assets: project.assets.images,
-    },
-  };
-}
-
 export function buildYamlSkinFiles(project) {
   assertValidProject(project);
-  const exportProject = effectiveProjectForExport(project);
-  const files = [
-    { path: 'config.yaml', content: buildConfigYaml(exportProject) },
-  ];
-  const keyboardNames = collectMappedKeyboardNames(exportProject);
-
-  for (const themeName of ['light', 'dark']) {
-    for (const keyboardName of keyboardNames) {
-      files.push({
-        path: `${themeName}/${keyboardName}.yaml`,
-        content: ensureTrailingNewline(toYaml(buildKeyboardPayload(exportProject, themeName, keyboardName))),
-      });
-    }
-  }
-
-  files.push({
-    path: 'resources/asset-manifest.yaml',
-    content: ensureTrailingNewline(toYaml(exportProject.assets.images)),
-  });
-
-  return files;
+  const exportProject = buildEffectiveProject(project);
+  return buildSkinEffectFileEntries(exportProject).map((entry) => ({
+    path: entry.path,
+    content: ensureTrailingNewline(toYaml(entry.value)),
+  }));
 }
 
 function buildExportReadme(project) {
@@ -534,12 +223,54 @@ function buildExportReadme(project) {
   ].join('\n');
 }
 
-export function buildSkinPackageFiles(project) {
+function buildTemplateResourceFiles(options = {}) {
+  const files = [];
+  for (const [relativePath, content] of Object.entries(TEMPLATE_PACKAGE_ASSETS?.textFiles || {})) {
+    if (!relativePath.startsWith('light/resources/') && !relativePath.startsWith('dark/resources/')) continue;
+    files.push({
+      path: relativePath,
+      content: ensureTrailingNewline(String(content || '')),
+    });
+  }
+  for (const [relativePath, content] of Object.entries(TEMPLATE_PACKAGE_ASSETS?.binaryFiles || {})) {
+    if (!relativePath.startsWith('light/resources/') && !relativePath.startsWith('dark/resources/')) continue;
+    files.push({
+      path: relativePath,
+      content: decodeBase64ToBytes(content),
+    });
+  }
+  if (options.demoPng instanceof Uint8Array) {
+    files.push({
+      path: 'demo.png',
+      content: options.demoPng,
+    });
+    return files;
+  }
+  if (typeof TEMPLATE_PACKAGE_ASSETS?.binaryFiles?.['demo.png'] === 'string') {
+    files.push({
+      path: 'demo.png',
+      content: decodeBase64ToBytes(TEMPLATE_PACKAGE_ASSETS.binaryFiles['demo.png']),
+    });
+  }
+  return files;
+}
+
+export function buildSkinPackageFiles(project, options = {}) {
   assertValidProject(project);
+  const packageRoot = normalizeFileName(project?.meta?.name, 'hamster-skin');
   const files = new Map();
-  for (const file of buildYamlSkinFiles(project)) files.set(file.path, file);
-  for (const file of buildJsonnetSourceFiles(project)) files.set(file.path, file);
-  files.set('README.md', { path: 'README.md', content: buildExportReadme(project) });
+  const yamlFiles = buildYamlSkinFiles(project);
+  for (const file of yamlFiles) {
+    if (file.path === 'resources/asset-manifest.yaml') continue;
+    files.set(`${packageRoot}/${file.path}`, { ...file, path: `${packageRoot}/${file.path}` });
+  }
+  for (const file of buildJsonnetSourceFiles(project)) {
+    files.set(`${packageRoot}/${file.path}`, { ...file, path: `${packageRoot}/${file.path}` });
+  }
+  for (const file of buildTemplateResourceFiles(options)) {
+    files.set(`${packageRoot}/${file.path}`, { ...file, path: `${packageRoot}/${file.path}` });
+  }
+  files.set(`${packageRoot}/README.md`, { path: `${packageRoot}/README.md`, content: buildExportReadme(project) });
   return [...files.values()].sort((left, right) => left.path.localeCompare(right.path));
 }
 
@@ -655,6 +386,66 @@ export function createZipArchive(files) {
   writeUint32(endRecord, 16, offset);
 
   return concatBytes([...localParts, centralDirectory, endRecord]);
+}
+
+export async function extractZipArchive(input) {
+  const bytes = input instanceof Uint8Array
+    ? input
+    : input instanceof ArrayBuffer
+      ? new Uint8Array(input)
+      : normalizeZipContent(input);
+  const files = [];
+  let offset = 0;
+  const decoder = new TextDecoder();
+  while (offset + 30 <= bytes.length) {
+    const signature = readUint32(bytes, offset);
+    if (signature === 0x02014b50 || signature === 0x06054b50) break;
+    if (signature !== 0x04034b50) break;
+    const flags = readUint16(bytes, offset + 6);
+    const method = readUint16(bytes, offset + 8);
+    const compressedSize = readUint32(bytes, offset + 18);
+    const uncompressedSize = readUint32(bytes, offset + 22);
+    const fileNameLength = readUint16(bytes, offset + 26);
+    const extraLength = readUint16(bytes, offset + 28);
+    const nameStart = offset + 30;
+    const dataStart = nameStart + fileNameLength + extraLength;
+    const dataEnd = dataStart + compressedSize;
+    if (dataEnd > bytes.length) throw new Error('zip 文件结构不完整。');
+    const path = decoder.decode(bytes.slice(nameStart, nameStart + fileNameLength)).replaceAll('\\', '/');
+    if ((flags & 0x08) !== 0) throw new Error('暂不支持带 data descriptor 的 zip 文件。');
+    if (![0, 8].includes(method)) throw new Error(`暂不支持压缩方式 ${method}。`);
+    if (!path.endsWith('/')) {
+      const compressed = bytes.slice(dataStart, dataEnd);
+      const content = method === 8 ? await inflateRawZipEntry(compressed) : compressed;
+      if (uncompressedSize !== content.length) throw new Error(`zip 条目大小异常：${path}`);
+      files.push({ path, content });
+    }
+    offset = dataEnd;
+  }
+  return files;
+}
+
+async function inflateRawZipEntry(content) {
+  if (typeof DecompressionStream === 'function') {
+    const stream = new Blob([content]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  if (typeof process !== 'undefined' && process.versions?.node) {
+    const { inflateRawSync } = await import('node:zlib');
+    return new Uint8Array(inflateRawSync(content));
+  }
+  throw new Error('当前环境不支持解压 deflate zip 条目。');
+}
+
+function readUint16(source, offset) {
+  return source[offset] | (source[offset + 1] << 8);
+}
+
+function readUint32(source, offset) {
+  return (source[offset]
+    | (source[offset + 1] << 8)
+    | (source[offset + 2] << 16)
+    | (source[offset + 3] << 24)) >>> 0;
 }
 
 export function createZipBlob(files) {

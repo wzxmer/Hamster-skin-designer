@@ -11,10 +11,50 @@
     <div class="app-shell">
       <header class="topbar">
         <div class="topbar-brand">
-          <h1>元书皮肤工具 暂未完成，无法使用，请等候更新</h1>
-          <a class="brand-text-link" href="https://ihsiao.com/apps/hamster/v3/docs/guides/skins/intro/" target="_blank" rel="noopener noreferrer" title="元书输入法指南">
-            元书输入法指南
-          </a>
+          <h1>元书皮肤工具</h1>
+          <div class="brand-guide-wrap">
+            <a class="brand-text-link" href="https://ihsiao.com/apps/hamster/v3/docs/guides/skins/intro/" target="_blank" rel="noopener noreferrer" title="元书输入法指南">
+              元书输入法指南
+            </a>
+            <span class="brand-guide-trigger" tabindex="0" aria-describedby="shortcutReferenceCard">指令参考</span>
+            <div id="shortcutReferenceCard" class="shortcut-reference-card" role="tooltip">
+              <div class="shortcut-reference-title">通用指令</div>
+              <div class="shortcut-reference-list">
+                <div class="shortcut-reference-item"><strong>#简繁切换</strong><span>简体与繁体切换。</span></div>
+                <div class="shortcut-reference-item"><strong>#中英切换</strong><span>中文与英文输入切换；工作台里模拟点击中英键时，也会联动切换中英键盘预览。</span></div>
+                <div class="shortcut-reference-item"><strong>#RimeSwitcher</strong><span>进入 rime switch 状态。</span></div>
+                <div class="shortcut-reference-item"><strong>#次选上屏</strong><span>将当前第二个候选文字上屏。</span></div>
+                <div class="shortcut-reference-item"><strong>#三选上屏</strong><span>将当前第三个候选文字上屏。</span></div>
+                <div class="shortcut-reference-item"><strong>#方案切换</strong><span>显示当前方案切换页面，用于切换当前方案列表中的其他方案。</span></div>
+                <div class="shortcut-reference-item"><strong>#左手模式</strong><span>切换到单手模式下的左手模式。</span></div>
+                <div class="shortcut-reference-item"><strong>#右手模式</strong><span>切换到单手模式下的右手模式。</span></div>
+                <div class="shortcut-reference-item"><strong>#行首</strong><span>光标移动到当前行的行首。</span></div>
+                <div class="shortcut-reference-item"><strong>#行尾</strong><span>光标移动到当前行的行尾。</span></div>
+                <div class="shortcut-reference-item"><strong>#换行</strong><span>插入一个 \r。</span></div>
+                <div class="shortcut-reference-item"><strong>#Enter</strong><span>插入一个 \n。</span></div>
+                <div class="shortcut-reference-item"><strong>#重输</strong><span>清空已键入的 preedit 内容。</span></div>
+                <div class="shortcut-reference-item"><strong>#subCollectionPageUp</strong><span>子分类符号页向上翻页。</span></div>
+                <div class="shortcut-reference-item"><strong>#subCollectionPageDown</strong><span>子分类符号页向下翻页。</span></div>
+                <div class="shortcut-reference-item"><strong>#verticalCandidatesPageDown</strong><span>纵向候选栏向下翻页。</span></div>
+                <div class="shortcut-reference-item"><strong>#verticalCandidatesPageUp</strong><span>纵向候选栏向上翻页。</span></div>
+                <div class="shortcut-reference-item"><strong>#showPhraseView</strong><span>显示常用语视图。</span></div>
+                <div class="shortcut-reference-item"><strong>#showPasteboardView</strong><span>显示剪贴板视图。</span></div>
+                <div class="shortcut-reference-item"><strong>#toggleScriptView</strong><span>脚本页面显示与隐藏切换。</span></div>
+                <div class="shortcut-reference-item"><strong>#candidatesBarStateToggle</strong><span>候选栏状态切换。用来展开候选文字或收起候选文字。</span></div>
+                <div class="shortcut-reference-item"><strong>#rimePreviousPage</strong><span>rime 候选页向前翻页。仅在开启手工分页模式下有效。</span></div>
+                <div class="shortcut-reference-item"><strong>#rimeNextPage</strong><span>rime 候选页向后翻页。仅在开启手工分页模式下有效。</span></div>
+                <div class="shortcut-reference-item"><strong>#toggleEmbeddedInputMode</strong><span>内嵌模式状态切换。</span></div>
+                <div class="shortcut-reference-item"><strong>#keyboardPerformance</strong><span>显示当前键盘性能信息。</span></div>
+                <div class="shortcut-reference-item"><strong>#keyboardMenu</strong><span>显示键盘菜单页面。</span></div>
+                <div class="shortcut-reference-item"><strong>#selectText</strong><span>全选当前输入框文字。此类 iOS 编辑指令存在系统自身 Bug，慎用。</span></div>
+                <div class="shortcut-reference-item"><strong>#copy</strong><span>复制当前选中文字。此类 iOS 编辑指令存在系统自身 Bug，慎用。</span></div>
+                <div class="shortcut-reference-item"><strong>#cut</strong><span>剪切当前选中文字。此类 iOS 编辑指令存在系统自身 Bug，慎用。</span></div>
+                <div class="shortcut-reference-item"><strong>#paste</strong><span>粘贴剪贴板内容。此类 iOS 编辑指令存在系统自身 Bug，慎用。</span></div>
+                <div class="shortcut-reference-item"><strong>#undo</strong><span>撤销系统文本编辑操作。此类 iOS 编辑指令存在系统自身 Bug，慎用。</span></div>
+                <div class="shortcut-reference-item"><strong>#redo</strong><span>重做系统文本编辑操作。此类 iOS 编辑指令存在系统自身 Bug，慎用。</span></div>
+              </div>
+            </div>
+          </div>
           <nav class="brand-links" aria-label="项目链接">
             <a class="brand-icon-link" href="https://github.com/wzxmer/Hamster-skin-designer/tree/main" target="_blank" rel="noopener noreferrer" aria-label="打开 GitHub 仓库" title="GitHub 仓库">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -36,7 +76,7 @@
           <button id="templateLibraryButton" type="button">模板库</button>
           <button id="exportProjectButton" type="button">导出皮肤</button>
           <button id="importProjectButton" class="file-button" type="button">导入皮肤</button>
-          <input id="importProjectInput" type="file" accept=".json,application/json" hidden />
+          <input id="importProjectInput" type="file" accept=".cskin,.zip,.json,.yaml,.yml,.jsonnet,.libsonnet,application/json,application/zip" hidden />
         </div>
       </header>
 
@@ -71,6 +111,9 @@
         <aside class="preview-panel">
           <section class="panel">
             <div class="preview-toolbar">
+              <button id="expandPreviewButton" class="icon-button preview-expand-button" type="button" aria-label="放大预览" title="放大预览">
+                <span aria-hidden="true">放大</span>
+              </button>
               <h2>预览</h2>
               <div class="preview-mode-select">
                 <select id="previewMode" aria-hidden="true" tabindex="-1"></select>
@@ -81,9 +124,6 @@
               <input id="previewKeyboardNameInput" type="text" placeholder="键盘1" aria-label="键盘名称" />
               <button id="addPreviewKeyboardButton" type="button">添加键盘</button>
               <button id="deletePreviewKeyboardButton" type="button" disabled>删除键盘</button>
-              <button id="expandPreviewButton" class="icon-button icon-only preview-expand-button" type="button" aria-label="放大预览" title="放大预览">
-                <span aria-hidden="true">⌕</span>
-              </button>
             </div>
             <div class="preview-controls">
               <button id="themeToggleButton" class="theme-toggle-button" type="button">浅色</button>

@@ -12,9 +12,12 @@
     "start": "node scripts/workbench-server.mjs",
     "dev:builder": "node apps/builder/server.js",
     "validate:project-schema": "node packages/project-schema/validate-sample.js",
+    "test:skin-effect": "node packages/skin-effect/test-skin-effect.js",
     "test:exporter": "node packages/exporter/test-exporter.js",
-    "test:preview": "node --check apps/workbench/src/ui/preview.js",
-    "build": "npm run validate:project-schema && npm run test:exporter && node --check apps/workbench/src/app.js && node --check apps/workbench/src/ui/preview.js"
+    "test:importer": "node packages/importer/test-importer.js",
+    "test:preview": "node --check apps/workbench/src/ui/preview.js && node packages/preview-engine/test-preview-linkage.js",
+    "build:import-test": "node scripts/generate-import-test-package.mjs",
+    "build": "npm run validate:project-schema && npm run test:skin-effect && npm run test:exporter && npm run test:importer && npm run test:preview && node --check apps/workbench/src/app.js"
   },
   "devDependencies": {
     "autoprefixer": "^10.5.0",

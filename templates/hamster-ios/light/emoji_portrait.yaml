@@ -115,7 +115,7 @@
   },
   "keyboardBackgroundStyle": {
     "buttonStyleType": "geometry",
-    "normalColor": "#D0D3DA01"
+    "normalColor": "#D0D3DA00"
   },
   "keyboardHeight": 279,
   "keyboardLayout": [

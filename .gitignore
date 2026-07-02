@@ -1,6 +1,8 @@
 .work/
 .codegraph/
 .codex/
+.superpowers/
+memory/
 node_modules/
 dist/
 *.zip

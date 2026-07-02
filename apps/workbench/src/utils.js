@@ -19,7 +19,8 @@ export function setPath(target, path, value) {
 export function parseInputValue(value, type) {
   if (type === 'number') {
     if (value === '') return undefined;
-    const next = Number(value);
+    const normalized = typeof value === 'string' ? value.replace(',', '.') : value;
+    const next = Number(normalized);
     return Number.isFinite(next) ? next : 0;
   }
   if (type === 'boolean') return value === 'true';

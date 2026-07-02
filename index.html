@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>元书输入法皮肤工作台</title>
+    <meta http-equiv="refresh" content="0; url=./apps/workbench/index.html" />
     <style>
       html,
       body {
@@ -15,20 +16,15 @@
         background: #f6f7fb;
       }
 
-      iframe {
-        display: block;
-        width: 100%;
-        min-width: 620px;
-        height: 100%;
-        min-height: 100vh;
-        border: 0;
+      a {
+        color: #2563eb;
       }
     </style>
   </head>
   <body>
-    <iframe
-      src="./apps/workbench/index.html"
-      title="元书输入法皮肤工作台"
-    ></iframe>
+    <p>正在打开元书输入法皮肤工作台。若没有自动跳转，请<a href="./apps/workbench/index.html">点击这里</a>。</p>
+    <script>
+      window.location.replace('./apps/workbench/index.html');
+    </script>
   </body>
 </html>

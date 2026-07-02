@@ -27,6 +27,23 @@ function normalizeTemplateRecord(project, existing = {}) {
   };
 }
 
+function templateRecordKey(record = {}) {
+  return [
+    String(record.templateId || ''),
+    String(record.schemaVersion || ''),
+    String(record.name || ''),
+  ].join('\u0001');
+}
+
+function findExistingTemplateRecord(items = [], project = {}) {
+  const target = templateRecordKey({
+    templateId: project?.templateId,
+    schemaVersion: project?.schemaVersion,
+    name: project?.meta?.name || '未命名皮肤',
+  });
+  return items.find((item) => templateRecordKey(item) === target) || null;
+}
+
 function openDb() {
   if (!canUseIndexedDb()) return Promise.resolve(null);
   return new Promise((resolve, reject) => {
@@ -102,18 +119,29 @@ export function clearProject() {
 }
 
 export async function saveTemplateSnapshot(project) {
-  const record = normalizeTemplateRecord(project);
   saveProject(project);
 
   return withTemplateStore('readwrite', (store) => {
     if (!store) {
       const items = readFallbackTemplates();
-      items.unshift(record);
-      writeFallbackTemplates(sortTemplates(items));
+      const existing = findExistingTemplateRecord(items, project);
+      const record = normalizeTemplateRecord(project, existing || {});
+      const nextItems = existing
+        ? items.map((item) => (item.id === existing.id ? record : item))
+        : [record, ...items];
+      writeFallbackTemplates(sortTemplates(nextItems));
       return record;
     }
-    store.put(record);
-    return record;
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const existing = findExistingTemplateRecord(request.result || [], project);
+        const record = normalizeTemplateRecord(project, existing || {});
+        store.put(record);
+        resolve(record);
+      };
+      request.onerror = () => reject(request.error);
+    });
   });
 }
 

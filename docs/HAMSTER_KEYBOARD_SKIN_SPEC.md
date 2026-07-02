@@ -258,6 +258,8 @@ exampleButton:
 | `shadowRadius` / `shadowOffset` / `shadowOpacity` | 阴影参数。 |
 | `colorLocation` / `colorStartPoint` / `colorEndPoint` / `colorGradientType` | 渐变参数。 |
 
+颜色字符串使用 RGB 顺序，不使用 BGR；可写 6 位或 8 位十六进制，`#` 可保留。8 位颜色最后两位是透明度：`00` 表示完全透明，`FF` 表示完全不透明。参考 26 键示例皮肤在键盘、toolbar、preedit 容器背景使用 `#D0D3DA01` / `#47474701`，实机表现正常；默认键盘背景需要透出宿主背景时应沿用这个近透明值，不要改成 `00`。
+
 ### 前景样式字段
 
 | 字段 | 说明 |
@@ -325,7 +327,7 @@ foregroundStyle:
 
 示例中工具栏按钮常见动作：
 
-- `floatKeyboardType: panel`
+- `keyboardType: panel`
 - `keyboardType: symbolic`
 - `keyboardType: emojis`
 - `shortcut: #showPhraseView`
@@ -443,11 +445,10 @@ foregroundStyle:
 | `sendKeys` | 发送组合键或组合文本。 |
 | `openURL` | 打开链接或特殊 URL。 |
 | `runScript` | 运行脚本。 |
-| `runTranslateScript` | 运行翻译脚本。 |
-| `keyboardType` | 切换到指定键盘。 |
-| `floatKeyboardType` | 打开浮动键盘类型，例如 `panel`。 |
+| `keyboardType` | 切换到指定键盘，包括 `pinyin`、`alphabetic`、`symbolic`、`numeric`、`emojis`、`panel` 等。 |
 | `shortcut` | 执行快捷指令。 |
-| `shortcutCommand` | 示例中出现的快捷命令动作。 |
+
+历史项目中可能出现的 `shortcutCommand` 导入时应兼容读取并归一为 `shortcut`，新模板、样例和导出结果不再写出旧字段。
 
 官方还说明：
 
@@ -657,11 +658,8 @@ normalImage:
   - `sendKeys`
   - `openURL`
   - `runScript`
-  - `runTranslateScript`
   - `keyboardType`
-  - `floatKeyboardType`
   - `shortcut`
-  - `shortcutCommand`
   - `switchRimeSchema`
   - `combine`
 - 通知：
@@ -720,7 +718,7 @@ normalImage:
 - `horizontalSymbols`，虽然当前示例未出现，但官方有定义。
 - `categorySymbols` / `t9Symbols`，虽然官方页标题未单独列出，但示例中出现。
 - `openURL` 的特殊片段组合。
-- `runScript` / `runTranslateScript`。
+- `runScript`。
 - `switchRimeSchema`。
 - 实验性 `combine` action。
 - `keyboardAction` 通知。

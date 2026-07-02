@@ -1,0 +1,137 @@
+import { createSampleProject } from '../project-schema/index.js';
+import { buildEffectiveProject, buildSkinEffectFileEntries, buildSkinEffectModel, normalizeActionObject } from './index.js';
+
+function assert(condition, message) {
+  if (!condition) throw new Error(message);
+}
+
+const project = createSampleProject();
+const model = buildSkinEffectModel(project, { theme: 'light', keyboardName: 'pinyin_26_portrait' });
+const effectProject = buildEffectiveProject(project);
+const effectFiles = buildSkinEffectFileEntries(effectProject);
+
+assert(model.version === 1, '效果模型应声明版本。');
+assert(model.nativePayload, '效果模型应包含 nativePayload。');
+assert(Array.isArray(model.nativePayload.keyboardLayout), '效果模型应包含原生键盘布局。');
+assert(model.nativePayload.toolbarLayout, '效果模型应包含 toolbar 布局。');
+assert(model.nativePayload.spaceButton, '效果模型应包含空格键。');
+assert(model.nativePayload.HStackStyle?.size?.height === '1/4', '效果模型应使用真实 4 行键盘行高。');
+assert(model.nativePayload.cnenButton?.action?.shortcut === '#中英切换', '效果模型应同步中英切换真实动作。');
+assert(model.nativePayload.cnenButtonForegroundStyle?.text === '中', '效果模型应同步中英切换显示文字。');
+assert(model.nativePayload.toolbarSymbolButton, '效果模型应包含工具栏符号按钮。');
+assert(model.nativePayload.toolbarSymbolButtonForegroundStyle?.buttonStyleType === 'systemImage', '效果模型应使用工具栏图标样式。');
+assert(model.nativePayload.toolbarMenuButton?.action?.keyboardType === 'panel', '工具栏菜单应使用 keyboardType: panel 调用 App 内面板。');
+assert(!model.nativePayload.toolbarMenuButton?.action?.floatKeyboardType, '工具栏菜单不应继续导出 floatKeyboardType: panel。');
+assert(model.nativePayload.toolbarPhraseButton?.action?.shortcut === '#showPhraseView', '工具栏常用语应导出 showPhraseView 快捷指令。');
+assert(model.nativePayload.toolbarPasteboardButton?.action?.shortcut === '#showPasteboardView', '工具栏剪贴板应导出 showPasteboardView 快捷指令。');
+assert(model.nativePayload.toolbarCloseButton?.action?.action === 'dismissKeyboard', '工具栏收起键应导出标准 action，不应退化成 shortcut。');
+assert(normalizeActionObject({ action: 'dismissKeyboard' })?.action === 'dismissKeyboard', '标准 action 包装对象不应被规范化为 shortcut。');
+assert(normalizeActionObject({ shortcutCommand: '#Phrase' })?.shortcut === '#showPhraseView', '旧 shortcutCommand 常用语应兼容归一为官方 shortcut。');
+assert(normalizeActionObject({ shortcut: '#Pasteboard' })?.shortcut === '#showPasteboardView', '旧剪贴板快捷指令应兼容归一为官方 shortcut。');
+assert(normalizeActionObject({ floatKeyboardType: 'panel' })?.keyboardType === 'panel', '旧项目 floatKeyboardType: panel 应兼容归一为 keyboardType: panel。');
+assert(model.nativePayload.qButton?.swipeUpAction, '效果模型应包含上划动作。');
+assert(model.nativePayload.qButton?.foregroundStyle?.includes('qButtonSwipeUpForegroundStyle'), '效果模型应引用上划前景样式。');
+assert(model.nativePayload.qButtonSwipeUpForegroundStyle?.fontSize === 8, '上划提示应使用收窄后的默认字号。');
+assert(model.nativePayload.qButtonSwipeUpForegroundStyle?.center?.x === 0.5 && model.nativePayload.qButtonSwipeUpForegroundStyle?.center?.y === 0.24, '上划提示应使用上方居中的默认偏移。');
+assert(model.nativePayload.qButtonSwipeDownForegroundStyle?.fontSize === 8, '下划提示应使用收窄后的默认字号。');
+assert(model.nativePayload.qButtonSwipeDownForegroundStyle?.center?.x === 0.5 && model.nativePayload.qButtonSwipeDownForegroundStyle?.center?.y === 0.76, '下划提示应使用下方居中的默认偏移。');
+assert(model.nativePayload.candidateStyle?.preferredBackgroundColor, '效果模型应包含候选高亮背景。');
+assert(model.nativePayload.keyboardBackgroundStyle?.normalColor?.endsWith('01'), '默认几何容器背景应保持 01 近透明。');
+assert(model.nativePayload.enterButtonBlueBackgroundStyle?.borderSize === 0, '蓝色发送键默认不应保留普通键边框。');
+assert(model.nativePayload.enterButtonBlueBackgroundStyle?.shadowRadius <= 0.6, '蓝色发送键默认阴影应比普通键更轻。');
+assert(model.nativePayload.enterButtonBlueBackgroundStyle?.shadowOffset?.y <= 0.45, '蓝色发送键默认底部阴影不应过厚。');
+assert(!model.nativePayload.enterButtonBlueBackgroundStyle?.normalLowerEdgeColor, '蓝色发送键默认不应叠加普通键底边缘。');
+assert(effectFiles.find((file) => file.path === 'config.yaml')?.value?.pinyin?.iPhone?.portrait === 'pinyin_26_portrait', '效果文件应包含 config.yaml 键盘映射。');
+assert(effectFiles.find((file) => file.path === 'light/pinyin_26_portrait.yaml')?.value?.keyboardLayout, '效果文件应包含浅色 26 键原生 payload。');
+assert(effectFiles.find((file) => file.path === 'dark/pinyin_26_portrait.yaml')?.value?.keyboardLayout, '效果文件应包含深色 26 键原生 payload。');
+assert(effectFiles.find((file) => file.path === 'resources/asset-manifest.yaml'), '效果文件应保留资源清单 entry 供打包层过滤。');
+
+const hiddenSwipeProject = createSampleProject();
+hiddenSwipeProject.keyboardCombo.swipeBehavior.mode = 'disabled';
+const hiddenSwipeModel = buildSkinEffectModel(hiddenSwipeProject, { theme: 'light', keyboardName: 'pinyin_26_portrait' });
+assert(!hiddenSwipeModel.nativePayload.qButton?.swipeUpAction, '关闭划动后效果模型不应保留上划动作。');
+assert(!hiddenSwipeModel.nativePayload.qButton?.foregroundStyle?.includes('qButtonSwipeUpForegroundStyle'), '关闭划动后效果模型不应引用上划前景样式。');
+
+const numericSwipeProject = createSampleProject();
+const defaultNumericModel = buildSkinEffectModel(numericSwipeProject, { theme: 'light', keyboardName: 'numeric_9_portrait' });
+assert(!defaultNumericModel.nativePayload.number1Button?.swipeUpAction && !defaultNumericModel.nativePayload.number1Button?.swipeDownAction, '数字 9 键默认不应导出上下划动动作。');
+assert(!defaultNumericModel.nativePayload.number1Button?.foregroundStyle?.includes('number1ButtonSwipeUpForegroundStyle'), '数字 9 键默认不应显示上划前景。');
+numericSwipeProject.data.swipes.numeric = {
+  swipe_up: {
+    '1': {
+      label: { text: '一' },
+      action: { character: '一' },
+    },
+  },
+  swipe_down: {
+    '1': {
+      label: { text: '下' },
+      action: { character: '下' },
+    },
+  },
+};
+numericSwipeProject.keyboardCombo.swipeBehavior.layouts = {
+  ...(numericSwipeProject.keyboardCombo.swipeBehavior.layouts || {}),
+  numeric: {
+  mode: 'visible',
+  showSwipeUp: true,
+  showSwipeDown: true,
+  },
+};
+const numericSwipeModel = buildSkinEffectModel(numericSwipeProject, { theme: 'light', keyboardName: 'numeric_9_portrait' });
+assert(numericSwipeModel.nativePayload.number1ButtonSwipeUpForegroundStyle?.center?.x === 0.5
+  && numericSwipeModel.nativePayload.number1ButtonSwipeUpForegroundStyle?.center?.y === 0.24, '数字键盘上划提示应使用上方居中的默认偏移。');
+assert(numericSwipeModel.nativePayload.number1ButtonSwipeDownForegroundStyle?.center?.x === 0.5
+  && numericSwipeModel.nativePayload.number1ButtonSwipeDownForegroundStyle?.center?.y === 0.76, '数字键盘下划提示应使用下方居中的默认偏移。');
+
+const validBackgroundProject = createSampleProject();
+validBackgroundProject.nativeKeyboardPayloads = { light: { pinyin_26_portrait: {} } };
+validBackgroundProject.nativeKeyboardPayloads.light.pinyin_26_portrait.keyboardBackgroundStyle = {
+  buttonStyleType: 'fileImage',
+  normalImage: { file: 'bg', image: 'IMG1' },
+};
+const validBackgroundModel = buildSkinEffectModel(validBackgroundProject, { theme: 'light', keyboardName: 'pinyin_26_portrait' });
+assert(validBackgroundModel.nativePayload.keyboardBackgroundStyle?.buttonStyleType === 'fileImage', '有效资源的键盘背景图片不应被几何样式覆盖。');
+assert(validBackgroundModel.nativePayload.keyboardBackgroundStyle?.normalImage?.file === 'bg', '有效资源的键盘背景图片应保留资源名。');
+
+const invalidBackgroundProject = createSampleProject();
+invalidBackgroundProject.nativeKeyboardPayloads = { light: { pinyin_26_portrait: {} } };
+invalidBackgroundProject.nativeKeyboardPayloads.light.pinyin_26_portrait.keyboardBackgroundStyle = {
+  buttonStyleType: 'fileImage',
+  normalImage: { file: 'missing_bg', image: 'IMG1' },
+};
+const invalidBackgroundModel = buildSkinEffectModel(invalidBackgroundProject, { theme: 'light', keyboardName: 'pinyin_26_portrait' });
+assert(invalidBackgroundModel.nativePayload.keyboardBackgroundStyle?.buttonStyleType === 'geometry', '缺失资源的键盘背景图片应回退几何样式。');
+assert(invalidBackgroundModel.nativePayload.keyboardBackgroundStyle?.normalColor?.endsWith('01'), '回退后的键盘背景应保持近透明容器色。');
+
+const stalePayloadProject = createSampleProject();
+stalePayloadProject.theme.shared.fontSize['按键前景文字大小'] = 31;
+stalePayloadProject.keyStyles.surfaceStyles.keyboard26.enterAccent = {
+  cornerRadius: 7,
+  borderSize: 0,
+  shadowRadius: 0.2,
+  shadowOpacity: 0.2,
+  shadowOffset: { x: 0, y: 0.2 },
+};
+stalePayloadProject.nativeKeyboardPayloads = {
+  light: {
+    pinyin_26_portrait: {
+      qButtonForegroundStyle: { buttonStyleType: 'text', text: 'q', fontSize: 11 },
+      enterButtonBlueBackgroundStyle: {
+        buttonStyleType: 'geometry',
+        borderSize: 2,
+        shadowRadius: 8,
+        shadowOpacity: 1,
+        shadowOffset: { x: 0, y: 3 },
+        normalLowerEdgeColor: '#000000',
+      },
+    },
+  },
+};
+const stalePayloadModel = buildSkinEffectModel(stalePayloadProject, { theme: 'light', keyboardName: 'pinyin_26_portrait' });
+assert(stalePayloadModel.nativePayload.qButtonForegroundStyle?.fontSize === 31, '旧 native payload 不应覆盖左侧按键字号。');
+assert(stalePayloadModel.nativePayload.enterButtonBlueBackgroundStyle?.borderSize === 0, '旧 native payload 不应覆盖左侧发送键边框。');
+assert(stalePayloadModel.nativePayload.enterButtonBlueBackgroundStyle?.shadowRadius === 0.2, '旧 native payload 不应覆盖左侧发送键阴影。');
+assert(!stalePayloadModel.nativePayload.enterButtonBlueBackgroundStyle?.normalLowerEdgeColor, '旧 native payload 不应让发送键恢复普通底边缘。');
+
+console.log('skin-effect ok');

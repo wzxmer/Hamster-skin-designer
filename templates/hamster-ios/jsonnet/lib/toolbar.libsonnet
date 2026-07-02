@@ -21,7 +21,7 @@ local toolbarLayout = ['menu', 'symbol', 'translate', 'emoji', 'phrase', 'pasteb
     buttons: {
       menu: {
         key: 'toolbarMenu',
-        action: { floatKeyboardType: 'panel' },
+        action: { keyboardType: 'panel' },
         label: { systemImageName: 'gear' },
         fontSize: 20,
       },
@@ -33,7 +33,7 @@ local toolbarLayout = ['menu', 'symbol', 'translate', 'emoji', 'phrase', 'pasteb
       },
       translate: {
         key: 'toolbarTranslate',
-        action: { openScript: 'AI翻译' },
+        action: { runScript: 'AI翻译' },
         label: { systemImageName: 'translate' },
         fontSize: 20,
       },
@@ -44,7 +44,7 @@ local toolbarLayout = ['menu', 'symbol', 'translate', 'emoji', 'phrase', 'pasteb
         fontSize: 20,
       },
       phrase: {
-        key: 'toolbarPhrasee',
+        key: 'toolbarPhrase',
         action: { shortcut: '#showPhraseView' },
         label: { systemImageName: 'list.bullet.clipboard' },
         fontSize: 20,

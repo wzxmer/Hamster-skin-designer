@@ -64,7 +64,7 @@
 
 - `openURL`
 - `runScript`
-- `openScript`
+- `runScript`
 - `switchRimeSchema`
 - 某些 `shortcut`
 - `hamster3://...` 相关动作
@@ -130,4 +130,3 @@
 2. 巩固浏览器端模板运行链
 3. 把导出与校验都收敛到前端 runtime
 4. 再逐步弱化 `apps/builder`
-

@@ -16,11 +16,26 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
 };
 
+const WORKBENCH_ROOT = 'apps/workbench';
+const DEFAULT_ENTRY = `${WORKBENCH_ROOT}/index.html`;
+const ROOT_ALIAS_PREFIXES = new Set(['src', 'public']);
+const ROOT_ALIAS_FILES = new Set(['styles.css', 'index.html']);
+
 function resolveRequestPath(url) {
   const parsed = new URL(url, `http://${host}:${port}`);
   const decoded = decodeURIComponent(parsed.pathname);
   const normalized = path.normalize(decoded).replace(/^([/\\])+/, '');
-  const target = path.resolve(root, normalized || 'index.html');
+  let mapped = DEFAULT_ENTRY;
+  if (normalized) {
+    const firstSegment = normalized.split(/[\\/]/)[0];
+    mapped = (
+      ROOT_ALIAS_PREFIXES.has(firstSegment)
+      || ROOT_ALIAS_FILES.has(normalized)
+    )
+      ? path.posix.join(WORKBENCH_ROOT, normalized)
+      : normalized;
+  }
+  const target = path.resolve(root, mapped);
   if (!target.startsWith(root)) return null;
   if (existsSync(target) && statSync(target).isDirectory()) {
     return path.join(target, 'index.html');

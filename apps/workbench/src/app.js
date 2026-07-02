@@ -1,6 +1,12 @@
 import { validateProject } from '../../../packages/project-schema/validators/project-validator.js';
 import { buildSkinPackageFiles, createZipBlob, defaultPackageFileName } from '../../../packages/exporter/index.js';
+import { importSkinProjectFromFile } from '../../../packages/importer/index.js';
 import { MODULES } from './data/modules.js';
+import {
+  DEFAULT_KEYBOARD_SKIN_PRESET,
+  KEYBOARD_SKIN_PRESETS,
+  keyboardSkinPresetByValue,
+} from './data/keyboard-presets.js';
 import {
   deleteTemplateSnapshot,
   listTemplateSnapshots,
@@ -10,6 +16,7 @@ import {
   saveTemplateSnapshot,
 } from './storage/local-store.js';
 import { renderPreview } from './ui/preview.js';
+import { buildSkinEffectModel } from '../../../packages/skin-effect/index.js';
 import {
   deepClone,
   downloadBlob,
@@ -33,6 +40,7 @@ const state = {
   previewHintKey: null,
   previewPressedKey: null,
   previewShiftActive: false,
+  previewCapsLocked: false,
   previewExpanded: false,
   keyDrag: null,
   skipNextKeyEditorClick: false,
@@ -45,8 +53,16 @@ const state = {
   metricsManualOverrides: {},
   swipeMode: 'swipe_up',
   confirmDialog: null,
+  welcomeNotice: {
+    visible: false,
+    remainingSeconds: 0,
+    timer: null,
+  },
   jsonMode: false,
+  jsonSearch: '',
+  jsonSearchIndex: 0,
   savedAt: null,
+  previewInitialRootWidth: null,
   configDevice: 'iPhone',
   sampleProject: null,
   templateLibrary: [],
@@ -56,14 +72,22 @@ const state = {
   undoStack: [],
   lastUndoSignature: '',
   isRestoringHistory: false,
+  centerEditMode: 'uniform',
+  selectedCenterTarget: null,
 };
 
 let pressedPreviewCell = null;
 let previewLongPressTimer = null;
-
+let previewReleaseTimer = null;
 const PREVIEW_LONG_PRESS_DELAY_MS = 420;
+const PREVIEW_PRESS_FEEDBACK_MS = 140;
+const DEMO_SCREENSHOT_SCALE = 2;
+const DEMO_IMAGE_WIDTH = 900;
+const DEMO_IMAGE_HEIGHT = 730;
 
 const VISITOR_ID_STORAGE_KEY = 'hamster-workbench-visitor-id';
+const WELCOME_NOTICE_STORAGE_KEY = 'hamster-skin-workbench:welcome-notice:v1';
+const WELCOME_NOTICE_SECONDS = 5;
 const DEFAULT_DOWNLOAD_PATH = '浏览器默认下载位置';
 const DEFAULT_SKIN_NAME_PREFIX = '皮肤';
 const DEFAULT_SKIN_AUTHOR = 'https://wzxmer.github.io/Hamster-skin-designer/';
@@ -245,7 +269,7 @@ const EMOJI_SPECIAL_LAYOUT_GROUPS = [
 ];
 const DEFAULT_TOOLBAR_BUTTONS = ['menu', 'symbol', 'translate', 'emoji', 'phrase', 'pasteboard', 'script', 'close'];
 const DEFAULT_TOOLBAR_SYSTEM_IMAGES = {
-  menu: 'slider.horizontal.3',
+  menu: 'gear',
   symbol: 'xmark.triangle.circle.square',
   translate: 'translate',
   emoji: 'face.smiling',
@@ -255,15 +279,16 @@ const DEFAULT_TOOLBAR_SYSTEM_IMAGES = {
   close: 'keyboard.chevron.compact.down',
 };
 const DEFAULT_TOOLBAR_ACTIONS = {
-  menu: { floatKeyboardType: 'panel' },
+  menu: { keyboardType: 'panel' },
   symbol: { keyboardType: 'symbolic' },
-  translate: { runTranslateScript: 'translate' },
-  emoji: { shortcut: '#Emoji' },
-  phrase: { shortcut: '#Phrase' },
-  pasteboard: { shortcut: '#Pasteboard' },
+  translate: { runScript: 'translate' },
+  emoji: { keyboardType: 'emojis' },
+  phrase: { shortcut: '#showPhraseView' },
+  pasteboard: { shortcut: '#showPasteboardView' },
   script: { runScript: 'script' },
-  close: { standard: 'dismissKeyboard' },
+  close: { action: 'dismissKeyboard' },
 };
+
 const PANEL_BUTTONS = [
   ['Hamster', 'keyboard', 'Script'],
   ['Switcher', 'switch.2', 'RimeSwitcher'],
@@ -323,9 +348,18 @@ const INSET_GROUP_LABELS = {
   toolbar: '工具栏',
   hint: '长按候选',
 };
+const SURFACE_GROUP_LABELS = {
+  keyboard26: '26 键',
+  numeric: '数字键盘',
+  symbolic: '符号键盘',
+  panel: '自定义面板',
+  toolbar: '工具栏',
+  hint: '长按候选',
+};
 const INSET_ITEM_LABELS = {
   normal: '普通键',
   functionKey: '功能键',
+  menu: '菜单键',
   collection: '左侧符号区',
   collectionCell: '单个符号',
   categoryCollection: '左侧分类区',
@@ -338,13 +372,22 @@ const INSET_ITEM_LABELS = {
   verticalCandidateFunction: '纵向候选功能键',
   symbols: '长按符号',
   selectedBackground: '选中背景',
-  menu: '菜单',
   translate: '翻译',
   emoji: '表情',
   phrase: '短语',
   pasteboard: '剪贴板',
   script: '脚本',
   close: '关闭',
+};
+const SURFACE_ITEM_LABELS = {
+  normal: '普通键',
+  functionKey: '功能键',
+  enterAccent: '蓝色回车键',
+  categoryCollection: '左侧分类区',
+  descriptionCollection: '右侧符号区',
+  verticalCandidateFunction: '纵向候选功能键',
+  bubble: '气泡背景',
+  selectedBackground: '选中背景',
 };
 const KEYBOARD_METRIC_LABELS = {
   keyboard26: '26 键',
@@ -375,8 +418,8 @@ const FIELD_LABELS = {
   fontSize: '字号',
   colorKey: '颜色设置',
   systemImageName: '系统图标',
-  actionType: '动作类型',
-  actionValue: '动作值',
+  actionType: '指令类型',
+  actionValue: '指令内容',
   labelType: '标签类型',
   labelValue: '标签值',
   selectedIndex: '默认选中序号',
@@ -394,32 +437,35 @@ const FIELD_LABELS = {
   go: '前往',
   done: '完成',
   cornerRadius: '圆角',
+  borderSize: '边框宽度',
+  shadowRadius: '阴影模糊',
+  shadowOpacity: '阴影强度',
   iconCenter: '图标偏移',
   categoryCellHeight: '左侧分类项高度',
   descriptionCellHeight: '右侧符号项高度',
 };
 const ACTION_TYPE_LABELS = {
-  standard: '标准动作',
+  action: '功能键',
   character: '输入字符',
   symbol: '切换符号',
-  shortcut: '快捷指令',
+  shortcut: '通用指令',
   sendKeys: '发送按键',
   openURL: '打开链接',
   runScript: '执行脚本',
-  runTranslateScript: '指定翻译脚本',
   keyboardType: '键盘切换',
-  floatKeyboardType: '浮动键盘',
+  floatKeyboardType: '打开浮动键盘',
   switchRimeSchema: '切换 RIME 方案',
   combine: '组合动作',
   raw: '原始值',
 };
-const ACTION_TYPES = ['standard', 'character', 'symbol', 'sendKeys', 'openURL', 'runScript', 'keyboardType', 'floatKeyboardType', 'shortcut', 'switchRimeSchema', 'runTranslateScript', 'combine'];
-const TOOLBAR_ACTION_TYPES = ['standard', 'keyboardType', 'floatKeyboardType', 'shortcut', 'runScript', 'runTranslateScript', 'switchRimeSchema', 'combine', 'openURL', 'sendKeys', 'character', 'symbol'];
+const ACTION_TYPES = ['action', 'character', 'symbol', 'sendKeys', 'openURL', 'runScript', 'keyboardType', 'floatKeyboardType', 'shortcut', 'switchRimeSchema', 'combine'];
+const TOOLBAR_ACTION_TYPES = ['action', 'keyboardType', 'floatKeyboardType', 'shortcut', 'runScript', 'switchRimeSchema', 'combine', 'openURL', 'sendKeys', 'character', 'symbol'];
 const FUNCTION_KEY_ACTION_TYPES = ACTION_TYPES.filter((item) => !['character', 'symbol'].includes(item));
 const KEY_EDITOR_MODES = [
   { value: 'character', label: '普通按键' },
   { value: 'function', label: '功能键' },
 ];
+const DEFAULT_SCHEMA_NAME_TEXT = '$RimeSchemaName';
 const STANDARD_ACTION_VALUES = [
   'space',
   'enter',
@@ -435,22 +481,23 @@ const STANDARD_ACTION_VALUES = [
   'settings',
   'nextKeyboard',
 ];
-const KEYBOARD_TYPE_VALUES = ['pinyin', 'alphabetic', 'symbolic', 'numeric', 'emojis'];
+const STANDARD_ACTION_OPTIONS = [
+  { value: 'space', selectedLabel: 'space', dropdownLabel: 'space - 空格键' },
+  { value: 'enter', selectedLabel: 'enter', dropdownLabel: 'enter - 回车键' },
+  { value: 'tab', selectedLabel: 'tab', dropdownLabel: 'tab - Tab 键' },
+  { value: 'shift', selectedLabel: 'shift', dropdownLabel: 'shift - Shift 键' },
+  { value: 'backspace', selectedLabel: 'backspace', dropdownLabel: 'backspace - 删除键' },
+  { value: 'dismissKeyboard', selectedLabel: 'dismissKeyboard', dropdownLabel: 'dismissKeyboard - 收起键盘' },
+  { value: 'moveCursorBackward', selectedLabel: 'moveCursorBackward', dropdownLabel: 'moveCursorBackward - 光标左移' },
+  { value: 'moveCursorForward', selectedLabel: 'moveCursorForward', dropdownLabel: 'moveCursorForward - 光标右移' },
+  { value: 'returnPrimaryKeyboard', selectedLabel: 'returnPrimaryKeyboard', dropdownLabel: 'returnPrimaryKeyboard - 返回主键盘' },
+  { value: 'returnLastKeyboard', selectedLabel: 'returnLastKeyboard', dropdownLabel: 'returnLastKeyboard - 返回上一个键盘' },
+  { value: 'symbolicKeyboardLockStateToggle', selectedLabel: 'symbolicKeyboardLockStateToggle', dropdownLabel: 'symbolicKeyboardLockStateToggle - 符号键盘锁定切换' },
+  { value: 'settings', selectedLabel: 'settings', dropdownLabel: 'settings - 打开主应用界面' },
+  { value: 'nextKeyboard', selectedLabel: 'nextKeyboard', dropdownLabel: 'nextKeyboard - 切换到 iOS 下一个键盘' },
+];
+const KEYBOARD_TYPE_VALUES = ['pinyin', 'alphabetic', 'symbolic', 'numeric', 'emojis', 'panel'];
 const SHORTCUT_VALUES = [
-  '#showPhraseView',
-  '#showPasteboardView',
-  '#toggleScriptView',
-  '#candidatesBarStateToggle',
-  '#Emoji',
-  '#Phrase',
-  '#Pasteboard',
-  '#toggleEmbeddedInputMode',
-  '#keyboardMenu',
-  '#copy',
-  '#cut',
-  '#paste',
-  '#undo',
-  '#redo',
   '#简繁切换',
   '#中英切换',
   '#RimeSwitcher',
@@ -464,34 +511,50 @@ const SHORTCUT_VALUES = [
   '#换行',
   '#Enter',
   '#重输',
-  '#selectText',
   '#subCollectionPageUp',
   '#subCollectionPageDown',
   '#verticalCandidatesPageDown',
   '#verticalCandidatesPageUp',
+  '#showPhraseView',
+  '#showPasteboardView',
+  '#clearSystemPasteboard',
+  '#toggleScriptView',
+  '#candidatesBarStateToggle',
   '#rimePreviousPage',
   '#rimeNextPage',
+  '#toggleEmbeddedInputMode',
   '#keyboardPerformance',
+  '#keyboardMenu',
+  '#selectText',
+  '#copy',
+  '#cut',
+  '#paste',
+  '#undo',
+  '#redo',
 ];
+const LEGACY_SHORTCUT_VALUE_MAP = {
+  pasteboard: '#showPasteboardView',
+  '#Pasteboard': '#showPasteboardView',
+  phrase: '#showPhraseView',
+  '#Phrase': '#showPhraseView',
+};
 const OPEN_URL_VALUES = ['#pasteboardContent', '#selectText', '#pasteboardContent#selectText'];
 const TOOLBAR_ACTION_VALUE_SUGGESTIONS = {
-  standard: ['dismissKeyboard', 'returnLastKeyboard', 'returnPrimaryKeyboard', 'nextKeyboard', ...STANDARD_ACTION_VALUES],
-  keyboardType: ['symbolic', 'emojis', ...KEYBOARD_TYPE_VALUES],
-  floatKeyboardType: ['panel'],
-  shortcut: ['#Emoji', '#Phrase', '#Pasteboard', '#showPhraseView', '#showPasteboardView', '#toggleScriptView', '#candidatesBarStateToggle', ...SHORTCUT_VALUES],
-  openURL: OPEN_URL_VALUES,
-  runScript: ['script'],
+  action: ['dismissKeyboard', 'returnLastKeyboard', 'returnPrimaryKeyboard', 'nextKeyboard', ...STANDARD_ACTION_VALUES],
+  keyboardType: KEYBOARD_TYPE_VALUES,
+  shortcut: SHORTCUT_VALUES,
 };
+const FREE_TEXT_ACTION_TYPES = new Set(['sendKeys', 'openURL', 'runScript', 'floatKeyboardType', 'switchRimeSchema']);
 const TOOLBAR_ACTION_PRESETS = [
-  { label: '打开工具栏面板', type: 'floatKeyboardType', value: 'panel' },
+  { label: '打开工具栏面板', type: 'keyboardType', value: 'panel' },
   { label: '切到符号键盘', type: 'keyboardType', value: 'symbolic' },
-  { label: '打开表情面板', type: 'shortcut', value: '#Emoji' },
-  { label: '打开短语面板', type: 'shortcut', value: '#Phrase' },
-  { label: '打开剪贴板面板', type: 'shortcut', value: '#Pasteboard' },
-  { label: '指定翻译脚本', type: 'runTranslateScript', value: 'translate' },
+  { label: '切到 Emoji 键盘', type: 'keyboardType', value: 'emojis' },
+  { label: '打开短语面板', type: 'shortcut', value: '#showPhraseView' },
+  { label: '打开剪贴板面板', type: 'shortcut', value: '#showPasteboardView' },
+  { label: '执行脚本', type: 'runScript', value: 'translate' },
   { label: '运行脚本', type: 'runScript', value: 'script' },
   { label: '切换候选栏状态', type: 'shortcut', value: '#candidatesBarStateToggle' },
-  { label: '收起键盘', type: 'standard', value: 'dismissKeyboard' },
+  { label: '收起键盘', type: 'action', value: 'dismissKeyboard' },
 ];
 const DISPLAY_TYPE_OPTIONS = [
   { value: 'text', selectedLabel: 'text', dropdownLabel: 'text' },
@@ -512,11 +575,6 @@ const SYSTEM_IMAGE_SUGGESTIONS = [...new Set([
 ])];
 const MAX_UNDO_STEPS = 30;
 
-const KEYBOARD_COMBO_STRATEGIES = [
-  { value: 'separateAlphabetic', label: '独立英文键盘' },
-  { value: 'inlineAlphabetic', label: '中文键盘内切英文' },
-  { value: 'schemaToggle', label: '方案/开关切换英文' },
-];
 const KEYBOARD_COMBO_SOURCE_OPTIONS = [
   { value: 'custom', label: '自定义键盘' },
   { value: 'system', label: '输入法内置' },
@@ -568,6 +626,94 @@ const TOOLBAR_DISPLAY_STYLE_OPTIONS = [
   { value: 'text', label: '纯文字按键名' },
 ];
 
+const DEFAULT_ACTION_VALUE_BY_TYPE = {
+  action: 'space',
+  keyboardType: 'pinyin',
+  shortcut: '#showPhraseView',
+  openURL: '#pasteboardContent',
+  sendKeys: 'Control+l',
+  runScript: 'script',
+  floatKeyboardType: 'panel',
+  switchRimeSchema: 'schema',
+};
+
+const DEFAULT_KEYBOARD26_FUNCTION_ACTIONS = {
+  '123': { type: 'keyboardType', value: 'numeric' },
+  cnen: { type: 'shortcut', value: '#中英切换' },
+  shift: { type: 'action', value: 'shift' },
+  backspace: { type: 'action', value: 'backspace' },
+  symbol: { type: 'keyboardType', value: 'symbolic' },
+  space: { type: 'action', value: 'space' },
+  spaceRight: { type: 'character', value: '，' },
+  semicolon: { type: 'shortcut', value: '#次选上屏' },
+  enter: { type: 'action', value: 'enter' },
+  word: { type: 'shortcut', value: '#splitText' },
+  mnemonic: { type: 'shortcut', value: '#mnemonic' },
+  reinput: { type: 'shortcut', value: '#reinput' },
+};
+const GUIDE_KEYBOARD_PRESET_OPTIONS = KEYBOARD_SKIN_PRESETS.map((preset) => ({
+  value: preset.value,
+  label: preset.label,
+}));
+const GUIDE_ENGLISH_LAYOUT_OPTIONS = [
+  { value: 'standard', label: '美式26键' },
+];
+const GUIDE_PINYIN26_LETTER_CASE_OPTIONS = [
+  { value: 'lower', label: '小写 qwerty' },
+  { value: 'upper', label: '大写 QWERTY' },
+];
+const GUIDE_ALPHABETIC26_LETTER_CASE_OPTIONS = [
+  { value: 'lower', label: '小写 qwerty' },
+  { value: 'upper', label: '大写 QWERTY' },
+];
+const GUIDE_SYMBOL_LAYOUT_OPTIONS = [
+  { value: 'system', label: 'App内符号键盘' },
+  { value: 'custom', label: '自定义符号键盘' },
+];
+const GUIDE_EMOJI_LAYOUT_OPTIONS = [
+  { value: 'custom', label: '自定义 Emoji 键盘' },
+  { value: 'system', label: 'App内emoji键盘' },
+];
+const GUIDE_BOOLEAN_OPTIONS = [
+  { value: 'true', label: '需要' },
+  { value: 'false', label: '不需要' },
+];
+const GUIDE_VISIBILITY_OPTIONS = [
+  { value: 'true', label: '显示' },
+  { value: 'false', label: '不显示' },
+];
+const GUIDE_SWIPE_PROFILE_CONFIGS = [
+  { key: 'pinyin', title: '中文划动', prefix: 'pinyinSwipe' },
+  { key: 'alphabetic', title: '英文划动', prefix: 'alphabeticSwipe' },
+];
+const GUIDE_SPACEBAR_KEY_OPTIONS = [
+  { value: '123', label: '123' },
+  { value: 'symbol', label: '符号' },
+  { value: 'semicolon', label: '分号' },
+  { value: 'cnen', label: '中英' },
+  { value: 'space', label: '空格' },
+  { value: 'spaceRight', label: '逗号' },
+  { value: 'enter', label: '回车' },
+];
+const GUIDE_SPACEBAR_ALLOWED_KEYS = new Set(GUIDE_SPACEBAR_KEY_OPTIONS.map((item) => item.value));
+const GUIDE_DEFAULT_SPACEBAR_ROW = ['123', 'cnen', 'space', 'spaceRight', 'enter'];
+const DEMO_SYSTEM_IMAGE_LABELS = {
+  shift: '⇧',
+  backspace: '⌫',
+  pageUp: '⌃',
+  pageDown: '⌄',
+  lock: '🔒',
+  menu: '☰',
+  symbol: '⌘#',
+  translate: '译',
+  emoji: '☺',
+  phrase: '▤',
+  pasteboard: '📋',
+  script: '⌘',
+  close: '⌄',
+  return: '返回',
+};
+
 function toolbarActionPresetId(type, value) {
   return `${type}::${value}`;
 }
@@ -612,6 +758,51 @@ function currentValue() {
   return getPath(state.project, activeModule().path);
 }
 
+function moduleResetPaths(module) {
+  if (module.id === 'meta') return ['meta', 'config'];
+  if (module.id === 'keyboardCombo') return ['guide', 'keyboardCombo', 'config', 'toolbar'];
+  if (module.id === 'customKeyboards') {
+    return [
+      'keyboards',
+      'data.collections.emojiDataSource',
+      'toolbar.layout',
+      'toolbar.display',
+      'toolbar.text',
+      'toolbar.actions',
+      'keyboardCombo.toolbar',
+    ];
+  }
+  if (module.id === 'candidateStyles') {
+    return [
+      'toolbar.horizontalCandidates',
+      'toolbar.verticalCandidates',
+      'theme.light.colors.选中候选背景颜色',
+      'theme.light.colors.候选字体选中字体颜色',
+      'theme.light.colors.候选字体未选中字体颜色',
+      'theme.dark.colors.选中候选背景颜色',
+      'theme.dark.colors.候选字体选中字体颜色',
+      'theme.dark.colors.候选字体未选中字体颜色',
+      'theme.shared.fontSize.未展开候选字体选中字体大小',
+      'theme.shared.fontSize.展开候选字体选中字体大小',
+      'theme.shared.fontSize.未展开comment字体大小',
+      'theme.shared.fontSize.展开comment字体大小',
+    ];
+  }
+  return [module.path];
+}
+
+function moduleResetSource() {
+  const source = deepClone(state.sampleProject || state.original || {});
+  if (source && typeof source === 'object') ensureProjectGuide(source, 'pending');
+  return source;
+}
+
+function resetProjectPathFromSource(target, source, path) {
+  const sourceValue = getPath(source, path);
+  if (sourceValue === undefined) return;
+  setPath(target, path, deepClone(sourceValue));
+}
+
 const PREVIEW_FIELD_SCOPE = {
   colors: {
     base: ['键盘背景颜色'],
@@ -624,7 +815,21 @@ const PREVIEW_FIELD_SCOPE = {
       '底边缘颜色-高亮',
       '按键前景颜色',
     ],
-    keyboard26: ['enter键背景(蓝色)', '划动字符颜色', '方案名颜色', '按键边缘颜色'],
+    keyboard26: [
+      'enter键背景(蓝色)',
+      '划动字符颜色',
+      '方案名颜色',
+      '按键边缘颜色',
+      '气泡背景颜色',
+      '气泡边缘颜色',
+      '气泡高亮颜色',
+      '长按选中字体颜色',
+      '长按非选中字体颜色',
+      '长按选中背景颜色',
+      '长按背景阴影颜色',
+      '长按背景颜色',
+      '按下气泡文字颜色',
+    ],
     numeric: [],
     symbolic: [
       '列表选中字体颜色',
@@ -648,7 +853,17 @@ const PREVIEW_FIELD_SCOPE = {
     ],
   },
   fontSize: {
-    keyboard26: ['按键前景文字大小', '按键前景sf符号大小', '上划文字大小', '下划文字大小', '长按气泡文字大小', '长按气泡sf符号大小'],
+    keyboard26: [
+      '按键前景文字大小',
+      '功能键前景文字大小',
+      '方案名字号',
+      '按键前景sf符号大小',
+      '上划文字大小',
+      '下划文字大小',
+      '划动气泡前景文字大小',
+      '长按气泡文字大小',
+      '长按气泡sf符号大小',
+    ],
     numeric: ['数字键盘数字前景字体大小', '按键前景sf符号大小', '长按气泡文字大小', '长按气泡sf符号大小'],
     symbolic: ['按键前景文字大小', '按键前景sf符号大小', '符号键盘左侧collection前景字体大小', '符号键盘右侧collection前景字体大小', '长按气泡文字大小', '长按气泡sf符号大小'],
     panel: ['panel按键前景文字大小', 'panel按键前景sf符号大小'],
@@ -661,8 +876,8 @@ const PREVIEW_FIELD_SCOPE = {
     numeric: ['数字键盘数字前景偏移', '功能键前景文字偏移'],
     symbolic: ['功能键前景文字偏移'],
     panel: ['panel键盘按键文字前景偏移', 'panel键盘按键sf符号前景偏移'],
-    toolbar: ['toolbar按键sf符号偏移', 'toolbar按键文字偏移'],
-    candidates: ['toolbar按键sf符号偏移'],
+    toolbar: ['toolbar按键偏移'],
+    candidates: ['toolbar按键偏移'],
     expanded: [],
   },
   scale: {
@@ -670,8 +885,8 @@ const PREVIEW_FIELD_SCOPE = {
     numeric: ['数字键盘前景缩放'],
     symbolic: [],
     panel: [],
-    toolbar: ['toolbar按键缩放'],
-    candidates: ['toolbar按键缩放'],
+    toolbar: [],
+    candidates: [],
     expanded: [],
   },
 };
@@ -682,7 +897,7 @@ const CENTER_CATEGORY_LABELS = {
   hint: '长按气泡',
   toolbar: '工具栏 / 候选栏',
   panel: '自定义面板',
-  special: '当前键盘特殊项',
+  special: '当前键盘单独项',
 };
 
 const CENTER_FIELD_DEFINITIONS = {
@@ -704,27 +919,109 @@ const CENTER_FIELD_DEFINITIONS = {
   '划动气泡sf符号偏移': { category: 'hint', modes: ['keyboard26', 'numeric', 'symbolic'] },
   '按下气泡文字偏移': { category: 'hint', modes: ['keyboard26', 'numeric', 'symbolic'] },
   'toolbar按键偏移': { category: 'toolbar', states: ['toolbar', 'candidates', 'expanded'] },
-  'toolbar按键文字偏移': { category: 'toolbar', states: ['toolbar', 'candidates', 'expanded'] },
-  'toolbar按键sf符号偏移': { category: 'toolbar', states: ['toolbar', 'candidates', 'expanded'] },
   'panel键盘按键文字前景偏移': { category: 'panel', modes: ['panel'] },
   'panel键盘按键sf符号前景偏移': { category: 'panel', modes: ['panel'] },
 };
 
+const SWIPE_DIRECTION_CENTER_KEYS = new Set([
+  '上划文字偏移',
+  '上划sf符号偏移',
+  '下划文字偏移',
+  '下划sf符号偏移',
+  '数字键盘上划文字偏移',
+  '数字键盘上划sf符号偏移',
+  '数字键盘下划文字偏移',
+  '数字键盘下划sf符号偏移',
+]);
+const SWIPE_GLOBAL_CENTER_KEYS = new Set([
+  '划动气泡文字偏移',
+  '划动气泡sf符号偏移',
+  '按下气泡文字偏移',
+]);
+const SWIPE_GLOBAL_STYLE_KEYS = new Set([
+  '划动字符颜色',
+  '划动气泡前景文字大小',
+]);
+const SWIPE_DIRECTION_STYLE_KEYS = new Set([
+  '上划文字大小',
+  '下划文字大小',
+]);
+const TOOLBAR_CENTER_KEYS = new Set(['toolbar按键偏移']);
+const TOOLBAR_STYLE_KEYS = new Set(['toolbar按键颜色', 'toolbar按键前景sf符号大小', 'toolbar按键前景文字大小']);
+
+const CENTER_TARGET_GROUP_LABELS = {
+  keyboard26: '26 键',
+  toolbar: '工具栏',
+};
+
+function guideToggleState(project = state.project) {
+  const guide = guideState(project);
+  const swipeMode = project?.keyboardCombo?.swipeBehavior?.mode;
+  const swipesOn = project?.data?.swipesEnabled !== false && swipeMode !== 'disabled';
+  const swipeMarksVisible = swipesOn && swipeMode !== 'hidden';
+  const toolbarOn = guide.preferences.defaultToolbarEnabled !== false && project?.keyboardCombo?.toolbar?.enabled !== false;
+  const pinyinSwipeOn = guide.preferences.pinyinSwipeUpEnabled !== false || guide.preferences.pinyinSwipeDownEnabled === true;
+  const alphabeticSwipeOn = guide.preferences.alphabeticSwipeUpEnabled !== false || guide.preferences.alphabeticSwipeDownEnabled === true;
+  return {
+    toolbarEnabled: toolbarOn,
+    swipeUpEnabled: swipesOn && (guide.preferences.pinyinSwipeUpEnabled !== false || guide.preferences.alphabeticSwipeUpEnabled !== false),
+    swipeDownEnabled: swipesOn && (guide.preferences.pinyinSwipeDownEnabled === true || guide.preferences.alphabeticSwipeDownEnabled === true),
+    swipeUpVisible: swipeMarksVisible && (
+      (guide.preferences.pinyinSwipeUpEnabled !== false && guide.preferences.pinyinSwipeUpVisible !== false)
+      || (guide.preferences.alphabeticSwipeUpEnabled !== false && guide.preferences.alphabeticSwipeUpVisible !== false)
+    ),
+    swipeDownVisible: swipeMarksVisible && (
+      (guide.preferences.pinyinSwipeDownEnabled === true && guide.preferences.pinyinSwipeDownVisible !== false)
+      || (guide.preferences.alphabeticSwipeDownEnabled === true && guide.preferences.alphabeticSwipeDownVisible !== false)
+    ),
+    pinyinSwipeEnabled: pinyinSwipeOn,
+    alphabeticSwipeEnabled: alphabeticSwipeOn,
+  };
+}
+
+function fieldVisibleByFeature(scopeName, key, project = state.project) {
+  const toggles = guideToggleState(project);
+  const swipeEnabled = toggles.swipeUpEnabled || toggles.swipeDownEnabled;
+  if (scopeName === 'center') {
+    if (TOOLBAR_CENTER_KEYS.has(key)) return toggles.toolbarEnabled;
+    if (SWIPE_DIRECTION_CENTER_KEYS.has(key)) return key.includes('上划') ? toggles.swipeUpVisible : toggles.swipeDownVisible;
+    if (SWIPE_GLOBAL_CENTER_KEYS.has(key)) return swipeEnabled;
+  }
+  if (['colors', 'fontSize'].includes(scopeName)) {
+    if (TOOLBAR_STYLE_KEYS.has(key)) return toggles.toolbarEnabled;
+    if (SWIPE_DIRECTION_STYLE_KEYS.has(key)) return key.includes('上划') ? toggles.swipeUpVisible : toggles.swipeDownVisible;
+    if (SWIPE_GLOBAL_STYLE_KEYS.has(key)) return swipeEnabled;
+  }
+  return true;
+}
+
+function groupVisibleByFeature(group, project = state.project) {
+  const toggles = guideToggleState(project);
+  if (group === 'toolbar') return toggles.toolbarEnabled;
+  return true;
+}
+
 const PREVIEW_INSET_SCOPE = {
-  keyboard26: ['keyboard26'],
+  keyboard26: ['keyboard26', 'hint'],
   numeric: ['numeric'],
   symbolic: ['symbolic'],
   panel: ['panel'],
   toolbar: [],
+  candidates: [],
+  expanded: [],
+};
+
+const PREVIEW_SURFACE_SCOPE = {
+  keyboard26: ['keyboard26', 'hint'],
+  numeric: ['numeric'],
+  symbolic: ['symbolic'],
+  panel: ['panel'],
+  toolbar: ['toolbar'],
   candidates: ['toolbar'],
   expanded: ['toolbar'],
 };
 
 const PREVIEW_INSET_ITEM_SCOPE = {
-  toolbar: {
-    candidates: ['horizontalCandidates'],
-    expanded: ['verticalCandidatesStyle', 'verticalCandidateFunction'],
-  },
 };
 
 function uniqueValues(values) {
@@ -777,7 +1074,7 @@ function scopeKeys(scopeName) {
     keys.push(...(map.keyboardCommon || []), ...(map[scope.mode] || []));
   }
   keys.push(...(map[scope.candidateState] || []));
-  return uniqueValues(keys);
+  return uniqueValues(keys).filter((key) => fieldVisibleByFeature(scopeName, key));
 }
 
 function filterEntriesByScope(value, scopeName) {
@@ -792,7 +1089,7 @@ function renderPreviewScopeNote() {
 }
 
 function renderPreviewScopeHeader(title = '当前可编辑内容', description = '由右侧键盘预览自动匹配，需要编辑其他键盘时请切换右侧预览。', actions = '', options = {}) {
-  const { showScopeBadge = true } = options;
+  const { showScopeBadge = true, scopeBadgeHtml = '' } = options;
   return `
     <div class="preview-scoped-header">
       <div class="preview-scoped-copy">
@@ -802,7 +1099,7 @@ function renderPreviewScopeHeader(title = '当前可编辑内容', description =
         </div>
         ${actions ? `<div class="preview-scoped-actions">${actions}</div>` : ''}
       </div>
-      ${showScopeBadge ? `<span>${escapeHtml(previewScopeLabel())}</span>` : ''}
+      ${showScopeBadge ? (scopeBadgeHtml || `<span>${escapeHtml(previewScopeLabel())}</span>`) : ''}
     </div>
   `;
 }
@@ -812,7 +1109,7 @@ function renderScopedEmptyNote() {
 }
 
 function isPreviewScopedModule() {
-  return ['colors', 'fontSize', 'center', 'scale', 'keyboardFrame', 'buttonInsets', 'customKeyboards', 'metrics', 'swipes', 'hints', 'collections'].includes(activeModule().id);
+  return ['colors', 'fontSize', 'center', 'scale', 'keyboardFrame', 'buttonInsets', 'customKeyboards', 'metrics', 'swipes', 'hints', 'collections', 'candidateStyles'].includes(activeModule().id);
 }
 
 function scopedInsetItems(group, items, scope = currentPreviewScope()) {
@@ -890,8 +1187,89 @@ function nextGeneratedProject(project, now = formatLocalDateTime()) {
   return applyDefaultSkinMeta(project, nextIndex, now);
 }
 
+function normalizedWorkbenchProject(project, sampleProject, fallbackStatus = 'pending') {
+  const merged = mergeDefaultCollections(mergeDefaultSwipes(project, sampleProject), sampleProject);
+  normalizeToolbarActionValues(merged);
+  migrateLegacyDefaultVisualPreset(merged);
+  syncDefaultGeneratedPresetData(
+    merged,
+    merged?.guide?.preferences?.keyboardPreset || project?.guide?.preferences?.keyboardPreset || DEFAULT_KEYBOARD_SKIN_PRESET,
+  );
+  syncGuideAndComboFromConfig(merged, { preserveGuideStatus: true });
+  ensureProjectGuide(merged, fallbackStatus);
+  return merged;
+}
+
+function normalizeToolbarActionValues(project) {
+  const actions = project?.toolbar?.actions;
+  if (!actions || typeof actions !== 'object') return;
+  for (const [key, action] of Object.entries(actions)) {
+    const fields = actionToFields(action);
+    const normalizedValue = normalizeActionFieldValue(fields.type, fields.value);
+    const normalizedType = displayActionTypeKey(fields.type);
+    const fallback = DEFAULT_TOOLBAR_ACTIONS[key];
+    const fallbackFields = fallback ? actionToFields(fallback) : { type: normalizedType, value: normalizedValue };
+    const finalType = normalizedType || fallbackFields.type;
+    const finalValue = normalizedValue || fallbackFields.value;
+    actions[key] = {
+      ...buildToolbarAction(finalType, finalValue),
+      actionType: finalType,
+      actionValue: finalValue,
+    };
+  }
+  for (const [key, action] of Object.entries(DEFAULT_TOOLBAR_ACTIONS)) {
+    if (actions[key] !== undefined) continue;
+    const fields = actionToFields(action);
+    actions[key] = {
+      ...buildToolbarAction(fields.type, fields.value),
+      actionType: fields.type,
+      actionValue: fields.value,
+    };
+  }
+}
+
+function resetGuideGenerationForFreshBoot(project, sourceProject = project) {
+  if (!project || typeof project !== 'object') return;
+  const preferences = {
+    ...(sourceProject?.guide?.preferences || project.guide?.preferences || {}),
+    symbolLayout: 'system',
+  };
+  project.guide = normalizedGuide({
+    preferences,
+    status: 'pending',
+    generatedPlan: null,
+  }, 'pending');
+}
+
 function isLegacyDefaultSkinMeta(project) {
   return project?.meta?.name === '示例模板1' && project?.meta?.author === '浮生';
+}
+
+function isDefaultGeneratedSkin(project) {
+  const name = String(project?.meta?.name || '').trim();
+  const author = String(project?.meta?.author || '').trim();
+  return /^皮肤\d+$/.test(name) && author === DEFAULT_SKIN_AUTHOR;
+}
+
+function migrateLegacyDefaultVisualPreset(project) {
+  if (!project || typeof project !== 'object') return project;
+  const presetValue = project?.guide?.preferences?.keyboardPreset;
+  const shouldApply = (
+    isLegacyDefaultSkinMeta(project)
+    || isDefaultGeneratedSkin(project)
+  ) && !presetValue;
+  if (!shouldApply) {
+    if (isDefaultGeneratedSkin(project) && project.keyboardCombo?.spaceRow && state.sampleProject?.keyboardCombo?.spaceRow) {
+      project.keyboardCombo.spaceRow.showSchemaNameOnSpace = state.sampleProject.keyboardCombo.spaceRow.showSchemaNameOnSpace;
+    }
+    return project;
+  }
+  const preset = applyKeyboardSkinPreset(project, DEFAULT_KEYBOARD_SKIN_PRESET);
+  applyKeyboardPresetPreferences(project, preset);
+  if (project.keyboardCombo?.spaceRow && state.sampleProject?.keyboardCombo?.spaceRow) {
+    project.keyboardCombo.spaceRow.showSchemaNameOnSpace = state.sampleProject.keyboardCombo.spaceRow.showSchemaNameOnSpace;
+  }
+  return project;
 }
 
 function projectSignature(project) {
@@ -928,7 +1306,7 @@ function undoLastChange() {
   const previousProject = previous.project || previous;
   state.isRestoringHistory = true;
   state.project = state.sampleProject
-    ? mergeDefaultCollections(mergeDefaultSwipes(previousProject, state.sampleProject), state.sampleProject)
+    ? normalizedWorkbenchProject(previousProject, state.sampleProject, previousProject?.guide?.status || 'ready')
     : previousProject;
   state.original = previous.original ? deepClone(previous.original) : deepClone(state.project);
   state.savedAt = null;
@@ -947,12 +1325,30 @@ function displayFieldLabel(key) {
   return FIELD_LABELS[key] || KEYBOARD_FRAME_LABELS[key] || INSET_EDGE_LABELS[key] || key;
 }
 
+function displayActionTypeKey(type) {
+  if (type === 'standard') return 'action';
+  if (type === 'shortcutCommand') return 'shortcut';
+  if (type === 'runTranslateScript') return 'runScript';
+  return type || 'shortcut';
+}
+
 function displayActionType(type) {
-  return ACTION_TYPE_LABELS[type] || type;
+  return ACTION_TYPE_LABELS[displayActionTypeKey(type)] || displayActionTypeKey(type);
 }
 
 function displayActionTypeWithCode(type) {
-  return `${displayActionType(type)}（${type}）`;
+  const displayType = displayActionTypeKey(type);
+  return `${displayActionType(displayType)}（${displayType}）`;
+}
+
+function actionTypeOption(type) {
+  const label = displayActionType(type);
+  const displayType = displayActionTypeKey(type);
+  return {
+    value: type,
+    selectedLabel: label,
+    dropdownLabel: displayActionTypeWithCode(displayType),
+  };
 }
 
 function keyCodeLabel(key) {
@@ -962,13 +1358,33 @@ function keyCodeLabel(key) {
 function keyboard26PreviewProfile() {
   const source = previewSourceName(state.previewMode);
   if (source.startsWith('alphabetic')) return 'alphabetic';
-  if (source.startsWith('pinyin_9')) return 'pinyin9';
   return 'pinyin';
+}
+
+function isChineseEnglishToggleAction(action) {
+  const fields = actionToFields(action);
+  if (fields.type === 'shortcut' && fields.value === '#中英切换') return true;
+  if (fields.type !== 'combine' || !Array.isArray(fields.value)) return false;
+  let hasChineseEnglishShortcut = false;
+  let hasAlphabeticSwitch = false;
+  for (const item of fields.value) {
+    const child = actionToFields(item);
+    if (child.type === 'shortcut' && child.value === '#中英切换') hasChineseEnglishShortcut = true;
+    if (child.type === 'keyboardType' && child.value === 'alphabetic') hasAlphabeticSwitch = true;
+  }
+  return hasChineseEnglishShortcut || hasAlphabeticSwitch;
 }
 
 function colorSwatchValue(value) {
   const text = String(value || '').trim();
   return /^#[0-9a-fA-F]{3,4}$|^#[0-9a-fA-F]{6}$|^#[0-9a-fA-F]{8}$/.test(text) ? text : 'transparent';
+}
+
+function syncColorSwatchForInput(inputElement) {
+  if (inputElement?.dataset?.type !== 'color') return;
+  const swatch = inputElement.closest('.color-field')?.querySelector('.color-swatch');
+  if (!swatch) return;
+  swatch.style.setProperty('--swatch-color', colorSwatchValue(inputElement.value));
 }
 
 function input(attrs = {}) {
@@ -982,6 +1398,7 @@ function input(attrs = {}) {
     step,
     placeholder = '',
     suggestions = [],
+    className = '',
   } = attrs;
   const id = `field-${Math.random().toString(36).slice(2)}`;
   const listId = suggestions.length ? `${id}-list` : '';
@@ -1006,7 +1423,7 @@ function input(attrs = {}) {
   if (type === 'color') {
     const swatchColor = colorSwatchValue(displayValue);
     return `
-      <div class="field-card">
+      <div class="field-card${className ? ` ${escapeHtml(className)}` : ''}">
         <label for="${id}">${escapeHtml(label)}</label>
         <div class="color-field">
           <span class="color-swatch" style="--swatch-color:${escapeHtml(swatchColor)}" aria-hidden="true"></span>
@@ -1017,7 +1434,7 @@ function input(attrs = {}) {
   }
 
   return `
-    <div class="field-card">
+    <div class="field-card${className ? ` ${escapeHtml(className)}` : ''}">
       <label for="${id}">${escapeHtml(label)}</label>
       <input id="${id}" type="${type}" value="${escapeHtml(displayValue)}" ${extra}>
       ${dataList}
@@ -1144,10 +1561,10 @@ const KEYBOARD_TEMPLATE_LABELS = {
   numeric_ios_landscape: '苹果数字键盘横屏',
   symbolic_portrait: '符号键盘竖屏',
   symbolic_landscape: '符号键盘横屏',
-  symbolic_system: '系统符号键盘',
+  symbolic_system: 'App内符号键盘',
   emoji_portrait: '自定义 Emoji 竖屏',
   emoji_landscape: '自定义 Emoji 横屏',
-  emoji_system: '系统 Emoji 键盘',
+  emoji_system: 'App内emoji键盘',
   panel_portrait: '自定义面板竖屏',
   panel_landscape: '自定义面板横屏',
 };
@@ -1155,13 +1572,13 @@ const KEYBOARD_TEMPLATE_LABELS = {
 const PREVIEW_KEYBOARD_GROUP_ORDER = ['pinyin', 'alphabetic', 'numeric', 'symbolic', 'emoji', 'panel'];
 const PREVIEW_KEYBOARD_ORIENTATION_ORDER = ['portrait', 'landscape'];
 
-function effectiveKeyboardCombo() {
-  return normalizedKeyboardCombo(state.project?.keyboardCombo || {});
+function effectiveKeyboardCombo(project = state.project) {
+  return normalizedKeyboardCombo(project?.keyboardCombo || {});
 }
 
-function effectiveConfig(config = state.project?.config || {}) {
+function effectiveConfig(config = state.project?.config || {}, comboOverride = null) {
   const next = deepClone(config || {});
-  const combo = effectiveKeyboardCombo();
+  const combo = comboOverride ? normalizedKeyboardCombo(comboOverride) : effectiveKeyboardCombo();
   next.pinyin = next.pinyin || {};
   next.alphabetic = next.alphabetic || {};
   next.numeric = next.numeric || {};
@@ -1204,15 +1621,16 @@ function effectiveConfig(config = state.project?.config || {}) {
       if (device === 'iPad') next.numeric[device].floating = 'numeric_ios_portrait';
     }
   }
-
-  if (combo.slots.symbolic.source === 'system') {
+  if (combo.slots.numeric.variant === '9' && combo.slots.numeric.source !== 'disabled' && combo.slots.numeric.enabled !== false) {
     for (const device of ['iPhone', 'iPad']) {
-      next.symbolic[device] = next.symbolic[device] || {};
-      next.symbolic[device].portrait = 'symbolic_system';
-      next.symbolic[device].landscape = 'symbolic_system';
-      if (device === 'iPad') next.symbolic[device].floating = 'symbolic_system';
+      next.numeric[device] = next.numeric[device] || {};
+      next.numeric[device].portrait = 'numeric_9_portrait';
+      next.numeric[device].landscape = 'numeric_9_landscape';
+      if (device === 'iPad') next.numeric[device].floating = 'numeric_9_portrait';
     }
   }
+
+  if (combo.slots.symbolic.source === 'system') next.symbolic = {};
   if (combo.slots.symbolic.source === 'custom') {
     for (const device of ['iPhone', 'iPad']) {
       next.symbolic[device] = next.symbolic[device] || {};
@@ -1225,14 +1643,7 @@ function effectiveConfig(config = state.project?.config || {}) {
     next.symbolic = {};
   }
 
-  if (combo.slots.emoji.source === 'system') {
-    for (const device of ['iPhone', 'iPad']) {
-      next.emoji[device] = next.emoji[device] || {};
-      next.emoji[device].portrait = 'emoji_system';
-      next.emoji[device].landscape = 'emoji_system';
-      if (device === 'iPad') next.emoji[device].floating = 'emoji_system';
-    }
-  }
+  if (combo.slots.emoji.source === 'system') next.emoji = {};
   if (combo.slots.emoji.source === 'custom') {
     for (const device of ['iPhone', 'iPad']) {
       next.emoji[device] = next.emoji[device] || {};
@@ -1301,12 +1712,8 @@ function collectConfigKeyboardNames(config = effectiveConfig(state.project?.conf
     ],
     alphabetic: ['alphabetic_26_portrait', 'alphabetic_26_landscape', 'alphabetic_26_plain_portrait', 'alphabetic_26_plain_landscape'],
     numeric: ['numeric_9_portrait', 'numeric_9_landscape', 'numeric_ios_portrait', 'numeric_ios_landscape'],
-    symbolic: combo.slots.symbolic.source === 'system'
-      ? ['symbolic_system']
-      : ['symbolic_portrait', 'symbolic_landscape'],
-    emoji: combo.slots.emoji.source === 'system'
-      ? ['emoji_system']
-      : ['emoji_portrait', 'emoji_landscape'],
+    symbolic: combo.slots.symbolic.source === 'system' ? [] : ['symbolic_portrait', 'symbolic_landscape'],
+    emoji: combo.slots.emoji.source === 'system' ? [] : ['emoji_portrait', 'emoji_landscape'],
     panel: ['panel_portrait', 'panel_landscape'],
   };
   const names = new Set();
@@ -1323,6 +1730,23 @@ function collectConfigKeyboardNames(config = effectiveConfig(state.project?.conf
     previewKeyboards().forEach((item) => names.add(item.name));
   }
   return [...names].sort(comparePreviewKeyboardNames);
+}
+
+function collectConfigKeyboardNamesForGroup(group, orientation = '', config = effectiveConfig(state.project?.config || {}), { includePreviewKeyboards = true } = {}) {
+  const preferredNames = isGuideReady(state.project) ? new Set(guidePreferredPreviewNames(state.project)) : null;
+  return collectConfigKeyboardNames(config, { includePreviewKeyboards })
+    .filter((name) => {
+      if (preferredNames && !preferredNames.has(name)) return false;
+      if (group === 'emoji') return name.startsWith('emoji_');
+      return name.startsWith(`${group}_`);
+    })
+    .filter((name) => {
+      if (name.endsWith('_system')) return true;
+      if (orientation === 'portrait') return name.endsWith('_portrait');
+      if (orientation === 'landscape') return name.endsWith('_landscape');
+      if (orientation === 'floating') return name.endsWith('_portrait');
+      return true;
+    });
 }
 
 function configKeyboardSelect(path, value, keyboardOptions) {
@@ -1374,14 +1798,14 @@ function renderConfigDeviceSwitch(config = {}) {
 }
 
 function renderConfigKeyboardMapping(config = effectiveConfig()) {
-  const keyboardOptions = collectConfigKeyboardNames(config);
   return `
-    <section class="group-card">
+    <details class="group-card advanced-config-card">
+      <summary>
+        <span>高级配置：config.yaml 键盘映射</span>
+        <small>使用引导已生成常规键盘方案，需要手动覆盖设备或横竖屏映射时再展开。</small>
+      </summary>
       <div class="layout-toolbar config-keyboard-toolbar">
-        <div>
-          <h3>键盘配置</h3>
-          ${renderConfigDeviceSwitch(config)}
-        </div>
+        ${renderConfigDeviceSwitch(config)}
       </div>
       <div class="config-keyboard-list">
         ${visibleConfigGroups().map((group) => {
@@ -1398,7 +1822,7 @@ function renderConfigKeyboardMapping(config = effectiveConfig()) {
                 ${Object.entries(mappings || {}).map(([orientation, keyboardName]) => `
                   <div class="config-orientation-row">
                     <span>${escapeHtml(CONFIG_ORIENTATION_LABELS[orientation] || orientation)}</span>
-                    ${configKeyboardSelect(`config.${group}.${device}.${orientation}`, keyboardName, keyboardOptions)}
+                    ${configKeyboardSelect(`config.${group}.${device}.${orientation}`, keyboardName, collectConfigKeyboardNamesForGroup(group, orientation, config))}
                   </div>
                 `).join('')}
               </div>
@@ -1407,7 +1831,7 @@ function renderConfigKeyboardMapping(config = effectiveConfig()) {
         `;
   }).join('')}
       </div>
-    </section>
+    </details>
   `;
 }
 
@@ -1453,13 +1877,14 @@ function renderNumberMap(value, basePath = activeModule().path) {
   const moduleId = activeModule().id;
   const scopeName = moduleId === 'fontSize' || moduleId === 'scale' ? moduleId : null;
   const entries = scopeName ? filterEntriesByScope(value, scopeName) : Object.entries(value || {});
+  const step = moduleId === 'fontSize' ? '1' : '0.01';
   return `<div class="section-grid compact-field-grid two-column-field-grid">${
     entries.map(([key, fieldValue]) => input({
       path: `${basePath}.${key}`,
       label: displayFieldLabel(key),
       value: fieldValue,
       type: 'number',
-      step: '0.01',
+      step,
     })).join('') || renderScopedEmptyNote()
   }</div>${scopeName ? renderPreviewScopeNote() : ''}`;
 }
@@ -1483,6 +1908,7 @@ function centerEntriesForScope(value = {}) {
   const scope = currentPreviewScope();
   return Object.entries(value || {})
     .filter(([key]) => {
+      if (!fieldVisibleByFeature('center', key)) return false;
       const definition = CENTER_FIELD_DEFINITIONS[key];
       if (!definition) return scopeKeys('center').includes(key);
       if (definition.category === 'hint') return ['keyboard26', 'numeric', 'symbolic'].includes(scope.mode);
@@ -1506,7 +1932,7 @@ function centerSpecialEntriesForScope() {
         const path = `keyboards.keyboard26.spaceRight.${mode}.${slot}.center`;
         entries.push({
           path,
-          label: `空格右侧键 ${mode === 'pinyin' ? '中文' : '英文'} ${slot === 'primary' ? '点击显示' : '上划显示'}`,
+          label: `空格右侧键 ${mode === 'pinyin' ? '中文' : '英文'} ${slot === 'primary' ? '主显示位置' : '上划显示位置'}`,
           point: getPath(state.project, path),
           category: 'special',
         });
@@ -1514,7 +1940,7 @@ function centerSpecialEntriesForScope() {
     }
     entries.push({
       path: 'keyboards.keyboard26.pinyinSchemaName.center',
-      label: '中文方案名位置',
+      label: '中文方案名显示位置',
       point: state.project.keyboards?.keyboard26?.pinyinSchemaName?.center,
       category: 'special',
     });
@@ -1536,7 +1962,10 @@ function centerSpecialEntriesForScope() {
     });
   }
   if (scope.keyboardVisible && ['keyboard26', 'numeric'].includes(scope.mode)) {
+    const toggles = guideToggleState();
     for (const direction of ['swipe_up', 'swipe_down']) {
+      if (direction === 'swipe_up' && !toggles.swipeUpEnabled) continue;
+      if (direction === 'swipe_down' && !toggles.swipeDownEnabled) continue;
       for (const profile of swipeProfilesForPreview(state.project.data?.swipes || {}, direction)) {
         const source = state.project.data?.swipes?.[profile]?.[direction] || {};
         const keys = currentPreviewKeyboardKeys().filter((key) => source[key]);
@@ -1567,11 +1996,156 @@ function renderCenterCategory(category, entries) {
   `;
 }
 
+function centerTargetForPreviewKey(key) {
+  if (!key) return null;
+  const scope = currentPreviewScope();
+  if (scope.candidateState === 'toolbar' && toolbarPreviewKeys().includes(key)) return { group: 'toolbar', key };
+  if (scope.mode === 'keyboard26' && scope.keyboardVisible) return { group: 'keyboard26', key };
+  return null;
+}
+
+function centerTargetPath(target = state.selectedCenterTarget) {
+  if (!target?.group || !target?.key) return null;
+  return `theme.shared.customCenters.${target.group}.${target.key}`;
+}
+
+function centerTargetLabel(target = state.selectedCenterTarget) {
+  if (!target) return '';
+  return `${CENTER_TARGET_GROUP_LABELS[target.group] || target.group} / ${keyCodeLabel(target.key)}`;
+}
+
+function toolbarEffectiveCenter() {
+  const centers = state.project.theme?.shared?.center || {};
+  return centers['toolbar按键偏移']
+    || centers['toolbar按键文字偏移']
+    || centers['toolbar按键sf符号偏移']
+    || { x: 0.5, y: 0.6 };
+}
+
+function keyboard26EffectiveCenterForKey(key) {
+  const centers = state.project.theme?.shared?.center || {};
+  if (/^\d$/.test(key)) return centers['数字键盘数字前景偏移'] || { x: 0.5, y: 0.5 };
+  if (FUNCTION_KEYS.has(key)) return centers['功能键前景文字偏移'] || { x: 0.5, y: 0.47 };
+  return centers['26键中文前景偏移'] || { x: 0.5, y: 0.5 };
+}
+
+function effectiveCustomCenterPoint(target) {
+  if (!target?.group || !target?.key) return {};
+  const custom = getPath(state.project, centerTargetPath(target));
+  if (custom && typeof custom === 'object' && !Array.isArray(custom)) return custom;
+  if (target.group === 'toolbar') return toolbarEffectiveCenter();
+  if (target.group === 'keyboard26') return keyboard26EffectiveCenterForKey(target.key);
+  return {};
+}
+
+function toolbarPreviewKeys() {
+  const combo = state.project.keyboardCombo || {};
+  const sourceButtons = Array.isArray(state.project.toolbar?.layout) ? state.project.toolbar.layout : DEFAULT_TOOLBAR_BUTTONS;
+  return sourceButtons.filter((button) => {
+    if (button === 'menu') return combo.slots?.panel?.source !== 'disabled' && combo.slots?.panel?.enabled !== false;
+    if (button === 'symbol') return combo.slots?.symbolic?.source !== 'disabled' && combo.slots?.symbolic?.enabled !== false;
+    if (button === 'emoji') return combo.slots?.emoji?.source !== 'disabled' && combo.slots?.emoji?.enabled !== false;
+    return true;
+  });
+}
+
+function customCenterTargetsForScope() {
+  const scope = currentPreviewScope();
+  const targets = [];
+  if (scope.candidateState === 'toolbar') {
+    targets.push(...toolbarPreviewKeys().map((key) => ({ group: 'toolbar', key })));
+  }
+  if (scope.mode === 'keyboard26' && scope.keyboardVisible) {
+    targets.push(...currentPreviewKeyboardKeys().map((key) => ({ group: 'keyboard26', key })));
+  }
+  return targets;
+}
+
+function renderCustomCenterToken(target, activePath = '') {
+  const path = centerTargetPath(target);
+  const active = (state.editingKey?.path === path || activePath === path) ? ' is-active' : '';
+  const label = target.group === 'toolbar' ? toolbarLayoutTokenLabel(target.key) : swipeKeyLabel(target.key);
+  return `
+    <button class="swipe-token custom-center-token${active}" type="button" data-key-edit-path="${escapeHtml(path)}" data-center-group="${escapeHtml(target.group)}" data-center-key="${escapeHtml(target.key)}" title="编辑 ${escapeHtml(label)} 偏移">
+      <span class="swipe-key">${escapeHtml(label)}</span>
+    </button>
+  `;
+}
+
+function renderCustomCenterTargetGroup(group, targets, activePath = '') {
+  if (!targets.length) return '';
+  const title = group === 'keyboard26'
+    ? `中文 ${currentPreviewScope().pinyinVariant || '26'} 键`
+    : CENTER_TARGET_GROUP_LABELS[group] || group;
+  return `
+    <section class="group-card keyboard-key-card custom-center-keyboard-card is-${escapeHtml(group)}">
+      <div class="field-card-title row-heading">
+        <span class="row-title">${escapeHtml(title)}</span>
+        <span class="swipe-default-center">点击按键编辑偏移设置</span>
+      </div>
+      <div class="swipe-token-list custom-center-token-list">
+        ${targets.map((target) => renderCustomCenterToken(target, activePath)).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function renderCenterModeSwitch() {
+  return `
+    <div class="center-mode-switch" role="tablist" aria-label="偏移设置模板">
+      ${[
+        ['uniform', '统一偏移'],
+        ['custom', '自定义'],
+      ].map(([mode, label]) => `
+        <button type="button" class="${state.centerEditMode === mode ? 'active' : ''}" data-center-mode="${mode}" role="tab" aria-selected="${state.centerEditMode === mode ? 'true' : 'false'}">
+          ${escapeHtml(label)}
+        </button>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderCustomCenterModule() {
+  const targets = customCenterTargetsForScope();
+  const activeTarget = state.selectedCenterTarget && targets.some((target) => target.group === state.selectedCenterTarget.group && target.key === state.selectedCenterTarget.key)
+    ? state.selectedCenterTarget
+    : targets[0] || null;
+  const path = centerTargetPath(activeTarget);
+  const point = path ? effectiveCustomCenterPoint(activeTarget) : null;
+  const targetsByGroup = {
+    toolbar: targets.filter((target) => target.group === 'toolbar'),
+    keyboard26: targets.filter((target) => target.group === 'keyboard26'),
+  };
+  return `
+    ${renderPreviewScopeHeader('偏移设置', '自定义模式：从按键列表选择一个按键，单独设置前景偏移。', '', { scopeBadgeHtml: renderCenterModeSwitch() })}
+    ${targets.length ? `
+      ${renderCustomCenterTargetGroup('toolbar', targetsByGroup.toolbar, path)}
+      ${renderCustomCenterTargetGroup('keyboard26', targetsByGroup.keyboard26, path)}
+    ` : '<p class="empty-note">当前预览没有可自定义偏移的按键。</p>'}
+    ${activeTarget && path ? `
+      <section class="group-card custom-center-card">
+        <section class="key-edit-panel swipe-edit-panel custom-center-edit-panel" data-key-edit-panel-path="${escapeHtml(path)}">
+          <section class="key-edit-section">
+            <h4>${escapeHtml(centerTargetLabel(activeTarget))}</h4>
+            <p class="empty-note">输入框默认显示当前生效偏移；修改后会保存为当前单个按键的自定义偏移。</p>
+          </section>
+        <div class="center-point-list">
+          ${pointInputCard(path, '单键前景偏移', point, 'center-point-row')}
+        </div>
+          <span class="key-edit-focus-sentinel" tabindex="0" aria-hidden="true"></span>
+        </section>
+      </section>
+    ` : ''}
+    ${renderPreviewScopeNote()}
+  `;
+}
+
 function renderCenterModule(value = {}, basePath = 'theme.shared.center') {
+  if (state.centerEditMode === 'custom') return renderCustomCenterModule();
   const entries = [...centerEntriesForScope(value), ...centerSpecialEntriesForScope()];
   const categoryOrder = ['keyForeground', 'swipe', 'hint', 'toolbar', 'panel', 'special'];
   return `
-    ${renderPreviewScopeHeader('偏移设置', '只显示右侧当前预览界面里可设置的偏移项；其他模块不再单独显示偏移输入。')}
+    ${renderPreviewScopeHeader('偏移设置', '只显示右侧当前预览界面里可设置的偏移项；其他模块不再单独显示偏移输入。', '', { scopeBadgeHtml: renderCenterModeSwitch() })}
     ${categoryOrder.map((category) => renderCenterCategory(
     category,
     entries.filter((entry) => entry.category === category),
@@ -1707,10 +2281,10 @@ function renderInsetGroup(group, items, { customEnabled = true } = {}) {
       <div class="layout-toolbar">
         <div>
           <h3>${escapeHtml(title)}</h3>
-          ${customEnabled ? renderInsetModeMenu(group, mode, title) : ''}
-        </div>
-        <div class="layout-actions">
-          ${customEnabled && mode === 'custom' ? `<button class="tool-button primary" type="button" data-inset-action="add-custom-rule" data-group="${escapeHtml(group)}"><span aria-hidden="true">＋</span>添加</button>` : ''}
+          <div class="inset-mode-row">
+            ${customEnabled ? renderInsetModeMenu(group, mode, title) : ''}
+            ${customEnabled && mode === 'custom' ? `<button class="tool-button primary inset-add-button" type="button" data-inset-action="add-custom-rule" data-group="${escapeHtml(group)}"><span aria-hidden="true">＋</span>添加</button>` : ''}
+          </div>
         </div>
       </div>
       ${mode === 'regular'
@@ -1727,7 +2301,7 @@ function renderInsetsTree(value, basePath = activeModule().path) {
   const allowedGroups = uniqueValues([
     ...(scope.keyboardVisible ? (PREVIEW_INSET_SCOPE[scope.mode] || []) : []),
     ...(PREVIEW_INSET_SCOPE[scope.candidateState] || []),
-  ]);
+  ]).filter((group) => groupVisibleByFeature(group));
   const groupEntries = Object.entries(value || {}).filter(([group]) => group !== 'keyboard26' && allowedGroups.includes(group));
   groupEntries.sort(([groupA], [groupB]) => {
     if (groupA === 'panel') return 1;
@@ -1773,6 +2347,159 @@ function renderColors() {
   `;
 }
 
+function renderCandidateStyleFields(title, basePath, style = {}, defaults = {}) {
+  return `
+    <section class="group-card candidate-style-card">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="section-grid compact-field-grid two-column-field-grid">
+        ${defaultInput({
+    path: `${basePath}.backgroundColor`,
+    label: '普通背景',
+    value: style.backgroundColor,
+    defaultValue: defaults.backgroundColor || '',
+    type: 'text',
+  })}
+        ${defaultInput({
+    path: `${basePath}.preferredBackgroundColor`,
+    label: '高亮背景',
+    value: style.preferredBackgroundColor,
+    defaultValue: defaults.preferredBackgroundColor || '',
+    type: 'text',
+  })}
+        ${defaultInput({
+    path: `${basePath}.preferredTextColor`,
+    label: '高亮文字',
+    value: style.preferredTextColor,
+    defaultValue: defaults.preferredTextColor || '',
+    type: 'text',
+  })}
+        ${defaultInput({
+    path: `${basePath}.preferredIndexColor`,
+    label: '高亮序号',
+    value: style.preferredIndexColor,
+    defaultValue: defaults.preferredIndexColor || '',
+    type: 'text',
+  })}
+        ${defaultInput({
+    path: `${basePath}.preferredCommentColor`,
+    label: '高亮注释',
+    value: style.preferredCommentColor,
+    defaultValue: defaults.preferredCommentColor || '',
+    type: 'text',
+  })}
+        ${defaultInput({
+    path: `${basePath}.textColor`,
+    label: '普通文字',
+    value: style.textColor,
+    defaultValue: defaults.textColor || '',
+    type: 'text',
+  })}
+        ${defaultInput({
+    path: `${basePath}.indexColor`,
+    label: '普通序号',
+    value: style.indexColor,
+    defaultValue: defaults.indexColor || '',
+    type: 'text',
+  })}
+        ${defaultInput({
+    path: `${basePath}.commentColor`,
+    label: '普通注释',
+    value: style.commentColor,
+    defaultValue: defaults.commentColor || '',
+    type: 'text',
+  })}
+        ${defaultInput({
+    path: `${basePath}.textFontSize`,
+    label: '文字字号',
+    value: style.textFontSize,
+    defaultValue: defaults.textFontSize,
+    type: 'number',
+  })}
+        ${defaultInput({
+    path: `${basePath}.indexFontSize`,
+    label: '序号字号',
+    value: style.indexFontSize,
+    defaultValue: defaults.indexFontSize,
+    type: 'number',
+  })}
+        ${defaultInput({
+    path: `${basePath}.commentFontSize`,
+    label: '注释字号',
+    value: style.commentFontSize,
+    defaultValue: defaults.commentFontSize,
+    type: 'number',
+  })}
+      </div>
+      ${renderInsetObject(`${basePath}.insets`, '候选内容边距', style.insets || defaults.insets || {})}
+    </section>
+  `;
+}
+
+function renderCandidateStyles() {
+  const theme = state.theme === 'dark' ? 'dark' : 'light';
+  const colors = state.project.theme?.[theme]?.colors || {};
+  const fontSizes = state.project.theme?.shared?.fontSize || {};
+  const selectedColor = colors['候选字体选中字体颜色'] || colors['候选字体未选中字体颜色'] || '';
+  const normalColor = colors['候选字体未选中字体颜色'] || selectedColor;
+  const selectedBackground = colors['选中候选背景颜色'] || '';
+  const horizontalStyle = state.project.toolbar?.horizontalCandidates?.candidateStyle || {};
+  const verticalStyle = state.project.toolbar?.verticalCandidates?.candidateStyle || {};
+  const horizontalCandidate = state.project.toolbar?.horizontalCandidates?.candidate || {};
+  const verticalCandidate = state.project.toolbar?.verticalCandidates?.candidate || {};
+  return `
+    ${renderPreviewScopeHeader('候选样式', '进入本模块会自动显示候选栏预览；横向候选和展开候选可分开设置。', `
+      <button class="tool-button secondary" type="button" data-candidate-style-action="show-horizontal">横向候选</button>
+      <button class="tool-button secondary" type="button" data-candidate-style-action="show-expanded">展开候选</button>
+    `, { showScopeBadge: true })}
+    <section class="group-card candidate-style-card">
+      <h3>全局候选颜色</h3>
+      <div class="section-grid compact-field-grid three-column-field-grid">
+        ${input({ path: `theme.${theme}.colors.选中候选背景颜色`, label: '高亮候选背景', value: selectedBackground, type: 'color' })}
+        ${input({ path: `theme.${theme}.colors.候选字体选中字体颜色`, label: '高亮候选文字', value: selectedColor, type: 'color' })}
+        ${input({ path: `theme.${theme}.colors.候选字体未选中字体颜色`, label: '普通候选文字', value: normalColor, type: 'color' })}
+      </div>
+    </section>
+    <section class="group-card candidate-style-card">
+      <h3>候选字号</h3>
+      <div class="section-grid compact-field-grid three-column-field-grid">
+        ${input({ path: 'theme.shared.fontSize.未展开候选字体选中字体大小', label: '横向候选字号', value: fontSizes['未展开候选字体选中字体大小'], type: 'number', step: '0.1' })}
+        ${input({ path: 'theme.shared.fontSize.未展开comment字体大小', label: '横向注释字号', value: fontSizes['未展开comment字体大小'], type: 'number', step: '0.1' })}
+        ${input({ path: 'theme.shared.fontSize.展开候选字体选中字体大小', label: '展开候选字号', value: fontSizes['展开候选字体选中字体大小'], type: 'number', step: '0.1' })}
+        ${input({ path: 'theme.shared.fontSize.展开comment字体大小', label: '展开注释字号', value: fontSizes['展开comment字体大小'], type: 'number', step: '0.1' })}
+      </div>
+    </section>
+    ${renderCandidateStyleFields('横向候选细节', 'toolbar.horizontalCandidates.candidateStyle', horizontalStyle, {
+    preferredBackgroundColor: selectedBackground,
+    preferredTextColor: selectedColor,
+    preferredIndexColor: selectedColor,
+    preferredCommentColor: selectedColor,
+    backgroundColor: '#ffffff',
+    textColor: normalColor,
+    indexColor: normalColor,
+    commentColor: normalColor,
+    textFontSize: fontSizes['未展开候选字体选中字体大小'] ?? 18,
+    indexFontSize: fontSizes['未展开候选字体选中字体大小'] ?? 18,
+    commentFontSize: fontSizes['未展开comment字体大小'] ?? 14,
+    insets: { top: 5, right: 1, bottom: 5, left: 1 },
+  })}
+    ${renderInsetObject('toolbar.horizontalCandidates.candidate.insets', '横向候选外边距', horizontalCandidate.insets || state.project.keyStyles?.buttonInsets?.toolbar?.horizontalCandidates || {})}
+    ${renderCandidateStyleFields('展开候选细节', 'toolbar.verticalCandidates.candidateStyle', verticalStyle, {
+    preferredBackgroundColor: selectedBackground,
+    preferredTextColor: selectedColor,
+    preferredIndexColor: selectedColor,
+    preferredCommentColor: selectedColor,
+    textColor: normalColor,
+    indexColor: normalColor,
+    commentColor: normalColor,
+    textFontSize: fontSizes['展开候选字体选中字体大小'] ?? 16,
+    indexFontSize: fontSizes['展开候选字体选中字体大小'] ?? 16,
+    commentFontSize: fontSizes['展开comment字体大小'] ?? 18,
+    insets: { top: 8, right: 8, bottom: 8, left: 8 },
+  })}
+    ${renderInsetObject('toolbar.verticalCandidates.candidate.insets', '展开候选外边距', verticalCandidate.insets || state.project.toolbar?.verticalCandidates?.candidateInsets || { top: 3, left: 4, bottom: 3, right: 4 })}
+  `;
+}
+
 function renderAssets(value) {
   return `<div class="section-grid">${
     Object.entries(value || {}).map(([key, asset]) => `
@@ -1790,11 +2517,13 @@ function renderAssets(value) {
 
 function renderKeyboardFrame(value) {
   const scope = currentPreviewScope();
-  const orientationValue = value[scope.orientation] || {};
+  const nativeFrame = currentNativePreviewFrameValue(scope.orientation);
+  const orientationValue = nativeFrame || value[scope.orientation] || {};
   const showPanel = scope.mode === 'panel';
+  const containerInsets = state.project.keyStyles?.buttonInsets?.keyboard26?.container || nativeFrame?.keyboardInsets || { top: 3, left: 4, bottom: 3, right: 4 };
   const frameKeys = scope.candidateState === 'expanded'
-    ? ['toolbarHeight', 'keyboardHeight']
-    : ['toolbarHeight', 'keyboardHeight'];
+    ? ['preeditHeight', 'toolbarHeight', 'keyboardHeight']
+    : ['preeditHeight', 'toolbarHeight', 'keyboardHeight'];
   return `
     <section class="group-card">
       <h3>${scope.orientation === 'landscape' ? '横屏高度' : '竖屏高度'}</h3>
@@ -1807,8 +2536,16 @@ function renderKeyboardFrame(value) {
     step: '0.01',
   })).join('')}
       </div>
+      ${nativeFrame ? '<p class="scope-note">当前显示的是 SkinEffectModel 解析后的实际高度；修改后会同步到预览和导出的 native payload。</p>' : ''}
       ${renderPreviewScopeNote()}
     </section>
+    ${nativeFrame ? `<section class="group-card">
+      <h3>原生区域边距</h3>
+      <div class="section-grid compact-field-grid two-column-field-grid">
+        ${renderInsetObject('keyStyles.buttonInsets.keyboard26.container', 'keyboardStyle.insets', containerInsets)}
+      </div>
+      <p class="scope-note">这里写入 project.json 的外层键盘边距，并由预览与导出共同解析。</p>
+    </section>` : ''}
     ${showPanel ? `<section class="group-card">
       <h3>面板</h3>
       <div class="section-grid">
@@ -1849,7 +2586,9 @@ function option(item, selectedValue) {
   const label = item?.label ?? value;
   const selectedLabel = item?.selectedLabel ?? label;
   const dropdownLabel = item?.dropdownLabel ?? label;
-  return `<option value="${escapeHtml(value)}" data-selected-label="${escapeHtml(selectedLabel)}" data-dropdown-label="${escapeHtml(dropdownLabel)}" ${value === selectedValue ? 'selected' : ''}>${escapeHtml(selectedLabel)}</option>`;
+  const disabled = item?.disabled ? 'disabled' : '';
+  const title = item?.title ? `title="${escapeHtml(item.title)}"` : '';
+  return `<option value="${escapeHtml(value)}" data-selected-label="${escapeHtml(selectedLabel)}" data-dropdown-label="${escapeHtml(dropdownLabel)}" ${value === selectedValue ? 'selected' : ''} ${disabled} ${title}>${escapeHtml(selectedLabel)}</option>`;
 }
 
 function selectField(attrs = {}) {
@@ -1884,8 +2623,17 @@ function syncSelectOptionLabels(select, expanded = false) {
 }
 
 function actionToFields(action) {
-  if (typeof action === 'string') return { type: 'shortcut', value: action };
-  if (!action || typeof action !== 'object') return { type: 'character', value: '' };
+  if (typeof action === 'string') {
+    const shortcutValue = normalizeLegacyShortcutValue(action);
+    return {
+      type: STANDARD_ACTION_VALUES.includes(action) ? 'action' : 'shortcut',
+      value: STANDARD_ACTION_VALUES.includes(action) ? action : shortcutValue,
+    };
+  }
+  if (!action || typeof action !== 'object') return { type: 'shortcut', value: '' };
+  if (typeof action.action === 'string') {
+    return actionToFields(action.action);
+  }
   if (action.action && typeof action.action === 'object' && !Array.isArray(action.action)) {
     const nested = actionToFields(action.action);
     if (nested.type !== 'character' || nested.value !== '' || Object.keys(action.action).length) return nested;
@@ -1894,8 +2642,10 @@ function actionToFields(action) {
   if (realAction) {
     const [type, value] = realAction;
     return {
-      type: type === 'shortcutCommand' ? 'shortcut' : type,
-      value: value === undefined || value === null ? '' : String(value),
+      type: displayActionTypeKey(type),
+      value: type === 'combine' && Array.isArray(value)
+        ? value
+        : normalizeActionFieldValue(type, value),
     };
   }
   if (
@@ -1905,39 +2655,80 @@ function actionToFields(action) {
   ) {
     return {
       type: typeof action.actionType === 'string' && action.actionType
-        ? (action.actionType === 'shortcutCommand' ? 'shortcut' : action.actionType)
-        : 'character',
+        ? displayActionTypeKey(action.actionType)
+        : 'shortcut',
       value: action.actionValue !== undefined && action.actionValue !== null
-        ? String(action.actionValue)
+        ? normalizeActionFieldValue(action.actionType || 'shortcut', action.actionValue)
         : '',
     };
   }
-  return { type: 'character', value: '' };
+  return { type: 'shortcut', value: '' };
+}
+
+function swipeDisplayLabel(entry = {}) {
+  const label = entry?.label || {};
+  if (label.systemImageName) return { type: 'systemImageName', value: label.systemImageName };
+  if (label.text !== undefined) return { type: 'text', value: String(label.text) };
+  const action = actionToFields(entry?.action);
+  if (!action?.value) return { type: 'text', value: '' };
+  if (action.type === 'character' || action.type === 'symbol') return { type: 'text', value: String(action.value) };
+  if (action.type === 'action' && action.value === 'tab') return { type: 'text', value: 'tab' };
+  if (action.type === 'shortcut') {
+    const shortcutLabels = {
+      '#selectText': 'select',
+      '#cut': 'cut',
+      '#copy': 'copy',
+      '#paste': 'paste',
+      '#行首': 'home',
+      '#行尾': 'end',
+    };
+    return { type: 'text', value: shortcutLabels[action.value] || '' };
+  }
+  return { type: 'text', value: '' };
+}
+
+function normalizeLegacyShortcutValue(value) {
+  const text = String(value ?? '').trim();
+  return LEGACY_SHORTCUT_VALUE_MAP[text] || text;
+}
+
+function normalizeActionFieldValue(type, value) {
+  if (value === undefined || value === null) return '';
+  const normalizedType = displayActionTypeKey(type);
+  if (normalizedType === 'shortcut') return normalizeLegacyShortcutValue(value);
+  return String(value);
 }
 
 function actionValueSuggestions(type) {
+  const normalizedType = displayActionTypeKey(type);
   return {
-    standard: STANDARD_ACTION_VALUES,
+    action: STANDARD_ACTION_VALUES,
     keyboardType: KEYBOARD_TYPE_VALUES,
-    floatKeyboardType: ['panel'],
     shortcut: SHORTCUT_VALUES,
-    openURL: OPEN_URL_VALUES,
-    runScript: ['script'],
-  }[type] || [];
+  }[normalizedType] || [];
 }
 
 function toolbarActionValueSuggestions(type) {
-  return TOOLBAR_ACTION_VALUE_SUGGESTIONS[type] || actionValueSuggestions(type);
+  const displayType = displayActionTypeKey(type);
+  return TOOLBAR_ACTION_VALUE_SUGGESTIONS[displayType] || actionValueSuggestions(displayType);
 }
 
 function normalizedActionValueForType(type, value, { toolbar = false } = {}) {
-  const normalizedType = type === 'shortcutCommand' ? 'shortcut' : type;
-  const text = String(value || '').trim();
+  const normalizedType = displayActionTypeKey(type);
+  let text = normalizedType === 'shortcut'
+    ? normalizeLegacyShortcutValue(value)
+    : String(value || '').trim();
+  if (!text && Object.prototype.hasOwnProperty.call(DEFAULT_ACTION_VALUE_BY_TYPE, normalizedType)) {
+    text = DEFAULT_ACTION_VALUE_BY_TYPE[normalizedType];
+  }
   if (!text) return '';
   const suggestions = toolbar ? toolbarActionValueSuggestions(normalizedType) : actionValueSuggestions(normalizedType);
-  if (!['standard', 'keyboardType', 'floatKeyboardType', 'shortcut', 'openURL'].includes(normalizedType)) return text;
+  if (FREE_TEXT_ACTION_TYPES.has(normalizedType)) return text;
+  if (!['action', 'keyboardType', 'shortcut'].includes(normalizedType)) return text;
   if (suggestions.includes(text)) return text;
-  if (normalizedType === 'openURL' && /^(https?:\/\/|mailto:|tel:)/i.test(text)) return text;
+  if (Object.prototype.hasOwnProperty.call(DEFAULT_ACTION_VALUE_BY_TYPE, normalizedType)) {
+    return DEFAULT_ACTION_VALUE_BY_TYPE[normalizedType];
+  }
   return '';
 }
 
@@ -1958,6 +2749,45 @@ function toolbarActionPresetOptions() {
   ];
 }
 
+function combineActionItems(action) {
+  return action?.type === 'combine' && Array.isArray(action.value) ? action.value : [];
+}
+
+function combineActionEditor({ basePath, action, toolbar = false, types = ACTION_TYPES }) {
+  if (action.type !== 'combine') return '';
+  const items = combineActionItems(action);
+  const childTypes = types.filter((type) => type !== 'combine');
+  return `
+    <div class="combine-action-editor" data-combine-base-path="${escapeHtml(basePath)}" data-combine-toolbar="${toolbar ? 'true' : 'false'}">
+      <div class="combine-action-list">
+        ${items.map((item, index) => {
+    const fields = actionToFields(item);
+    return `
+          <div class="combine-action-row">
+            <span class="combine-action-index">${index + 1}</span>
+            ${selectField({
+      path: `${basePath}.combine.${index}.actionType`,
+      label: '动作',
+      value: fields.type,
+      className: 'combine-action-type-field',
+      selectClassName: 'action-type-select',
+      options: childTypes.map((type) => actionTypeOption(type)),
+    })}
+            ${actionValueField({ basePath: `${basePath}.combine.${index}`, action: fields, toolbar })}
+            <div class="combine-action-buttons">
+              <button class="mini-button" type="button" data-combine-action="up" data-base-path="${escapeHtml(basePath)}" data-index="${index}" ${index === 0 ? 'disabled' : ''}>上移</button>
+              <button class="mini-button" type="button" data-combine-action="down" data-base-path="${escapeHtml(basePath)}" data-index="${index}" ${index === items.length - 1 ? 'disabled' : ''}>下移</button>
+              <button class="mini-button danger" type="button" data-combine-action="remove" data-base-path="${escapeHtml(basePath)}" data-index="${index}">删除</button>
+            </div>
+          </div>
+        `;
+  }).join('')}
+      </div>
+      <button class="mini-button row-add-button" type="button" data-combine-action="add" data-base-path="${escapeHtml(basePath)}"><span aria-hidden="true">＋</span>添加动作</button>
+    </div>
+  `;
+}
+
 function suppressKeyEditorAutoClose(duration = 250) {
   state.suppressKeyEditorAutoCloseUntil = Date.now() + duration;
 }
@@ -1965,16 +2795,75 @@ function suppressKeyEditorAutoClose(duration = 250) {
 function buildAction(type, value) {
   if (!value) return {};
   if (type === 'raw') return value;
-  const normalizedType = type === 'shortcutCommand' ? 'shortcut' : type;
+  const normalizedType = displayActionTypeKey(type);
+  if (normalizedType === 'combine') return { combine: Array.isArray(value) ? value : [] };
+  if (normalizedType === 'action') return value;
+  if (normalizedType === 'shortcut') return { shortcut: value };
   return { [normalizedType]: value };
 }
 
+function buildObjectAction(type, value) {
+  const normalizedType = displayActionTypeKey(type);
+  if (normalizedType === 'action') return { action: value };
+  return buildAction(normalizedType, value);
+}
+
+function buildToolbarAction(type, value) {
+  return buildObjectAction(type, value);
+}
+
+function combineActionPath(basePath, toolbar = false) {
+  return toolbar ? basePath : `${basePath}.action`;
+}
+
+function combineActionsForPath(basePath, toolbar = false) {
+  const action = actionToFields(getPath(state.project, combineActionPath(basePath, toolbar)));
+  return combineActionItems(action).map((item) => {
+    const fields = actionToFields(item);
+    return buildObjectAction(fields.type, fields.value);
+  });
+}
+
+function setCombineActions(basePath, items, toolbar = false) {
+  const nextAction = { combine: items };
+  if (toolbar) {
+    setPath(state.project, basePath, {
+      ...nextAction,
+      actionType: 'combine',
+      actionValue: '',
+    });
+    return;
+  }
+  setPath(state.project, `${basePath}.action`, nextAction);
+  setPath(state.project, `${basePath}.actionType`, 'combine');
+  setPath(state.project, `${basePath}.actionValue`, '');
+}
+
 function updateActionState(basePath, nextType, nextValue, { toolbar = false } = {}) {
-  const normalizedType = nextType === 'shortcutCommand' ? 'shortcut' : nextType;
+  const normalizedType = displayActionTypeKey(nextType);
+  if (normalizedType === 'combine') {
+    const current = actionToFields(toolbar ? getPath(state.project, basePath) : getPath(state.project, `${basePath}.action`));
+    const combine = Array.isArray(current.value) && current.type === 'combine'
+      ? current.value
+      : [{ keyboardType: 'alphabetic' }, { switchRimeSchema: 'melt_eng' }];
+    const nextAction = { combine };
+    if (toolbar) {
+      setPath(state.project, basePath, {
+        ...nextAction,
+        actionType: normalizedType,
+        actionValue: '',
+      });
+    } else {
+      setPath(state.project, `${basePath}.action`, nextAction);
+      setPath(state.project, `${basePath}.actionType`, normalizedType);
+      setPath(state.project, `${basePath}.actionValue`, '');
+    }
+    return '';
+  }
   const normalizedValue = normalizedActionValueForType(normalizedType, nextValue, { toolbar });
   if (toolbar) {
     setPath(state.project, basePath, {
-      ...buildAction(normalizedType, normalizedValue),
+      ...buildToolbarAction(normalizedType, normalizedValue),
       actionType: normalizedType,
       actionValue: normalizedValue,
     });
@@ -1984,6 +2873,32 @@ function updateActionState(basePath, nextType, nextValue, { toolbar = false } = 
   setPath(state.project, `${basePath}.actionValue`, normalizedValue);
   setPath(state.project, `${basePath}.action`, buildAction(normalizedType, normalizedValue));
   return normalizedValue;
+}
+
+function updateCombineActionState(basePath, index, nextType, nextValue, { toolbar = false } = {}) {
+  const items = combineActionsForPath(basePath, toolbar);
+  const current = actionToFields(items[index] || {});
+  const type = nextType || current.type || 'keyboardType';
+  const value = normalizedActionValueForType(type, nextValue ?? current.value, { toolbar });
+  items[index] = buildObjectAction(type, value);
+  setCombineActions(basePath, items, toolbar);
+}
+
+function handleCombineAction(button) {
+  const basePath = button.dataset.basePath || '';
+  const toolbar = basePath.startsWith('toolbar.actions.');
+  const items = combineActionsForPath(basePath, toolbar);
+  const index = Number(button.dataset.index);
+  if (button.dataset.combineAction === 'add') items.push({ keyboardType: 'alphabetic' });
+  if (button.dataset.combineAction === 'remove' && Number.isInteger(index)) items.splice(index, 1);
+  if (button.dataset.combineAction === 'up' && index > 0) [items[index - 1], items[index]] = [items[index], items[index - 1]];
+  if (button.dataset.combineAction === 'down' && index < items.length - 1) [items[index + 1], items[index]] = [items[index], items[index + 1]];
+  setCombineActions(basePath, items, toolbar);
+  markDirty();
+  renderProjectSummary();
+  renderSaveState();
+  renderCurrentPreview();
+  renderEditor();
 }
 
 function labelToFields(label = {}) {
@@ -1997,7 +2912,7 @@ function toolbarDisplayMode(key) {
   return DEFAULT_TOOLBAR_SYSTEM_IMAGES[key] ? 'systemImageName' : 'text';
 }
 
-function effectiveToolbarLayout(layout = state.project?.toolbar?.layout || DEFAULT_TOOLBAR_BUTTONS) {
+function effectiveToolbarLayout(layout = Array.isArray(state.project?.toolbar?.layout) ? state.project.toolbar.layout : DEFAULT_TOOLBAR_BUTTONS) {
   const combo = effectiveKeyboardCombo();
   if (combo.toolbar?.enabled === false) return [];
   return (layout || []).filter((button) => {
@@ -2014,6 +2929,26 @@ function toolbarSystemImageValue(key) {
 
 function toolbarTextValue(key) {
   return getPath(state.project, `toolbar.text.${key}`) || key;
+}
+
+function toolbarLayoutTokenLabel(key) {
+  if (!key) return '空';
+  const displayType = toolbarDisplayMode(key);
+  if (displayType === 'systemImageName') {
+    return toolbarSystemImageValue(key) || keyCodeLabel(key);
+  }
+  return toolbarTextValue(key) || keyCodeLabel(key);
+}
+
+function toolbarLayoutTokenActionLabel(key) {
+  if (!key) return '空：空';
+  const action = actionToFields(getPath(state.project, `toolbar.actions.${key}`) || DEFAULT_TOOLBAR_ACTIONS[key]);
+  const typeLabel = displayActionType(action.type) || keyCodeLabel(key);
+  if (action.type === 'combine') {
+    return `${typeLabel}：${combineActionItems(action).length} 个动作`;
+  }
+  const valueLabel = String(action.value || '').trim() || '未设置';
+  return `${typeLabel}：${valueLabel}`;
 }
 
 function displayValueSuggestions(type) {
@@ -2051,25 +2986,56 @@ function toolbarActionFields(key) {
 
 function keyboard26FunctionActionFields(key) {
   const action = actionToFields(getPath(state.project, `keyboards.keyboard26.keyActions.${key}`));
+  if (!action.value && DEFAULT_KEYBOARD26_FUNCTION_ACTIONS[key]) {
+    return { ...DEFAULT_KEYBOARD26_FUNCTION_ACTIONS[key] };
+  }
   return { type: action.type, value: action.value || '' };
 }
 
-function actionValueField({ basePath, action, toolbar = false }) {
-  if (action.type === 'keyboardType') {
+function keyboard26FunctionActionFieldsForPath(basePath) {
+  const key = basePath.split('.').pop();
+  const action = actionToFields(getPath(state.project, `${basePath}.action`));
+  const explicitType = getPath(state.project, `${basePath}.actionType`);
+  const explicitValue = getPath(state.project, `${basePath}.actionValue`);
+  if (explicitType) {
+    return {
+      type: explicitType,
+      value: explicitValue !== undefined && explicitValue !== null ? String(explicitValue) : action.value || '',
+    };
+  }
+  if (!action.value && key && DEFAULT_KEYBOARD26_FUNCTION_ACTIONS[key]) {
+    return { ...DEFAULT_KEYBOARD26_FUNCTION_ACTIONS[key] };
+  }
+  return { type: action.type, value: action.value || '' };
+}
+
+function actionValueField({ basePath, action, toolbar = false, label = '指令内容' }) {
+  const actionType = displayActionTypeKey(action.type);
+  if (actionType === 'action') {
+    return selectField({
+      path: `${basePath}.actionValue`,
+      label,
+      value: action.value || 'space',
+      className: 'action-type-field',
+      selectClassName: 'action-type-select',
+      options: STANDARD_ACTION_OPTIONS,
+    });
+  }
+  if (actionType === 'keyboardType') {
     return selectField({
       path: `${basePath}.actionKeyboardSelection`,
-      label: '键盘选择',
+      label,
       value: keyboardTypeActionValueToSelection(action.value),
       options: keyboardTypeActionOptions(),
       className: 'action-type-field',
       selectClassName: 'action-type-select',
     });
   }
-  if (action.type === 'floatKeyboardType') {
-    const suggestions = toolbar ? toolbarActionValueSuggestions(action.type) : actionValueSuggestions(action.type);
+  if (actionType === 'shortcut') {
+    const suggestions = toolbar ? toolbarActionValueSuggestions(actionType) : actionValueSuggestions(actionType);
     return selectField({
       path: `${basePath}.actionValue`,
-      label: '功能值',
+      label,
       value: action.value || '',
       className: 'action-type-field',
       selectClassName: 'action-type-select',
@@ -2082,10 +3048,27 @@ function actionValueField({ basePath, action, toolbar = false }) {
   }
   return input({
     path: `${basePath}.actionValue`,
-    label: '功能值',
+    label,
     value: action.value || '',
-    suggestions: toolbar ? toolbarActionValueSuggestions(action.type) : actionValueSuggestions(action.type),
+    className: FREE_TEXT_ACTION_TYPES.has(actionType) ? 'action-type-field' : '',
+    suggestions: FREE_TEXT_ACTION_TYPES.has(actionType)
+      ? []
+      : (toolbar ? toolbarActionValueSuggestions(actionType) : actionValueSuggestions(actionType)),
   });
+}
+
+function actionEditorFields({ basePath, action, types = ACTION_TYPES, toolbar = false }) {
+  return `
+    ${selectField({
+    path: `${basePath}.actionType`,
+    label: '指令类型',
+    value: action.type,
+    className: 'action-type-field',
+    selectClassName: 'action-type-select',
+    options: types.map((item) => actionTypeOption(item)),
+  })}
+    ${action.type === 'combine' ? combineActionEditor({ basePath, action, toolbar, types }) : actionValueField({ basePath, action, toolbar })}
+  `;
 }
 
 function keyboard26EditorModeForKey(key) {
@@ -2095,23 +3078,28 @@ function keyboard26EditorModeForKey(key) {
 }
 
 function keyboardTypeActionOptions() {
-  const names = collectConfigKeyboardNames(effectiveConfig(state.project?.config || {}), { includePreviewKeyboards: true });
-  return names.map((name) => ({
-    value: name,
-    selectedLabel: keyboardTemplateLabel(name),
-    dropdownLabel: `${keyboardTemplateLabel(name)}（${name}）`,
-  }));
+  return [
+    { value: 'pinyin', selectedLabel: '拼音中文键盘', dropdownLabel: '拼音中文键盘（pinyin）' },
+    { value: 'alphabetic', selectedLabel: '英文键盘', dropdownLabel: '英文键盘（alphabetic）' },
+    { value: 'symbolic', selectedLabel: '符号键盘', dropdownLabel: '符号键盘（symbolic）' },
+    { value: 'numeric', selectedLabel: '数字键盘', dropdownLabel: '数字键盘（numeric）' },
+    { value: 'emojis', selectedLabel: 'Emoji 键盘', dropdownLabel: 'Emoji 键盘（emojis）' },
+  ];
 }
 
 function keyboardTypeActionValueToSelection(value = '') {
   if (!value) return '';
-  const names = collectConfigKeyboardNames(effectiveConfig(state.project?.config || {}), { includePreviewKeyboards: true });
-  const matched = names.find((name) => previewModeForKeyboardName(name) === value || name === value);
-  return matched || '';
+  if (KEYBOARD_TYPE_VALUES.includes(value)) return value;
+  if (value === 'emoji' || value.startsWith('emoji')) return 'emojis';
+  if (value.startsWith('symbolic')) return 'symbolic';
+  if (value.startsWith('numeric')) return 'numeric';
+  if (value.startsWith('alphabetic')) return 'alphabetic';
+  if (value.startsWith('pinyin')) return 'pinyin';
+  return '';
 }
 
 function keyboardTypeSelectionToActionValue(selection = '') {
-  return selection ? previewModeForKeyboardName(selection) : '';
+  return KEYBOARD_TYPE_VALUES.includes(selection) ? selection : '';
 }
 
 function allKeyboard26Keys(value) {
@@ -2316,7 +3304,8 @@ function keyboard26DisplayPath(key) {
   if (key === 'enter') return 'keyboards.keyboard26.text.enter.default';
   if (key === 'space') return activePinyinVariant() === '26' ? 'keyboards.keyboard26.text.space' : '';
   if (key === 'spaceRight') return `keyboards.keyboard26.spaceRight.${keyboard26PreviewProfile()}.primary.text`;
-  if (['backspace', 'cnen', 'punctuationColumn'].includes(key)) return '';
+  if (key === 'cnen') return 'keyboards.keyboard26.keyDisplays.cnen';
+  if (['backspace', 'punctuationColumn'].includes(key)) return '';
   return `keyboards.keyboard26.keyDisplays.${key}`;
 }
 
@@ -2325,6 +3314,23 @@ function keyboard26MappedDisplayKeys(value = {}) {
     ? currentPreviewKeyboardKeys()
     : allKeyboard26Keys(value);
   return [...new Set(scopeKeys.filter((key) => keyboard26DisplayPath(key)))];
+}
+
+function renderEnterDisplayFields(textEnter = state.project?.keyboards?.keyboard26?.text?.enter || {}) {
+  const entries = Object.entries(textEnter);
+  if (!entries.length) return '';
+  return `
+    <div class="key-edit-subsection key-edit-span-two">
+      <h5>回车状态显示</h5>
+      <div class="key-edit-fields enter-display-fields">
+        ${entries.map(([key, fieldValue]) => input({
+    path: `keyboards.keyboard26.text.enter.${key}`,
+    label: key,
+    value: fieldValue,
+  })).join('')}
+      </div>
+    </div>
+  `;
 }
 
 function closeIconButton(attrs = '', title = '移除', extraClass = '') {
@@ -2339,13 +3345,33 @@ function removeRowButton(attrs = '', title = '移除这一行') {
   return closeIconButton(`${attrs} data-confirm-row-remove="true"`, title);
 }
 
+function visualKeyTokenLabel(path = '', key = '') {
+  if (!key) return '空';
+  if (path.startsWith('toolbar.layout.')) return toolbarLayoutTokenLabel(key);
+  if (path.startsWith('keyboards.numeric.layout.')) return numericDisplayValue(state.project.keyboards?.numeric || {}, key);
+  if (path.startsWith('keyboards.symbolic.layout.')) return symbolicDisplayValue(state.project.keyboards?.symbolic || {}, key);
+  if (path.startsWith('keyboards.panel.')) {
+    return metricKeyLabel('panel', state.project.keyboards?.panel || {}, key);
+  }
+  if (path.startsWith('keyboards.emoji.layout.')) return keyCodeLabel(key);
+  if (path.startsWith('keyboards.keyboard26.')) {
+    return keyDisplayValue(state.project.keyboards?.keyboard26 || {}, key);
+  }
+  return keyCodeLabel(key);
+}
+
 function renderVisualKeyToken(path, key, removeAttrs = '', dragAttrs = '', editPath = path) {
-  const label = key ? keyCodeLabel(key) : '空';
+  const isToolbarToken = path.startsWith('toolbar.layout.');
+  const label = visualKeyTokenLabel(path, key);
+  const actionLabel = isToolbarToken ? toolbarLayoutTokenActionLabel(key) : '';
+  const tokenLabel = isToolbarToken && actionLabel ? actionLabel : label;
   const active = state.editingKey?.path === editPath ? ' is-active' : '';
   return `
-    <div class="key-token-editor is-visual-token${active}" ${dragAttrs} data-key-edit-path="${escapeHtml(editPath)}" data-key-value="${escapeHtml(key)}">
+    <div class="key-token-editor swipe-token is-visual-token${active}" ${dragAttrs} data-key-edit-path="${escapeHtml(editPath)}" data-key-value="${escapeHtml(key)}">
       <span class="drag-handle" aria-hidden="true">⋮⋮</span>
-      <button class="key-token-main" type="button" title="编辑 ${escapeHtml(label)}">${escapeHtml(label)}</button>
+      <button class="key-token-main" type="button" title="编辑 ${escapeHtml(tokenLabel)}">
+        <span class="swipe-key">${escapeHtml(tokenLabel)}</span>
+      </button>
       ${removeAttrs ? closeIconButton(removeAttrs, '移除按键') : ''}
     </div>
   `;
@@ -2519,6 +3545,7 @@ function renderKeyboard26LayoutWorkspace(value) {
   const rows = keyboard26PortraitRows(value.layout ? value : { layout: value });
   const landscapeRows = keyboard26VariantRows(value.layout ? value : { layout: value, variants: value.variants }, 'landscape');
   const landscapePath = keyboard26LandscapeRowsPath();
+  const toolbarSection = orientation === 'portrait' ? renderToolbar(state.project.toolbar || {}) : '';
   return `
     <section class="group-card">
       <div class="layout-toolbar">
@@ -2534,6 +3561,7 @@ function renderKeyboard26LayoutWorkspace(value) {
     : ''}
         </div>
       </div>
+      ${toolbarSection}
       ${orientation === 'portrait'
     ? renderKeyboard26VisualLayout(value.layout ? value : { layout: value })
     : activePinyinVariant() !== '26'
@@ -2549,6 +3577,52 @@ function renderKeyboard26LayoutWorkspace(value) {
         ${renderKeyboard26LandscapeEditor(landscape)}
       </section>`}
     </section>
+  `;
+}
+
+function renderSurfaceLeaf(path, label, value = {}) {
+  return `
+    <section class="field-card">
+      <label>${escapeHtml(label)}</label>
+      <div class="edge-grid">
+        ${input({ path: `${path}.cornerRadius`, label: '圆角', value: value.cornerRadius ?? '', type: 'number', step: '0.1' })}
+        ${input({ path: `${path}.borderSize`, label: '边框宽度', value: value.borderSize ?? '', type: 'number', step: '0.1' })}
+        ${input({ path: `${path}.shadowRadius`, label: '阴影模糊', value: value.shadowRadius ?? '', type: 'number', step: '0.1' })}
+        ${input({ path: `${path}.shadowOpacity`, label: '阴影强度', value: value.shadowOpacity ?? '', type: 'number', step: '0.01', min: '0', max: '1' })}
+      </div>
+      <div class="xy-grid">
+        ${input({ path: `${path}.shadowOffset.x`, label: '阴影 x', value: value.shadowOffset?.x ?? '', type: 'number', step: '0.1' })}
+        ${input({ path: `${path}.shadowOffset.y`, label: '阴影 y', value: value.shadowOffset?.y ?? '', type: 'number', step: '0.1' })}
+      </div>
+    </section>
+  `;
+}
+
+function surfaceEntriesForScope(value = {}) {
+  const scope = currentPreviewScope();
+  const groups = uniqueValues([
+    ...(scope.keyboardVisible ? (PREVIEW_SURFACE_SCOPE[scope.mode] || []) : []),
+    ...(PREVIEW_SURFACE_SCOPE[scope.candidateState] || []),
+  ]).filter((group) => groupVisibleByFeature(group));
+  return groups.map((group) => [group, value?.[group] || {}]);
+}
+
+function renderSurfaceStyles(value = {}, basePath = activeModule().path) {
+  const entries = surfaceEntriesForScope(value);
+  return `
+    ${entries.map(([group, items]) => `
+      <section class="group-card">
+        <h3>${escapeHtml(SURFACE_GROUP_LABELS[group] || group)}</h3>
+        <div class="inset-regular-grid">
+          ${Object.entries(items || {}).map(([key, item]) => renderSurfaceLeaf(
+            `${basePath}.${group}.${key}`,
+            SURFACE_ITEM_LABELS[key] || key,
+            item,
+          )).join('')}
+        </div>
+      </section>
+    `).join('') || renderScopedEmptyNote()}
+    ${renderPreviewScopeNote()}
   `;
 }
 
@@ -2614,6 +3688,26 @@ function keyEditFieldsForKey(key) {
   const displayTypePath = `keyboards.keyboard26.keyDisplayTypes.${value}`;
   const displayTypeValue = getPath(state.project, displayTypePath) || 'text';
   const action = keyboard26FunctionActionFields(value);
+  const showSchemaNameOnSpace = state.project?.keyboardCombo?.spaceRow?.showSchemaNameOnSpace === true;
+  const schemaNameField = ['space', 'enter'].includes(value)
+    ? `
+      ${selectField({
+      path: 'keyboardCombo.spaceRow.showSchemaNameOnSpace',
+      label: '空格显示方案名',
+      value: showSchemaNameOnSpace ? 'true' : 'false',
+      selectClassName: 'compact-enum-select',
+      options: [
+        { value: 'false', label: '不显示' },
+        { value: 'true', label: '显示' },
+      ],
+    })}
+      ${showSchemaNameOnSpace ? input({
+      path: 'keyboards.keyboard26.pinyinSchemaName.text',
+      label: '方案名内容',
+      value: state.project?.keyboards?.keyboard26?.pinyinSchemaName?.text || DEFAULT_SCHEMA_NAME_TEXT,
+    }) : ''}
+    `
+    : '';
   const modeField = selectField({
     path: editorModePath,
     label: '按键类型',
@@ -2629,42 +3723,51 @@ function keyEditFieldsForKey(key) {
       { value: 'symbol', selectedLabel: 'symbol', dropdownLabel: 'symbol' },
     ],
   });
-  const functionTypeField = selectField({
-    path: `keyboards.keyboard26.keyActions.${value}.actionType`,
-    label: '指令选择',
-    value: action.type,
-    className: 'action-type-field',
-    selectClassName: 'action-type-select',
-    options: FUNCTION_KEY_ACTION_TYPES.map((item) => ({
-      value: item,
-      selectedLabel: displayActionType(item),
-      dropdownLabel: displayActionTypeWithCode(item),
-    })),
-  });
-  const functionValueField = actionValueField({
+  const functionActionFields = actionEditorFields({
     basePath: `keyboards.keyboard26.keyActions.${value}`,
     action,
+    types: FUNCTION_KEY_ACTION_TYPES,
   });
+  const showEnterDisplayFields = editorModeValue === 'function' && action.type === 'action' && action.value === 'enter';
+  const baseSection = `
+    <section class="key-edit-section">
+      <h4>基础</h4>
+      <div class="key-edit-fields key-edit-fields-four">
+        ${modeField}
+        ${editorModeValue === 'function' ? functionActionFields : keyTypeField}
+        ${editorModeValue === 'function' ? '' : input({ path, label: '按键触发', value })}
+      </div>
+    </section>
+  `;
+  const displaySection = `
+    <section class="key-edit-section">
+      <h4>显示</h4>
+      <div class="key-edit-fields key-edit-fields-four">
+        ${selectField({
+    path: displayTypePath,
+    label: '显示类型',
+    value: displayTypeValue,
+    selectClassName: 'compact-enum-select',
+    options: DISPLAY_TYPE_OPTIONS,
+  })}
+        ${displayTypeValue === 'systemImageName'
+    ? ''
+    : displayValueField({ path: displayPath, type: displayTypeValue, value: displayValue })}
+        ${iconValueField({ path: displayPath, type: displayTypeValue, value: displayValue })}
+        ${schemaNameField}
+        ${showEnterDisplayFields ? renderEnterDisplayFields(keyboard.text?.enter || {}) : ''}
+      </div>
+    </section>
+  `;
   return `
     <section class="group-card key-edit-panel" data-key-edit-panel-path="${escapeHtml(path)}">
       <div class="field-card-title">
         <h3>按键编辑</h3>
         ${closeIconButton('data-keyboard-action="close-key-editor"', '关闭编辑')}
       </div>
-      <div class="key-edit-fields key-edit-fields-four">
-        ${modeField}
-        ${editorModeValue === 'function' ? functionTypeField : keyTypeField}
-        ${editorModeValue === 'function' ? functionValueField.replace('功能值', '指令内容') : input({ path, label: '按键触发', value })}
-        ${spanTwoField(selectField({
-    path: displayTypePath,
-    label: '显示类型',
-    value: displayTypeValue,
-    options: DISPLAY_TYPE_OPTIONS,
-  }))}
-        ${displayValueField({ path: displayPath, type: displayTypeValue, value: displayValue })}
-        ${iconValueField({ path: displayPath, type: displayTypeValue, value: displayValue })}
-      </div>
-      <p class="key-edit-tip">具体指令效果请参考右上角元书输入法指南。</p>
+      ${baseSection}
+      ${displaySection}
+      <p class="key-edit-tip">具体指令效果请参考右上角元书输入法指南后的指令参考。</p>
       <span class="key-edit-focus-sentinel" tabindex="0" aria-hidden="true"></span>
     </section>
   `;
@@ -2679,20 +3782,8 @@ function swipeActionFields(profile, direction, key, title, options = {}) {
     <section class="field-card nested-field-card">
       <label>${escapeHtml(title)}</label>
       <div class="nested-field-grid">
-        ${showLabelText ? input({ path: `${entryPath}.label.text`, label: '显示文字', value: entry.label?.text || '' }) : ''}
-        ${selectField({
-    path: `${entryPath}.actionType`,
-    label: '指令类型',
-    value: action.type,
-    className: 'action-type-field',
-    selectClassName: 'action-type-select',
-    options: ACTION_TYPES.map((item) => ({
-      value: item,
-      selectedLabel: displayActionType(item),
-      dropdownLabel: displayActionTypeWithCode(item),
-    })),
-  })}
-        ${input({ path: `${entryPath}.actionValue`, label: '输入指令', value: action.value || '', suggestions: actionValueSuggestions(action.type) })}
+        ${showLabelText ? input({ path: `${entryPath}.label.text`, label: '显示文字', value: entry.label?.text || '', className: 'swipe-label-field' }) : ''}
+        ${actionEditorFields({ basePath: entryPath, action })}
       </div>
     </section>
   `;
@@ -2701,26 +3792,60 @@ function swipeActionFields(profile, direction, key, title, options = {}) {
 function spaceRightKeyEditFields(path, value) {
   const profile = keyboard26PreviewProfile();
   const profileLabel = profile === 'alphabetic' ? '英文键盘' : '中文键盘';
+  const action = keyboard26FunctionActionFields(value);
+  const displayTypePath = `keyboards.keyboard26.keyDisplayTypes.${value}`;
+  const displayTypeValue = getPath(state.project, displayTypePath) || 'text';
+  const primaryPath = `keyboards.keyboard26.spaceRight.${profile}.primary.text`;
+  const secondaryPath = `keyboards.keyboard26.spaceRight.${profile}.secondary.text`;
   return `
     <section class="group-card key-edit-panel space-right-edit-panel" data-key-edit-panel-path="${escapeHtml(path)}">
       <div class="field-card-title">
-        <h3>空格右侧键</h3>
+        <h3>按键编辑</h3>
         ${closeIconButton('data-keyboard-action="close-key-editor"', '关闭编辑')}
       </div>
-      <div class="key-edit-fields space-right-edit-fields">
-        ${input({ path, label: '文本', value })}
-        ${input({
-    path: `keyboards.keyboard26.spaceRight.${profile}.primary.text`,
-    label: `${profileLabel}点击显示`,
-    value: getPath(state.project, `keyboards.keyboard26.spaceRight.${profile}.primary.text`) || '',
+      <section class="key-edit-section">
+        <h4>基础</h4>
+        <div class="key-edit-fields key-edit-fields-four">
+          ${selectField({
+    path: `keyboards.keyboard26.keyEditorModes.${value}`,
+    label: '按键类型',
+    value: keyboard26EditorModeForKey(value),
+    options: KEY_EDITOR_MODES,
   })}
-        ${input({
-    path: `keyboards.keyboard26.spaceRight.${profile}.secondary.text`,
-    label: `${profileLabel}上划显示`,
-    value: getPath(state.project, `keyboards.keyboard26.spaceRight.${profile}.secondary.text`) || '',
+          ${actionEditorFields({ basePath: `keyboards.keyboard26.keyActions.${value}`, action, types: FUNCTION_KEY_ACTION_TYPES })}
+        </div>
+      </section>
+      <section class="key-edit-section">
+        <h4>${profileLabel}显示</h4>
+        <div class="key-edit-fields key-edit-fields-four">
+          ${selectField({
+    path: displayTypePath,
+    label: '显示类型',
+    value: displayTypeValue,
+    selectClassName: 'compact-enum-select',
+    options: DISPLAY_TYPE_OPTIONS,
   })}
-        ${swipeActionFields(profile, 'swipe_up', 'spaceRight', `${profileLabel}上划指令`, { showLabelText: false })}
-      </div>
+          ${displayTypeValue === 'systemImageName'
+    ? ''
+    : input({
+      path: primaryPath,
+      label: '点击显示',
+      value: getPath(state.project, primaryPath) || '',
+    })}
+          ${iconValueField({ path: primaryPath, type: displayTypeValue, value: getPath(state.project, primaryPath) || '' })}
+          ${input({
+    path: secondaryPath,
+    label: '上划显示',
+    value: getPath(state.project, secondaryPath) || '',
+  })}
+        </div>
+      </section>
+      <section class="key-edit-section">
+        <h4>${profileLabel}上划</h4>
+        <div class="key-edit-fields key-edit-fields-four">
+          ${swipeActionFields(profile, 'swipe_up', 'spaceRight', '上划指令', { showLabelText: false })}
+        </div>
+      </section>
       <span class="key-edit-focus-sentinel" tabindex="0" aria-hidden="true"></span>
     </section>
   `;
@@ -2733,9 +3858,12 @@ function keyEditPanel(title, fields, path = state.editingKey?.path || '') {
         <h3>${escapeHtml(title)}</h3>
         ${closeIconButton('data-keyboard-action="close-key-editor"', '关闭编辑')}
       </div>
-      <div class="key-edit-fields">
-        ${fields.join('')}
-      </div>
+      <section class="key-edit-section">
+        <h4>基础</h4>
+        <div class="key-edit-fields">
+          ${fields.join('')}
+        </div>
+      </section>
       <span class="key-edit-focus-sentinel" tabindex="0" aria-hidden="true"></span>
     </section>
   `;
@@ -2774,9 +3902,10 @@ function toolbarButtonEditFields(path, value) {
   const displayValue = displayType === 'systemImageName'
     ? toolbarSystemImageValue(value)
     : toolbarTextValue(value);
-  const toolbarActionValueEditor = actionValueField({
+  const toolbarActionEditor = actionEditorFields({
     basePath: `toolbar.actions.${value}`,
     action,
+    types: TOOLBAR_ACTION_TYPES,
     toolbar: true,
   });
   const toolbarDisplayTip = state.project?.keyboardCombo?.toolbar?.displayStyle === 'text'
@@ -2785,32 +3914,19 @@ function toolbarButtonEditFields(path, value) {
   return `
     <section class="group-card key-edit-panel" data-key-edit-panel-path="${escapeHtml(path)}">
       <div class="field-card-title">
-        <h3>按键编辑</h3>
+        <h3>菜单编辑</h3>
         ${closeIconButton('data-keyboard-action="close-key-editor"', '关闭编辑')}
       </div>
       <div class="key-edit-fields key-edit-fields-four">
-        ${input({ path, label: '键名', value, suggestions: DEFAULT_TOOLBAR_BUTTONS })}
         ${selectField({
     path: `toolbar.display.${value}.type`,
-    label: '显示类型',
+    label: '按键类型',
     value: displayType,
-    options: DISPLAY_TYPE_OPTIONS,
+        options: DISPLAY_TYPE_OPTIONS,
   })}
         ${displayValueField({ path: displayPath, type: displayType, value: displayValue })}
         ${iconValueField({ path: displayPath, type: displayType, value: displayValue })}
-        ${selectField({
-    path: `toolbar.actions.${value}.actionType`,
-    label: '功能类型',
-    value: action.type,
-    className: 'action-type-field',
-    selectClassName: 'action-type-select',
-    options: TOOLBAR_ACTION_TYPES.map((item) => ({
-      value: item,
-      selectedLabel: displayActionType(item),
-      dropdownLabel: displayActionTypeWithCode(item),
-    })),
-  })}
-        ${toolbarActionValueEditor}
+        ${toolbarActionEditor}
       </div>
       ${toolbarDisplayTip}
       <span class="key-edit-focus-sentinel" tabindex="0" aria-hidden="true"></span>
@@ -3027,32 +4143,8 @@ function renderAnimation(value) {
 }
 
 function renderKeyboard26Text(value) {
-  const text = value.text || {};
-  const mappedKeys = keyboard26MappedDisplayKeys(value);
-  const mappedLabels = Object.fromEntries(mappedKeys.map((key) => [key, keyCodeLabel(key)]));
   return `
     ${renderKeyboard26LayoutWorkspace(value)}
-    ${mappedKeys.length ? renderKeyMapping('当前预览按键显示', mappedKeys, mappedLabels, (key) => ({
-    path: keyboard26DisplayPath(key),
-    value: getPath(state.project, keyboard26DisplayPath(key)) || keyDisplayValue(value, key),
-  })) : ''}
-    <section class="group-card">
-      <h3>回车显示</h3>
-      <div class="section-grid compact-field-grid">
-        ${Object.entries(text.enter || {}).map(([key, fieldValue]) => input({
-          path: `keyboards.keyboard26.text.enter.${key}`,
-          label: key,
-          value: fieldValue,
-        })).join('')}
-      </div>
-    </section>
-    <section class="group-card">
-      <h3>显示方案名</h3>
-      <div class="section-grid compact-field-grid schema-name-grid">
-        ${input({ path: 'keyboards.keyboard26.pinyinSchemaName.text', label: '显示内容', value: value.pinyinSchemaName?.text || '' })}
-        ${input({ path: 'keyboards.keyboard26.pinyinSchemaName.fontSize', label: '字号', value: value.pinyinSchemaName?.fontSize ?? '', type: 'number', step: '0.1' })}
-      </div>
-    </section>
   `;
 }
 
@@ -3113,7 +4205,7 @@ function renderToolbar(value) {
   return `
     <section class="group-card">
       <div class="field-card-title row-heading">
-        <span class="row-title">按钮顺序</span>
+        <span class="row-title">工具栏</span>
         <button class="mini-button row-add-button" type="button" data-toolbar-action="add-layout-button"><span aria-hidden="true">＋</span>添加按钮</button>
       </div>
       <div class="key-token-list toolbar-layout-list">
@@ -3126,24 +4218,34 @@ function renderToolbar(value) {
       </div>
       ${renderInlineKeyEditPanel('toolbar.layout')}
     </section>
-    <section class="group-card">
-      <h3>文案与图标</h3>
-      <div class="section-grid compact-field-grid">
-        ${input({ path: 'toolbar.text.simplified', label: '简体文案', value: value.text?.simplified || '' })}
-        ${input({ path: 'toolbar.text.traditional', label: '繁体文案', value: value.text?.traditional || '' })}
-        ${input({ path: 'toolbar.text.verticalCandidateReturn', label: '纵向候选返回', value: value.text?.verticalCandidateReturn || '' })}
-        ${input({ path: 'toolbar.iconFontSize', label: '工具栏图标字号', value: value.iconFontSize, type: 'number', step: '0.1' })}
-      </div>
-    </section>
-    <section class="group-card">
-      <h3>候选栏边距</h3>
-      <div class="section-grid">
-        ${renderInsetObject('toolbar.horizontalCandidates.insets', '横向候选', value.horizontalCandidates?.insets)}
-        ${renderInsetObject('toolbar.verticalCandidates.styleInsets', '纵向候选整体', value.verticalCandidates?.styleInsets)}
-        ${renderInsetObject('toolbar.verticalCandidates.functionInsets', '纵向候选功能键', value.verticalCandidates?.functionInsets)}
-      </div>
-    </section>
   `;
+}
+
+function spaceKeyEditFields(path, value) {
+  const keyboard = state.project.keyboards?.keyboard26 || {};
+  const showSchemaNameOnSpace = state.project?.keyboardCombo?.spaceRow?.showSchemaNameOnSpace === true;
+  return keyEditPanel('空格键', [
+    input({ path, label: '按键触发', value }),
+    input({
+      path: 'keyboards.keyboard26.text.space',
+      label: '空格显示',
+      value: keyboard.text?.space || '空格',
+    }),
+    selectField({
+      path: 'keyboardCombo.spaceRow.showSchemaNameOnSpace',
+      label: '显示方案名',
+      value: showSchemaNameOnSpace ? 'true' : 'false',
+      options: [
+        { value: 'false', label: '不显示' },
+        { value: 'true', label: '显示' },
+      ],
+    }),
+    showSchemaNameOnSpace ? input({
+      path: 'keyboards.keyboard26.pinyinSchemaName.text',
+      label: '方案名内容',
+      value: state.project?.keyboards?.keyboard26?.pinyinSchemaName?.text || DEFAULT_SCHEMA_NAME_TEXT,
+    }) : '',
+  ], path);
 }
 
 function normalizedKeyboardCombo(value = {}) {
@@ -3165,6 +4267,25 @@ function normalizedKeyboardCombo(value = {}) {
     },
     swipeBehavior: {
       mode: value.swipeBehavior?.mode || 'visible',
+      showSwipeUp: value.swipeBehavior?.showSwipeUp !== false,
+      showSwipeDown: value.swipeBehavior?.showSwipeDown !== false,
+      layouts: {
+        pinyin: {
+          mode: value.swipeBehavior?.layouts?.pinyin?.mode || value.swipeBehavior?.mode || 'visible',
+          showSwipeUp: value.swipeBehavior?.layouts?.pinyin?.showSwipeUp !== false,
+          showSwipeDown: value.swipeBehavior?.layouts?.pinyin?.showSwipeDown !== false,
+        },
+        alphabetic: {
+          mode: value.swipeBehavior?.layouts?.alphabetic?.mode || value.swipeBehavior?.mode || 'visible',
+          showSwipeUp: value.swipeBehavior?.layouts?.alphabetic?.showSwipeUp !== false,
+          showSwipeDown: value.swipeBehavior?.layouts?.alphabetic?.showSwipeDown !== false,
+        },
+        numeric: {
+          mode: value.swipeBehavior?.layouts?.numeric?.mode || value.swipeBehavior?.mode || 'visible',
+          showSwipeUp: value.swipeBehavior?.layouts?.numeric?.showSwipeUp !== false,
+          showSwipeDown: value.swipeBehavior?.layouts?.numeric?.showSwipeDown !== false,
+        },
+      },
     },
     spaceRow: {
       showSchemaNameOnSpace: value.spaceRow?.showSchemaNameOnSpace === true,
@@ -3180,124 +4301,828 @@ function normalizedKeyboardCombo(value = {}) {
   };
 }
 
-function renderKeyboardCombo(value = {}) {
-  const combo = normalizedKeyboardCombo(value);
+function guideFieldOptions() {
+  return {
+    keyboardPreset: GUIDE_KEYBOARD_PRESET_OPTIONS,
+    pinyin26LetterCase: GUIDE_PINYIN26_LETTER_CASE_OPTIONS,
+    alphabetic26LetterCase: GUIDE_ALPHABETIC26_LETTER_CASE_OPTIONS,
+    englishLayout: GUIDE_ENGLISH_LAYOUT_OPTIONS,
+    symbolLayout: GUIDE_SYMBOL_LAYOUT_OPTIONS,
+    emojiLayout: GUIDE_EMOJI_LAYOUT_OPTIONS,
+    swipeUpEnabled: GUIDE_BOOLEAN_OPTIONS,
+    swipeDownEnabled: GUIDE_BOOLEAN_OPTIONS,
+    swipeUpVisible: GUIDE_VISIBILITY_OPTIONS,
+    swipeDownVisible: GUIDE_VISIBILITY_OPTIONS,
+    defaultToolbarEnabled: GUIDE_BOOLEAN_OPTIONS,
+  };
+}
+
+function renderGuideSwipeProfileFields(profile, fields) {
+  const prefs = guideState().preferences;
+  const upEnabledPath = `guide.preferences.${profile.prefix}UpEnabled`;
+  const downEnabledPath = `guide.preferences.${profile.prefix}DownEnabled`;
+  const upVisiblePath = `guide.preferences.${profile.prefix}UpVisible`;
+  const downVisiblePath = `guide.preferences.${profile.prefix}DownVisible`;
+  const upEnabled = prefs[`${profile.prefix}UpEnabled`] !== false;
+  const downEnabled = prefs[`${profile.prefix}DownEnabled`] === true;
   return `
-    <section class="group-card">
-      <h3>输入策略</h3>
+    <section class="field-card keyboard-combo-card">
+      <h4>${profile.title}</h4>
       <div class="section-grid compact-field-grid">
         ${selectField({
-    path: 'keyboardCombo.inputStrategy',
-    label: '英文输入方式',
-    value: combo.inputStrategy,
-    options: KEYBOARD_COMBO_STRATEGIES,
+    path: upEnabledPath,
+    label: '上划功能',
+    value: upEnabled ? 'true' : 'false',
+    options: fields.swipeUpEnabled,
   })}
-      </div>
-    </section>
-    <section class="group-card">
-      <h3>键盘槽位</h3>
-      <div class="keyboard-combo-grid">
-        ${Object.entries(combo.slots).map(([slotKey, slotValue]) => `
-          <section class="field-card keyboard-combo-card">
-            <h4>${escapeHtml(KEYBOARD_COMBO_SLOT_LABELS[slotKey] || slotKey)}</h4>
-            <div class="section-grid compact-field-grid">
-              ${selectField({
-    path: `keyboardCombo.slots.${slotKey}.source`,
-    label: '来源',
-    value: slotValue.source,
-    options: KEYBOARD_COMBO_SOURCE_OPTIONS_BY_SLOT[slotKey] || KEYBOARD_COMBO_SOURCE_OPTIONS,
+        ${upEnabled ? selectField({
+    path: upVisiblePath,
+    label: '上划显示',
+    value: prefs[`${profile.prefix}UpVisible`] !== false ? 'true' : 'false',
+    options: fields.swipeUpVisible,
+  }) : ''}
+        ${selectField({
+    path: downEnabledPath,
+    label: '下划功能',
+    value: downEnabled ? 'true' : 'false',
+    options: fields.swipeDownEnabled,
   })}
-              ${selectField({
-    path: `keyboardCombo.slots.${slotKey}.variant`,
-    label: '样式',
-    value: slotValue.variant,
-    options: (KEYBOARD_COMBO_VARIANTS[slotKey] || []).map((item) => ({
-      value: item,
-      label: KEYBOARD_COMBO_VARIANT_LABELS[item] || item,
-    })),
-  })}
-            </div>
-          </section>
-        `).join('')}
-      </div>
-    </section>
-    <section class="group-card">
-      <h3>功能开关</h3>
-      <div class="keyboard-combo-grid">
-        <section class="field-card keyboard-combo-card">
-          <h4>划动功能</h4>
-          <div class="section-grid compact-field-grid">
-            ${selectField({
-    path: 'keyboardCombo.swipeBehavior.mode',
-    label: '显示模式',
-    value: combo.swipeBehavior.mode,
-    options: SWIPE_BEHAVIOR_OPTIONS,
-  })}
-          </div>
-        </section>
-        <section class="field-card keyboard-combo-card">
-          <h4>工具栏</h4>
-          <div class="section-grid compact-field-grid">
-            ${selectField({
-    path: 'keyboardCombo.toolbar.displayStyle',
-    label: '显示风格',
-    value: combo.toolbar.displayStyle,
-    options: TOOLBAR_DISPLAY_STYLE_OPTIONS,
-  })}
-            ${selectField({
-    path: 'keyboardCombo.toolbar.allowCustomCount',
-    label: '数量模式',
-    value: combo.toolbar.allowCustomCount ? 'true' : 'false',
-    options: [
-      { value: 'true', label: '自定义数量' },
-      { value: 'false', label: '固定数量' },
-    ],
-  })}
-          </div>
-        </section>
-      </div>
-    </section>
-    <section class="group-card">
-      <h3>空格行个性化</h3>
-      <div class="keyboard-combo-grid">
-        <section class="field-card keyboard-combo-card">
-          <h4>空格与逗号</h4>
-          <div class="section-grid compact-field-grid">
-            ${selectField({
-    path: 'keyboardCombo.spaceRow.showSchemaNameOnSpace',
-    label: '空格显示方案名',
-    value: combo.spaceRow.showSchemaNameOnSpace ? 'true' : 'false',
-    options: [
-      { value: 'true', label: '显示' },
-      { value: 'false', label: '不显示' },
-    ],
-  })}
-            ${input({ path: 'keyboardCombo.spaceRow.commaKey.swipeUp', label: '逗号上划', value: combo.spaceRow.commaKey.swipeUp })}
-          </div>
-        </section>
-        <section class="field-card keyboard-combo-card">
-          <h4>分号键</h4>
-          <div class="section-grid compact-field-grid">
-            ${selectField({
-    path: 'keyboardCombo.spaceRow.semicolonKey.enabled',
-    label: '启用分号键',
-    value: combo.spaceRow.semicolonKey.enabled ? 'true' : 'false',
-    options: [
-      { value: 'false', label: '禁用' },
-      { value: 'true', label: '启用' },
-    ],
-  })}
-            ${input({ path: 'keyboardCombo.spaceRow.semicolonKey.swipeUpAction', label: '分号上划动作', value: combo.spaceRow.semicolonKey.swipeUpAction, suggestions: SHORTCUT_VALUES })}
-          </div>
-        </section>
+        ${downEnabled ? selectField({
+    path: downVisiblePath,
+    label: '下划显示',
+    value: prefs[`${profile.prefix}DownVisible`] !== false ? 'true' : 'false',
+    options: fields.swipeDownVisible,
+  }) : ''}
       </div>
     </section>
   `;
 }
 
+function guideSpacebarKeyLabel(key) {
+  return GUIDE_SPACEBAR_KEY_OPTIONS.find((item) => item.value === key)?.label || key;
+}
+
+function renderGuideSpacebarBuilder(guide = guideState()) {
+  const selected = normalizeGuideSpacebarRow(guide.preferences.spacebarRow);
+  const selectedSet = new Set(selected);
+  const availableOptions = GUIDE_SPACEBAR_KEY_OPTIONS.filter((item) => !selectedSet.has(item.value));
+  return `
+    <section class="group-card guide-spacebar-card">
+      <div class="field-card-title row-heading">
+        <span class="row-title">空格行按键顺序</span>
+        <span class="swipe-default-center">拖动上方按键调整顺序，点 × 移除；下方按键点一下就加入。空格和回车会固定保留。</span>
+      </div>
+      <div class="guide-spacebar-selected key-token-list" data-guide-space-drop-list="true">
+        ${selected.map((key, index) => `
+          <div class="key-token-editor is-visual-token guide-spacebar-token ${key === 'space' || key === 'enter' ? 'is-fixed' : ''}" draggable="true" data-drag-path="guide.preferences.spacebarRow" data-drag-index="${index}">
+            <span class="drag-handle" aria-hidden="true">⋮⋮</span>
+            <button class="key-token-main guide-spacebar-token-main" type="button" title="拖动调整 ${escapeHtml(guideSpacebarKeyLabel(key))} 的顺序">${escapeHtml(guideSpacebarKeyLabel(key))}</button>
+            ${key === 'space' || key === 'enter' ? '<span class="guide-spacebar-required">必选</span>' : closeIconButton(`data-guide-space-action="remove" data-index="${index}"`, '移除按键')}
+          </div>
+        `).join('')}
+      </div>
+      <div class="guide-spacebar-pool">
+        ${availableOptions.length ? availableOptions.map((item) => `
+          <button
+            type="button"
+            class="guide-spacebar-option"
+            draggable="true"
+            data-guide-space-action="add"
+            data-guide-space-drag-key="${escapeHtml(item.value)}"
+            data-key="${escapeHtml(item.value)}"
+          >${escapeHtml(item.label)}</button>
+        `).join('') : '<span class="guide-spacebar-empty">可添加按键已全部加入</span>'}
+      </div>
+    </section>
+  `;
+}
+
+function renderKeyboardCombo() {
+  const guide = guideState();
+  const fields = guideFieldOptions();
+  const ready = guide.status === 'ready';
+  return `
+    <section class="group-card">
+      <h3>键盘布局</h3>
+      <div class="keyboard-combo-grid">
+        <section class="field-card keyboard-combo-card">
+          <h4>中文键盘</h4>
+          <div class="section-grid compact-field-grid">
+            ${selectField({
+    path: 'guide.preferences.keyboardPreset',
+    label: '中文布局',
+    value: guide.preferences.keyboardPreset,
+    options: fields.keyboardPreset,
+  })}
+            ${selectField({
+    path: 'guide.preferences.pinyin26LetterCase',
+    label: '26键字母',
+    value: guide.preferences.pinyin26LetterCase,
+    options: fields.pinyin26LetterCase,
+  })}
+          </div>
+        </section>
+        <section class="field-card keyboard-combo-card">
+          <h4>英文键盘</h4>
+          <div class="section-grid compact-field-grid">
+            ${selectField({
+    path: 'guide.preferences.englishLayout',
+    label: '英文布局',
+    value: guide.preferences.englishLayout,
+    options: fields.englishLayout,
+  })}
+            ${selectField({
+    path: 'guide.preferences.alphabetic26LetterCase',
+    label: '26键字母',
+    value: guide.preferences.alphabetic26LetterCase,
+    options: fields.alphabetic26LetterCase,
+  })}
+          </div>
+        </section>
+        <section class="field-card keyboard-combo-card">
+          <h4>Symbols 键盘</h4>
+          <div class="section-grid compact-field-grid">
+            ${selectField({
+    path: 'guide.preferences.symbolLayout',
+    label: '符号布局',
+    value: guide.preferences.symbolLayout,
+    options: fields.symbolLayout,
+  })}
+            ${selectField({
+    path: 'guide.preferences.emojiLayout',
+    label: 'Emoji 布局',
+    value: guide.preferences.emojiLayout,
+    options: fields.emojiLayout,
+  })}
+          </div>
+        </section>
+      </div>
+    </section>
+    <section class="group-card">
+      <h3>输入行为</h3>
+      <div class="keyboard-combo-grid">
+        ${GUIDE_SWIPE_PROFILE_CONFIGS.map((profile) => renderGuideSwipeProfileFields(profile, fields)).join('')}
+        <section class="field-card keyboard-combo-card">
+          <h4>工具栏</h4>
+          <div class="section-grid compact-field-grid">
+            ${selectField({
+    path: 'guide.preferences.defaultToolbarEnabled',
+    label: '默认工具栏',
+    value: guide.preferences.defaultToolbarEnabled ? 'true' : 'false',
+    options: fields.defaultToolbarEnabled,
+  })}
+          </div>
+        </section>
+      </div>
+    </section>
+    ${renderGuideSpacebarBuilder(guide)}
+    <section class="group-card guide-generate-card">
+      <div class="guide-generate-summary">
+        <p>${escapeHtml(guideSummaryText())}</p>
+      </div>
+      <button class="tool-button primary guide-generate-button" type="button" data-guide-action="generate">${ready ? '重新生成方案' : '生成我的键盘方案'}</button>
+    </section>
+  `;
+}
+
+function normalizeGuideSpacebarRow(value = GUIDE_DEFAULT_SPACEBAR_ROW) {
+  const source = Array.isArray(value)
+    ? value
+    : String(value || '')
+      .split(',')
+      .map((item) => item.trim());
+  const next = [];
+  const seen = new Set();
+  for (const key of source) {
+    if (!GUIDE_SPACEBAR_ALLOWED_KEYS.has(key)) continue;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    next.push(key);
+  }
+  if (!next.includes('space')) next.splice(Math.min(2, next.length), 0, 'space');
+  if (!next.includes('enter')) next.push('enter');
+  return next;
+}
+
+function mergeProjectPatch(target, patch) {
+  if (!patch || typeof patch !== 'object') return target;
+  for (const [key, value] of Object.entries(patch)) {
+    if (Array.isArray(value)) {
+      target[key] = deepClone(value);
+      continue;
+    }
+    if (value && typeof value === 'object') {
+      if (!target[key] || typeof target[key] !== 'object' || Array.isArray(target[key])) target[key] = {};
+      mergeProjectPatch(target[key], value);
+      continue;
+    }
+    target[key] = value;
+  }
+  return target;
+}
+
+function applyKeyboardSkinPreset(project, presetValue) {
+  const preset = keyboardSkinPresetByValue(presetValue || DEFAULT_KEYBOARD_SKIN_PRESET);
+  mergeProjectPatch(project, preset.patch);
+  project.nativeKeyboardPayloads = deepClone(preset.nativePayloads || {});
+  return preset;
+}
+
+function applyKeyboardPresetPreferences(project, preset) {
+  if (!project || typeof project !== 'object' || !preset) return;
+  project.guide = project.guide && typeof project.guide === 'object' ? project.guide : {};
+  project.guide.preferences = project.guide.preferences && typeof project.guide.preferences === 'object'
+    ? project.guide.preferences
+    : {};
+  project.guide.preferences.keyboardPreset = preset.value;
+  project.guide.preferences.chineseLayout = preset.layout;
+  project.guide.preferences.spacebarRow = normalizeGuideSpacebarRow(
+    project.guide.preferences.spacebarRow || preset.patch?.guide?.preferences?.spacebarRow,
+  );
+}
+
+function syncDefaultGeneratedPresetData(project, presetValue = DEFAULT_KEYBOARD_SKIN_PRESET) {
+  if (!project || typeof project !== 'object' || !isDefaultGeneratedSkin(project)) return;
+  const preset = keyboardSkinPresetByValue(presetValue || DEFAULT_KEYBOARD_SKIN_PRESET);
+  if (preset.value !== DEFAULT_KEYBOARD_SKIN_PRESET) return;
+  project.data = project.data || {};
+  if (preset.patch?.data?.swipes) {
+    project.data.swipes = deepClone(preset.patch.data.swipes);
+  }
+  if (preset.patch?.data?.swipesEnabled !== undefined) {
+    project.data.swipesEnabled = preset.patch.data.swipesEnabled !== false;
+  }
+  if (preset.nativePayloads) {
+    project.nativeKeyboardPayloads = deepClone(preset.nativePayloads);
+  }
+  applyKeyboardPresetPreferences(project, preset);
+}
+
+function keyboardNameWithOrientation(name = '', orientation = 'portrait') {
+  if (!name) return '';
+  if (/_(portrait|landscape)$/.test(name)) {
+    return name.replace(/_(portrait|landscape)$/, `_${orientation === 'landscape' ? 'landscape' : 'portrait'}`);
+  }
+  return name;
+}
+
+function nativePreviewDescriptor(project = state.project, orientation = previewRenderOrientation(state.previewMode)) {
+  const source = previewSourceName(state.previewMode);
+  if (!source) return null;
+  const keyboardName = keyboardNameWithOrientation(source, orientation);
+  if (!keyboardName) return null;
+  const payload = buildSkinEffectModel(project, { theme: state.theme, keyboardName })?.nativePayload || null;
+  return {
+    keyboardName,
+    orientation,
+    renderMode: previewRenderMode(state.previewMode),
+    payload,
+  };
+}
+
+function currentNativePreviewFrameValue(orientation = currentPreviewScope().orientation, project = state.project) {
+  const descriptor = nativePreviewDescriptor(project, orientation);
+  if (!descriptor?.payload || typeof descriptor.payload !== 'object') return null;
+  return {
+    preeditHeight: descriptor.payload.preeditHeight,
+    toolbarHeight: descriptor.payload.toolbarHeight,
+    keyboardHeight: descriptor.payload.keyboardHeight,
+    keyboardInsets: descriptor.payload.keyboardStyle?.insets || {},
+  };
+}
+
+function buildGuidePlan(preferences = {}) {
+  const preset = keyboardSkinPresetByValue(preferences.keyboardPreset || DEFAULT_KEYBOARD_SKIN_PRESET);
+  const chineseLayout = preset.layout || (['9', '14', '17', '18', '26'].includes(preferences.chineseLayout) ? preferences.chineseLayout : '26');
+  const symbolLayout = preferences.symbolLayout === 'custom' ? 'custom' : 'system';
+  const emojiLayout = preferences.emojiLayout === 'custom' ? 'custom' : 'system';
+  const toolbarEnabled = preferences.defaultToolbarEnabled !== false;
+  const pinyinSwipeUpEnabled = preferences.pinyinSwipeUpEnabled !== undefined ? preferences.pinyinSwipeUpEnabled !== false : preferences.swipeUpEnabled !== false;
+  const pinyinSwipeDownEnabled = preferences.pinyinSwipeDownEnabled !== undefined ? preferences.pinyinSwipeDownEnabled === true : preferences.swipeDownEnabled === true;
+  const alphabeticSwipeUpEnabled = preferences.alphabeticSwipeUpEnabled !== undefined ? preferences.alphabeticSwipeUpEnabled !== false : preferences.swipeUpEnabled !== false;
+  const alphabeticSwipeDownEnabled = preferences.alphabeticSwipeDownEnabled !== undefined ? preferences.alphabeticSwipeDownEnabled === true : preferences.swipeDownEnabled === true;
+  const previewModes = [
+    `pinyin_${chineseLayout}_portrait`,
+    `pinyin_${chineseLayout}_landscape`,
+    'alphabetic_26_portrait',
+    'alphabetic_26_landscape',
+    'numeric_9_portrait',
+    'numeric_9_landscape',
+    ...(symbolLayout === 'system' ? [] : ['symbolic_portrait', 'symbolic_landscape']),
+    ...(emojiLayout === 'system' ? [] : ['emoji_portrait', 'emoji_landscape']),
+    ...(toolbarEnabled ? ['panel_portrait', 'panel_landscape'] : []),
+  ];
+  return {
+    enabledKeyboards: [
+      'keyboard26',
+      'alphabetic',
+      'numeric',
+      'symbolic',
+      'emoji',
+      ...(toolbarEnabled ? ['panel'] : []),
+    ],
+    previewModes,
+    toolbarEnabled,
+    pinyin26LetterCase: preferences.pinyin26LetterCase === 'upper' ? 'upper' : 'lower',
+    alphabetic26LetterCase: preferences.alphabetic26LetterCase === 'upper' ? 'upper' : 'lower',
+    swipeDirections: ['swipe_up', 'swipe_down'].filter((direction) => (
+      direction === 'swipe_up'
+        ? pinyinSwipeUpEnabled || alphabeticSwipeUpEnabled
+        : pinyinSwipeDownEnabled || alphabeticSwipeDownEnabled
+    )),
+    swipeProfiles: {
+      pinyin: {
+        swipeUpEnabled: pinyinSwipeUpEnabled,
+        swipeDownEnabled: pinyinSwipeDownEnabled,
+        swipeUpVisible: preferences.pinyinSwipeUpVisible !== false,
+        swipeDownVisible: preferences.pinyinSwipeDownVisible !== false,
+      },
+      alphabetic: {
+        swipeUpEnabled: alphabeticSwipeUpEnabled,
+        swipeDownEnabled: alphabeticSwipeDownEnabled,
+        swipeUpVisible: preferences.alphabeticSwipeUpVisible !== false,
+        swipeDownVisible: preferences.alphabeticSwipeDownVisible !== false,
+      },
+    },
+    spacebarRow: normalizeGuideSpacebarRow(preferences.spacebarRow),
+  };
+}
+
+function normalizedGuide(value = {}, fallbackStatus = 'pending') {
+  const preferences = value.preferences || {};
+  const preset = keyboardSkinPresetByValue(preferences.keyboardPreset || DEFAULT_KEYBOARD_SKIN_PRESET);
+  const legacySwipeUpEnabled = preferences.swipeUpEnabled !== false;
+  const legacySwipeDownEnabled = preferences.swipeDownEnabled === true;
+  const legacySwipeUpVisible = preferences.swipeUpVisible !== false;
+  const legacySwipeDownVisible = preferences.swipeDownVisible !== false;
+  const normalizedPreferences = {
+    keyboardPreset: preset.value,
+    chineseLayout: preset.layout || (['9', '14', '17', '18', '26'].includes(preferences.chineseLayout) ? preferences.chineseLayout : '26'),
+    pinyin26LetterCase: preferences.pinyin26LetterCase === 'upper' ? 'upper' : 'lower',
+    alphabetic26LetterCase: preferences.alphabetic26LetterCase === 'upper' ? 'upper' : 'lower',
+    englishLayout: 'standard',
+    symbolLayout: preferences.symbolLayout === 'custom' ? 'custom' : 'system',
+    emojiLayout: preferences.emojiLayout === 'custom' ? 'custom' : 'system',
+    swipeUpEnabled: legacySwipeUpEnabled,
+    swipeDownEnabled: legacySwipeDownEnabled,
+    swipeUpVisible: legacySwipeUpVisible,
+    swipeDownVisible: legacySwipeDownVisible,
+    pinyinSwipeUpEnabled: preferences.pinyinSwipeUpEnabled !== undefined ? preferences.pinyinSwipeUpEnabled !== false : legacySwipeUpEnabled,
+    pinyinSwipeDownEnabled: preferences.pinyinSwipeDownEnabled !== undefined ? preferences.pinyinSwipeDownEnabled === true : legacySwipeDownEnabled,
+    pinyinSwipeUpVisible: preferences.pinyinSwipeUpVisible !== undefined ? preferences.pinyinSwipeUpVisible !== false : legacySwipeUpVisible,
+    pinyinSwipeDownVisible: preferences.pinyinSwipeDownVisible !== undefined ? preferences.pinyinSwipeDownVisible !== false : legacySwipeDownVisible,
+    alphabeticSwipeUpEnabled: preferences.alphabeticSwipeUpEnabled !== undefined ? preferences.alphabeticSwipeUpEnabled !== false : legacySwipeUpEnabled,
+    alphabeticSwipeDownEnabled: preferences.alphabeticSwipeDownEnabled !== undefined ? preferences.alphabeticSwipeDownEnabled === true : legacySwipeDownEnabled,
+    alphabeticSwipeUpVisible: preferences.alphabeticSwipeUpVisible !== undefined ? preferences.alphabeticSwipeUpVisible !== false : legacySwipeUpVisible,
+    alphabeticSwipeDownVisible: preferences.alphabeticSwipeDownVisible !== undefined ? preferences.alphabeticSwipeDownVisible !== false : legacySwipeDownVisible,
+    defaultToolbarEnabled: preferences.defaultToolbarEnabled !== false,
+    spacebarRow: normalizeGuideSpacebarRow(preferences.spacebarRow),
+  };
+  const status = value.status === 'ready' || fallbackStatus === 'ready' ? 'ready' : 'pending';
+  const derivedPlan = buildGuidePlan(normalizedPreferences);
+  const plan = value.generatedPlan && status === 'ready'
+    ? {
+      enabledKeyboards: Array.isArray(value.generatedPlan.enabledKeyboards) && value.generatedPlan.enabledKeyboards.length
+        ? [...new Set(value.generatedPlan.enabledKeyboards.filter(Boolean))]
+        : derivedPlan.enabledKeyboards,
+      previewModes: Array.isArray(value.generatedPlan.previewModes) && value.generatedPlan.previewModes.length
+        ? [...new Set(value.generatedPlan.previewModes.filter(Boolean))]
+        : derivedPlan.previewModes,
+      toolbarEnabled: value.generatedPlan.toolbarEnabled !== false,
+      pinyin26LetterCase: value.generatedPlan.pinyin26LetterCase === 'upper' ? 'upper' : derivedPlan.pinyin26LetterCase,
+      alphabetic26LetterCase: value.generatedPlan.alphabetic26LetterCase === 'upper' ? 'upper' : derivedPlan.alphabetic26LetterCase,
+      swipeDirections: Array.isArray(value.generatedPlan.swipeDirections)
+        ? value.generatedPlan.swipeDirections.filter((item) => ['swipe_up', 'swipe_down'].includes(item))
+        : derivedPlan.swipeDirections,
+      swipeProfiles: isPlainObject(value.generatedPlan.swipeProfiles)
+        ? structuredClone(value.generatedPlan.swipeProfiles)
+        : derivedPlan.swipeProfiles,
+      spacebarRow: normalizeGuideSpacebarRow(value.generatedPlan.spacebarRow || derivedPlan.spacebarRow),
+    }
+    : derivedPlan;
+  return {
+    status,
+    preferences: normalizedPreferences,
+    generatedPlan: status === 'ready' ? plan : null,
+  };
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function inferGuideSpacebarRow(project) {
+  const footerRow = project?.keyboards?.keyboard26?.layout?.portrait?.rows?.find((row) => row?.id === 'row-4' || row?.label === '底排');
+  if (Array.isArray(footerRow?.keys) && footerRow.keys.length) return normalizeGuideSpacebarRow(footerRow.keys);
+  const footer = project?.keyboards?.keyboard26?.layout?.portrait?.footer;
+  if (Array.isArray(footer) && footer.length) return normalizeGuideSpacebarRow(footer);
+  return normalizeGuideSpacebarRow(project?.guide?.preferences?.spacebarRow || GUIDE_DEFAULT_SPACEBAR_ROW);
+}
+
+function collectConfigMappedKeyboardNames(group = {}) {
+  const names = [];
+  for (const deviceMappings of Object.values(group || {})) {
+    if (!deviceMappings || typeof deviceMappings !== 'object') continue;
+    for (const name of Object.values(deviceMappings)) {
+      if (typeof name === 'string' && name.trim()) names.push(name.trim());
+    }
+  }
+  return names;
+}
+
+function inferKeyboardComboFromConfig(project = {}) {
+  const combo = normalizedKeyboardCombo(project.keyboardCombo || {});
+  const config = project.config || {};
+  const pinyinNames = collectConfigMappedKeyboardNames(config.pinyin);
+  const numericNames = collectConfigMappedKeyboardNames(config.numeric);
+  const symbolicNames = collectConfigMappedKeyboardNames(config.symbolic);
+  const emojiNames = collectConfigMappedKeyboardNames(config.emoji);
+  const panelNames = collectConfigMappedKeyboardNames(config.panel);
+
+  const pinyinVariant = pinyinNames
+    .map((name) => name.match(/^pinyin_(9|14|17|18|26)_/))
+    .find(Boolean)?.[1];
+  if (pinyinVariant) {
+    combo.slots.pinyin.enabled = true;
+    combo.slots.pinyin.source = 'custom';
+    combo.slots.pinyin.variant = pinyinVariant;
+  }
+
+  if (numericNames.some((name) => name.startsWith('numeric_ios'))) {
+    combo.slots.numeric.enabled = true;
+    combo.slots.numeric.source = 'custom';
+    combo.slots.numeric.variant = 'ios';
+  } else if (numericNames.some((name) => name.startsWith('numeric_9'))) {
+    combo.slots.numeric.enabled = true;
+    combo.slots.numeric.source = 'custom';
+    combo.slots.numeric.variant = '9';
+  }
+
+  if (symbolicNames.includes('symbolic_system')) {
+    combo.slots.symbolic.enabled = true;
+    combo.slots.symbolic.source = 'system';
+    combo.slots.symbolic.variant = 'system';
+  } else if (symbolicNames.some((name) => name.startsWith('symbolic_'))) {
+    combo.slots.symbolic.enabled = true;
+    combo.slots.symbolic.source = 'custom';
+    combo.slots.symbolic.variant = 'custom';
+  }
+
+  if (emojiNames.includes('emoji_system')) {
+    combo.slots.emoji.enabled = true;
+    combo.slots.emoji.source = 'system';
+    combo.slots.emoji.variant = 'system';
+  } else if (emojiNames.some((name) => name.startsWith('emoji_'))) {
+    combo.slots.emoji.enabled = true;
+    combo.slots.emoji.source = 'custom';
+    combo.slots.emoji.variant = 'custom';
+  }
+
+  if (panelNames.length) {
+    combo.slots.panel.enabled = true;
+    combo.slots.panel.source = 'custom';
+    combo.slots.panel.variant = 'panel';
+  }
+
+  if (Array.isArray(project?.toolbar?.layout)) {
+    combo.toolbar.enabled = project.toolbar.layout.length > 0;
+  }
+
+  return combo;
+}
+
+function syncGuideAndComboFromConfig(project, { preserveGuideStatus = true } = {}) {
+  if (!project || typeof project !== 'object') return;
+  project.keyboardCombo = inferKeyboardComboFromConfig(project);
+  const status = preserveGuideStatus ? (project.guide?.status || 'pending') : 'pending';
+  const preferences = inferGuidePreferencesFromProject(project);
+  project.guide = normalizedGuide({
+    ...(project.guide && typeof project.guide === 'object' ? project.guide : {}),
+    status,
+    preferences,
+    generatedPlan: status === 'ready' ? buildGuidePlan(preferences) : null,
+  }, status);
+}
+
+function inferGuidePreferencesFromProject(project = {}) {
+  const combo = normalizedKeyboardCombo(project.keyboardCombo || {});
+  const chineseLayout = ['9', '14', '17', '18', '26'].includes(combo.slots.pinyin.variant) ? combo.slots.pinyin.variant : '26';
+  const preset = keyboardSkinPresetByValue(project.guide?.preferences?.keyboardPreset || `ios-${chineseLayout}`);
+  return {
+    keyboardPreset: preset.value,
+    chineseLayout,
+    pinyin26LetterCase: project?.guide?.preferences?.pinyin26LetterCase === 'upper' ? 'upper' : 'lower',
+    alphabetic26LetterCase: project?.guide?.preferences?.alphabetic26LetterCase === 'upper' ? 'upper' : 'lower',
+    englishLayout: 'standard',
+    symbolLayout: combo.slots.symbolic.source === 'system' ? 'system' : 'custom',
+    emojiLayout: combo.slots.emoji.source === 'custom' ? 'custom' : 'system',
+    swipeUpEnabled: combo.swipeBehavior?.mode !== 'disabled' && project?.data?.swipesEnabled !== false,
+    swipeDownEnabled: combo.swipeBehavior?.mode !== 'disabled' && project?.data?.swipesEnabled !== false && Boolean(
+      project?.data?.swipes?.pinyin?.swipe_down
+      || project?.data?.swipes?.alphabetic?.swipe_down
+      || project?.data?.swipes?.numeric?.swipe_down
+    ),
+    swipeUpVisible: combo.swipeBehavior?.mode !== 'hidden' && combo.swipeBehavior?.showSwipeUp !== false,
+    swipeDownVisible: combo.swipeBehavior?.mode !== 'hidden' && combo.swipeBehavior?.showSwipeDown !== false,
+    pinyinSwipeUpEnabled: combo.swipeBehavior?.layouts?.pinyin?.mode !== 'disabled' && project?.data?.swipesEnabled !== false,
+    pinyinSwipeDownEnabled: combo.swipeBehavior?.layouts?.pinyin?.mode !== 'disabled' && project?.data?.swipesEnabled !== false && Boolean(project?.data?.swipes?.pinyin?.swipe_down),
+    pinyinSwipeUpVisible: combo.swipeBehavior?.layouts?.pinyin?.mode !== 'hidden' && combo.swipeBehavior?.layouts?.pinyin?.showSwipeUp !== false,
+    pinyinSwipeDownVisible: combo.swipeBehavior?.layouts?.pinyin?.mode !== 'hidden' && combo.swipeBehavior?.layouts?.pinyin?.showSwipeDown !== false,
+    alphabeticSwipeUpEnabled: combo.swipeBehavior?.layouts?.alphabetic?.mode !== 'disabled' && project?.data?.swipesEnabled !== false,
+    alphabeticSwipeDownEnabled: combo.swipeBehavior?.layouts?.alphabetic?.mode !== 'disabled' && project?.data?.swipesEnabled !== false && Boolean(project?.data?.swipes?.alphabetic?.swipe_down),
+    alphabeticSwipeUpVisible: combo.swipeBehavior?.layouts?.alphabetic?.mode !== 'hidden' && combo.swipeBehavior?.layouts?.alphabetic?.showSwipeUp !== false,
+    alphabeticSwipeDownVisible: combo.swipeBehavior?.layouts?.alphabetic?.mode !== 'hidden' && combo.swipeBehavior?.layouts?.alphabetic?.showSwipeDown !== false,
+    defaultToolbarEnabled: combo.toolbar?.enabled !== false && Array.isArray(project?.toolbar?.layout) ? project.toolbar.layout.length > 0 : combo.toolbar?.enabled !== false,
+    spacebarRow: inferGuideSpacebarRow(project),
+  };
+}
+
+function ensureProjectGuide(project, fallbackStatus = 'pending') {
+  if (!project || typeof project !== 'object') return normalizedGuide({}, fallbackStatus);
+  const seed = project.guide && typeof project.guide === 'object'
+    ? project.guide
+    : { preferences: inferGuidePreferencesFromProject(project) };
+  project.guide = normalizedGuide(seed, fallbackStatus);
+  return project.guide;
+}
+
+function guideState(project = state.project) {
+  return normalizedGuide(project?.guide || {}, project?.guide?.status || 'pending');
+}
+
+function isGuideReady(project = state.project) {
+  return guideState(project).status === 'ready';
+}
+
+function guideSwipeDirections(project = state.project) {
+  return guideState(project).generatedPlan?.swipeDirections || [];
+}
+
+function guideSwipeDirectionEnabled(direction, project = state.project) {
+  const directions = guideSwipeDirections(project);
+  if (!directions.length) return false;
+  return directions.includes(direction);
+}
+
+function guidePreferredPreviewNames(project = state.project) {
+  return guideState(project).generatedPlan?.previewModes || [];
+}
+
+function guideSummaryText(project = state.project) {
+  const guide = guideState(project);
+  const preferences = guide.status === 'ready'
+    ? inferGuidePreferencesFromProject(project)
+    : guide.preferences;
+  const preset = keyboardSkinPresetByValue(preferences.keyboardPreset || DEFAULT_KEYBOARD_SKIN_PRESET);
+  const swipeText = [
+    `中文${preferences.pinyinSwipeUpEnabled ? '上划' : '不含上划'}${preferences.pinyinSwipeDownEnabled ? '/下划' : ''}`,
+    `英文${preferences.alphabeticSwipeUpEnabled ? '上划' : '不含上划'}${preferences.alphabeticSwipeDownEnabled ? '/下划' : ''}`,
+  ].join(' / ');
+  const toolbarText = preferences.defaultToolbarEnabled ? '默认工具栏' : '不生成默认工具栏';
+  return [
+    `当前选择：${preset.label}`,
+    `中文26键${preferences.pinyin26LetterCase === 'upper' ? '大写字母' : '小写字母'}`,
+    `英文${preferences.englishLayout === 'standard' ? '美式26键' : preferences.englishLayout}${preferences.alphabetic26LetterCase === 'upper' ? '大写字母' : '小写字母'}`,
+    `Symbols：符号${preferences.symbolLayout === 'system' ? 'App内' : '自定义'} / Emoji${preferences.emojiLayout === 'system' ? 'App内' : '自定义'}`,
+    swipeText,
+    toolbarText,
+  ].filter(Boolean).join(' / ');
+}
+
+function visibleModuleCount(project = state.project) {
+  if (!project) return 0;
+  return MODULES.filter((module) => !isModuleDisabled(module, project).disabled).length;
+}
+
+function isModuleDisabled(module, project = state.project) {
+  if (module.disabled) {
+    return { disabled: true, reason: '暂未开放', statusLabel: '未开放' };
+  }
+  if (!isGuideReady(project) && module.id !== 'keyboardCombo') {
+    return { disabled: true, reason: '请先完成“生成你的键盘方案”并生成方案', statusLabel: '' };
+  }
+  return { disabled: false, reason: '', statusLabel: '' };
+}
+
+function defaultAlphabeticPreviewName(project = state.project) {
+  return 'alphabetic_26_portrait';
+}
+
+function currentGuideSpacebarRow(project = state.project) {
+  const guide = guideState(project);
+  return normalizeGuideSpacebarRow(guide.generatedPlan?.spacebarRow || guide.preferences.spacebarRow);
+}
+
+function applyGuideSpacebarRowToProject(project) {
+  const row = currentGuideSpacebarRow(project);
+  project.keyboards = project.keyboards || {};
+  project.keyboards.keyboard26 = project.keyboards.keyboard26 || {};
+  project.keyboards.keyboard26.layout = project.keyboards.keyboard26.layout || {};
+  project.keyboards.keyboard26.layout.portrait = project.keyboards.keyboard26.layout.portrait || {};
+  const rows = Array.isArray(project.keyboards.keyboard26.layout.portrait.rows)
+    ? project.keyboards.keyboard26.layout.portrait.rows
+    : deepClone(KEYBOARD26_DEFAULT_ROWS);
+  const footerIndex = rows.findIndex((item) => item?.id === 'row-4' || item?.label === '底排');
+  if (footerIndex !== -1) {
+    rows[footerIndex] = {
+      ...(rows[footerIndex] || {}),
+      id: rows[footerIndex]?.id || 'row-4',
+      label: rows[footerIndex]?.label || '底排',
+      keys: [...row],
+    };
+  }
+  project.keyboards.keyboard26.layout.portrait.rows = rows;
+  project.keyboards.keyboard26.layout.portrait.footer = [...row];
+}
+
+function applyPinyin26LetterCaseToProject(project, letterCase = 'lower') {
+  const displays = project.keyboards.keyboard26.keyDisplays = project.keyboards.keyboard26.keyDisplays || {};
+  for (const char of 'abcdefghijklmnopqrstuvwxyz') {
+    if (letterCase === 'upper') {
+      displays[char] = char.toUpperCase();
+    } else {
+      delete displays[char];
+    }
+  }
+}
+
+function applyAlphabetic26LetterCaseToProject(project, letterCase = 'lower') {
+  const displays = project.keyboards.keyboard26.keyDisplays = project.keyboards.keyboard26.keyDisplays || {};
+  for (const char of 'abcdefghijklmnopqrstuvwxyz') {
+    const alphaKey = `alphabetic.${char}`;
+    const englishKey = `english.${char}`;
+    if (letterCase === 'upper') {
+      displays[alphaKey] = char.toUpperCase();
+      displays[englishKey] = char.toUpperCase();
+    } else {
+      delete displays[alphaKey];
+      delete displays[englishKey];
+    }
+  }
+}
+
+function applyGuidePlanToProject(project) {
+  const guide = guideState(project);
+  const preset = applyKeyboardSkinPreset(project, guide.preferences.keyboardPreset);
+  const preferences = {
+    ...guide.preferences,
+    keyboardPreset: preset.value,
+    chineseLayout: preset.layout,
+    spacebarRow: normalizeGuideSpacebarRow(guide.preferences.spacebarRow || preset.patch?.guide?.preferences?.spacebarRow),
+  };
+  const generatedPlan = buildGuidePlan(preferences);
+  project.guide = {
+    status: 'ready',
+    preferences: deepClone(preferences),
+    generatedPlan: deepClone(generatedPlan),
+  };
+  const combo = normalizedKeyboardCombo(project.keyboardCombo || {});
+  combo.inputStrategy = 'separateAlphabetic';
+  combo.slots.pinyin = { enabled: true, source: 'custom', variant: preferences.chineseLayout };
+  combo.slots.alphabetic = { enabled: true, source: 'custom', variant: '26' };
+  combo.slots.numeric = { enabled: true, source: 'custom', variant: '9' };
+  combo.slots.symbolic = { enabled: true, source: preferences.symbolLayout, variant: preferences.symbolLayout };
+  combo.slots.emoji = { enabled: true, source: preferences.emojiLayout, variant: preferences.emojiLayout };
+  combo.slots.panel = { enabled: true, source: 'custom', variant: 'panel' };
+  combo.toolbar = {
+    ...combo.toolbar,
+    enabled: preferences.defaultToolbarEnabled !== false,
+  };
+  combo.swipeBehavior = {
+    ...combo.swipeBehavior,
+    mode: generatedPlan.swipeDirections.length ? 'visible' : 'disabled',
+    showSwipeUp: generatedPlan.swipeDirections.includes('swipe_up'),
+    showSwipeDown: generatedPlan.swipeDirections.includes('swipe_down'),
+    layouts: Object.fromEntries(Object.entries(generatedPlan.swipeProfiles).map(([profile, config]) => [profile, {
+      mode: config.swipeUpEnabled || config.swipeDownEnabled
+        ? (config.swipeUpVisible || config.swipeDownVisible ? 'visible' : 'hidden')
+        : 'disabled',
+      showSwipeUp: config.swipeUpEnabled && config.swipeUpVisible,
+      showSwipeDown: config.swipeDownEnabled && config.swipeDownVisible,
+    }])),
+  };
+  combo.spaceRow = {
+    ...combo.spaceRow,
+    showSchemaNameOnSpace: state.sampleProject?.keyboardCombo?.spaceRow?.showSchemaNameOnSpace === true,
+    semicolonKey: {
+      ...(combo.spaceRow?.semicolonKey || {}),
+      enabled: generatedPlan.spacebarRow.includes('semicolon'),
+    },
+  };
+  project.keyboardCombo = combo;
+  project.data = project.data || {};
+  project.data.swipesEnabled = generatedPlan.swipeDirections.length > 0;
+  project.config = effectiveConfig(project.config || {}, combo);
+  const alphabeticPortrait = 'alphabetic_26_portrait';
+  const alphabeticLandscape = 'alphabetic_26_landscape';
+  for (const device of ['iPhone', 'iPad']) {
+    project.config.alphabetic = project.config.alphabetic || {};
+    project.config.alphabetic[device] = project.config.alphabetic[device] || {};
+    project.config.alphabetic[device].portrait = alphabeticPortrait;
+    project.config.alphabetic[device].landscape = alphabeticLandscape;
+    if (device === 'iPad') project.config.alphabetic[device].floating = alphabeticPortrait;
+  }
+  project.toolbar = project.toolbar || {};
+  project.toolbar.actions = {
+    ...(project.toolbar.actions || {}),
+    symbol: {
+      keyboardType: 'symbolic',
+      actionType: 'keyboardType',
+      actionValue: 'symbolic',
+    },
+    emoji: {
+      keyboardType: 'emojis',
+      actionType: 'keyboardType',
+      actionValue: 'emojis',
+    },
+  };
+  if (preferences.defaultToolbarEnabled === false) {
+    project.toolbar.layout = [];
+  } else if (!Array.isArray(project.toolbar.layout) || !project.toolbar.layout.length) {
+    project.toolbar.layout = [...DEFAULT_TOOLBAR_BUTTONS];
+  }
+  applyPinyin26LetterCaseToProject(project, generatedPlan.pinyin26LetterCase);
+  applyAlphabetic26LetterCaseToProject(project, generatedPlan.alphabetic26LetterCase);
+  applyGuideSpacebarRowToProject(project);
+}
+
+function setGuideSpacebarRow(row) {
+  const nextRow = normalizeGuideSpacebarRow(row);
+  const currentGuide = guideState();
+  state.project.guide = {
+    status: 'pending',
+    preferences: {
+      ...currentGuide.preferences,
+      spacebarRow: nextRow,
+    },
+    generatedPlan: null,
+  };
+  markDirty();
+  renderAll();
+}
+
+function handleGuideSpacebarAction(button) {
+  const action = button.dataset.guideSpaceAction;
+  if (!action) return;
+  const currentRow = currentGuideSpacebarRow();
+  let nextRow = currentRow;
+  if (action === 'add') {
+    const key = button.dataset.key;
+    if (!GUIDE_SPACEBAR_ALLOWED_KEYS.has(key)) return;
+    if (currentRow.includes(key)) return;
+    nextRow = [...currentRow, key];
+  }
+  if (action === 'remove') {
+    const index = Number(button.dataset.index);
+    const key = currentRow[index];
+    if (!Number.isInteger(index) || !key || key === 'space' || key === 'enter') return;
+    nextRow = currentRow.filter((_, itemIndex) => itemIndex !== index);
+  }
+  if (JSON.stringify(nextRow) === JSON.stringify(currentRow)) return;
+  pushUndoSnapshot();
+  setGuideSpacebarRow(nextRow);
+}
+
+function finalizeGuideGeneration() {
+  pushUndoSnapshot();
+  applyGuidePlanToProject(state.project);
+  if (!previewModeExists(state.previewMode)) {
+    state.previewMode = defaultPreviewMode();
+  }
+  state.editingKey = null;
+  markDirty();
+  renderAll();
+  renderCurrentPreview();
+}
+
+function rebuildReadyGuidePlanAfterPreferenceEdit() {
+  applyGuidePlanToProject(state.project);
+  if (!previewModeExists(state.previewMode)) {
+    state.previewMode = defaultPreviewMode();
+  }
+  state.editingKey = null;
+  markDirty();
+  renderAll();
+}
+
+function handleGuideAction(button) {
+  const action = button.dataset.guideAction;
+  if (action !== 'generate') return;
+  if (isGuideReady(state.project)) {
+    openConfirmDialog({
+      title: '重新生成方案',
+      message: '重新生成会覆盖当前方案对应的键盘结构、工具栏和空格行设置，是否继续？',
+      confirmLabel: '重新生成',
+      confirmClass: '',
+      onConfirm: finalizeGuideGeneration,
+    });
+    return;
+  }
+  finalizeGuideGeneration();
+}
+
 const CUSTOM_KEYBOARD_PANELS = [
   { id: 'preview', label: '预览' },
-  { id: 'toolbar', label: '工具栏' },
 ];
 
 function activePreviewKeyboardPanel() {
@@ -3310,34 +5135,7 @@ function activePreviewKeyboardPanel() {
 }
 
 function activeCustomKeyboardPanel() {
-  return state.customKeyboardPanel === 'toolbar' ? 'toolbar' : 'preview';
-}
-
-function renderCustomKeyboardScopeHeader() {
-  const activePanel = activeCustomKeyboardPanel();
-  const previewScope = currentPreviewScope();
-  const previewDescription = previewScope.mode === 'symbolic' && effectiveKeyboardCombo().slots.symbolic.source !== 'custom'
-    ? '当前预览使用输入法内置符号键盘，工作台不提供这部分自定义布局编辑。'
-    : previewScope.mode === 'emoji' && effectiveKeyboardCombo().slots.emoji.source !== 'custom'
-      ? '当前预览使用系统 Emoji 键盘，工作台不提供这部分自定义布局编辑。'
-      : previewScope.mode === 'emoji'
-        ? '当前预览使用自定义 Emoji 数据源，请在这里维护集合内容；布局继续复用符号键盘预览骨架。'
-      : '跟随右侧键盘预览，需要编辑其他键盘时请切换右侧预览。';
-  return `
-    ${renderPreviewScopeHeader(
-    activePanel === 'toolbar'
-      ? '工具栏编辑'
-      : previewScope.mode === 'keyboard26' && previewScope.pinyinVariant
-        ? `中文${previewScope.pinyinVariant}键编辑`
-        : '预览编辑',
-    activePanel === 'toolbar' ? '单独编辑工具栏按钮顺序、文案与候选栏边距。' : previewDescription,
-  )}
-    <div class="custom-keyboard-menu" role="tablist" aria-label="自定义键盘编辑范围">
-      ${CUSTOM_KEYBOARD_PANELS.map((item) => `
-        <button class="${item.id === activePanel ? 'active' : ''}" type="button" role="tab" aria-selected="${item.id === activePanel ? 'true' : 'false'}" data-custom-keyboard-panel="${escapeHtml(item.id)}">${escapeHtml(item.label)}</button>
-      `).join('')}
-    </div>
-  `;
+  return 'preview';
 }
 
 function customKeyboardPanelPath(panelId = activeCustomKeyboardPanel()) {
@@ -3347,7 +5145,6 @@ function customKeyboardPanelPath(panelId = activeCustomKeyboardPanel()) {
     numeric: 'keyboards.numeric',
     symbolic: 'keyboards.symbolic',
     emoji: 'data.collections.emojiDataSource',
-    toolbar: 'toolbar',
     panel: 'keyboards.panel.text',
   };
   return paths[panelId] || 'keyboards.keyboard26';
@@ -3358,15 +5155,13 @@ function customKeyboardPanelValue(panelId = activeCustomKeyboardPanel()) {
 }
 
 function renderCustomKeyboards(value = {}) {
-  const activePanel = activeCustomKeyboardPanel();
   const previewPanel = activePreviewKeyboardPanel();
   const scope = currentPreviewScope();
-  const content = {
-    preview: () => ({
-      keyboard26: () => renderKeyboard26Text(value.keyboard26 || {}),
-      numeric: () => renderNumericKeyboard(value.numeric || {}),
-      symbolic: () => renderSymbolic(value.symbolic || {}),
-      emoji: () => `
+  const previewContent = ({
+    keyboard26: () => renderKeyboard26Text(value.keyboard26 || {}),
+    numeric: () => renderNumericKeyboard(value.numeric || {}),
+    symbolic: () => renderSymbolic(value.symbolic || {}),
+    emoji: () => `
         ${renderRowListEditor({
     title: '左侧 Emoji 列表布局',
     path: 'keyboards.emoji.layout.portrait.collectionRows',
@@ -3376,21 +5171,18 @@ function renderCustomKeyboards(value = {}) {
   })}
         ${renderJsonTextarea('data.collections.emojiDataSource', state.project.data?.collections?.emojiDataSource || {})}
       `,
-      panel: () => renderStringMap(value.panel?.text || {}, 'keyboards.panel.text'),
-    }[previewPanel]?.() || renderKeyboard26Text(value.keyboard26 || {})),
-    toolbar: () => renderToolbar(state.project.toolbar || {}),
-  }[activePanel]?.() || renderKeyboard26Text(value.keyboard26 || {});
-  const fallbackContent = activePanel === 'preview' && (
+    panel: () => renderStringMap(value.panel?.text || {}, 'keyboards.panel.text'),
+  }[previewPanel]?.() || renderKeyboard26Text(value.keyboard26 || {}));
+  const fallbackContent = (
     (scope.mode === 'symbolic' && effectiveKeyboardCombo().slots.symbolic.source !== 'custom')
     || (scope.mode === 'emoji' && effectiveKeyboardCombo().slots.emoji.source !== 'custom')
   )
-    ? `<section class="group-card"><p class="empty-note">${scope.mode === 'emoji' ? '当前为系统 Emoji 键盘，请通过“键盘组合”切换到自定义 Emoji 后再编辑数据源。' : '当前为输入法内置符号键盘，请通过“键盘组合”切换到自定义符号键盘后再编辑布局。'}</p></section>`
-    : content;
+    ? `<section class="group-card"><p class="empty-note">${scope.mode === 'emoji' ? '当前为 App内emoji键盘，请通过“生成你的键盘方案”切换到自定义 Emoji 后再编辑数据源。' : '当前为 App内符号键盘，请通过“生成你的键盘方案”切换到自定义符号键盘后再编辑布局。'}</p></section>`
+    : previewContent;
+  const toolbarContent = previewPanel === 'keyboard26' ? '' : renderToolbar(state.project.toolbar || {});
   return `
-    <section class="group-card custom-keyboard-shell">
-      ${renderCustomKeyboardScopeHeader()}
-    </section>
     ${fallbackContent}
+    ${toolbarContent}
   `;
 }
 
@@ -3466,7 +5258,7 @@ function metricHasCustomValue(metric = {}) {
 function setMetricWidth(metric, orientation, value) {
   if (value === '') return;
   if (orientation === 'portrait') {
-    const next = Number(value);
+    const next = Number.parseFloat(String(value).replace(',', '.'));
     metric.width = { percentage: Number.isFinite(next) ? next : value };
     return;
   }
@@ -3501,25 +5293,20 @@ function resolvedMetricForKey(metrics = {}, key, normalMetric = {}) {
 }
 
 function renderMetricKeyPicker(keys, selectedKeys, keyboardId, keyboard) {
-  const groupedRows = metricPickerRows(keys, keyboardId);
   return `
-    <div class="metric-key-picker">
-      ${groupedRows.map((row) => `
-        <div class="metric-key-picker-row">
-          ${row.map((key) => {
-      const active = selectedKeys.includes(key) ? ' active' : '';
+    <div class="metric-key-picker swipe-token-list">
+      ${keys.map((key) => {
+      const active = selectedKeys.includes(key) ? ' is-active' : '';
       return `
-            <button
-              class="metric-key-chip${active}"
-              type="button"
-              data-keyboard-action="toggle-metric-key"
-              data-key="${escapeHtml(key)}"
-              aria-pressed="${active ? 'true' : 'false'}"
-            >${escapeHtml(metricKeyLabel(keyboardId, keyboard, key))}</button>
-          `;
+        <button
+          class="swipe-token metric-key-chip${active}"
+          type="button"
+          data-keyboard-action="toggle-metric-key"
+          data-key="${escapeHtml(key)}"
+          aria-pressed="${active ? 'true' : 'false'}"
+        ><span class="swipe-key">${escapeHtml(metricKeyLabel(keyboardId, keyboard, key))}</span></button>
+      `;
     }).join('')}
-        </div>
-      `).join('')}
     </div>
   `;
 }
@@ -3596,7 +5383,7 @@ function renderMetricActiveEditor({ keyboardId, keyboard, orientation, metrics, 
   const metric = metrics[key] || metrics.normal || {};
   const hasOverride = metricHasCustomValue(metrics[key] || {});
   return `
-    <div class="metrics-unified-card">
+    <div class="metrics-unified-card swipe-edit-panel key-edit-panel">
       <h4>当前按键：${escapeHtml(metricKeyLabel(keyboardId, keyboard, key))}</h4>
       <div class="metrics-unified-fields">
         <label>
@@ -3662,11 +5449,11 @@ function renderMetrics(keyboards = {}) {
   if (scope.mode === 'emoji' || (scope.mode === 'symbolic' && effectiveKeyboardCombo().slots.symbolic.source !== 'custom')) {
     const emojiMessage = effectiveKeyboardCombo().slots.emoji.source === 'custom'
       ? '自定义 Emoji 当前复用符号集合视图预览，暂不单独提供按键尺寸设置。'
-      : '系统 Emoji 使用集合视图预览，请到“符号数据源”模块维护内容，不在这里单独设置按键尺寸。';
+      : 'App内emoji键盘使用集合视图预览，请到“符号数据源”模块维护内容，不在这里单独设置按键尺寸。';
     return `
       <section class="group-card">
-        ${renderPreviewScopeHeader('按键尺寸', `当前为${scope.mode === 'emoji' ? ' Emoji 数据源' : '输入法内置符号键盘'}预览。`, '', { showScopeBadge: false })}
-        <p class="empty-note">${scope.mode === 'emoji' ? emojiMessage : '输入法内置符号键盘不在这里单独设置按键尺寸，请切换到自定义符号键盘后再调整。'}</p>
+        ${renderPreviewScopeHeader('按键尺寸', `当前为${scope.mode === 'emoji' ? ' Emoji 数据源' : 'App内符号键盘'}预览。`, '', { showScopeBadge: false })}
+        <p class="empty-note">${scope.mode === 'emoji' ? emojiMessage : 'App内符号键盘不在这里单独设置按键尺寸，请切换到自定义符号键盘后再调整。'}</p>
       </section>
     `;
   }
@@ -3706,13 +5493,10 @@ function renderMetrics(keyboards = {}) {
       return leftIndex - rightIndex;
     });
   return `
-    <section class="group-card">
-      <div class="layout-toolbar metrics-toolbar">
-        <div>
-          ${renderPreviewScopeHeader('按键尺寸', '只显示当前预览键盘里的可操作按键；需要调其他键盘请切换右侧预览。', '', { showScopeBadge: false })}
-        </div>
-      </div>
+    <section class="group-card keyboard-tool-card metrics-settings-card">
+      ${renderPreviewScopeHeader('按键尺寸', '只显示当前预览键盘里的可操作按键；需要调其他键盘请切换右侧预览。', '', { showScopeBadge: false })}
       <div class="metrics-unified-card">
+        <h4>统一尺寸</h4>
         <div class="metrics-unified-fields">
           <label>
             <span>统一宽度</span>
@@ -3725,6 +5509,8 @@ function renderMetrics(keyboards = {}) {
         </div>
         <p class="metrics-note">宽度控制按键在一行里的占位；bounds.width 控制按键内部可见层宽度，例如 2/3 表示内容层占按键格子的三分之二。</p>
       </div>
+    </section>
+    <section class="group-card keyboard-key-card metrics-profile-card">
       <div class="metrics-batch-card">
         <div class="metrics-batch-header">
           <h4>按键选择</h4>
@@ -3779,10 +5565,49 @@ function emptySwipeData() {
 function swipesEnabled() {
   const comboMode = state.project?.keyboardCombo?.swipeBehavior?.mode;
   if (comboMode === 'disabled') return false;
+  const uiMode = state.project?.keyboardCombo?.swipeBehavior?.ui?.[currentSwipeUiKey()]?.mode;
+  if (uiMode === 'disabled') return false;
   return state.project?.data?.swipesEnabled !== false;
 }
 
+function currentSwipeUiKey() {
+  const source = previewSourceName(state.previewMode);
+  if (source.startsWith('pinyin_9')) return 'pinyin9';
+  if (source.startsWith('numeric_9')) return 'numeric';
+  return currentKeyboardPreviewProfile();
+}
+
+function setCurrentSwipeProfileEnabled(enabled) {
+  state.project.data = state.project.data || {};
+  state.project.keyboardCombo = state.project.keyboardCombo || {};
+  state.project.keyboardCombo.swipeBehavior = state.project.keyboardCombo.swipeBehavior || {};
+  const uiKey = currentSwipeUiKey();
+  if (['pinyin', 'pinyin9', 'alphabetic', 'numeric'].includes(uiKey)) {
+    state.project.keyboardCombo.swipeBehavior.ui = state.project.keyboardCombo.swipeBehavior.ui || {};
+    state.project.keyboardCombo.swipeBehavior.ui[uiKey] = {
+      ...(state.project.keyboardCombo.swipeBehavior.ui[uiKey] || {}),
+      mode: enabled ? 'visible' : 'disabled',
+    };
+    if (enabled) state.project.data.swipesEnabled = true;
+    return;
+  }
+  state.project.data.swipesEnabled = enabled;
+}
+
 function swipeKeyLabel(key) {
+  const profile = currentKeyboardPreviewProfile();
+  if (profile === 'numeric') {
+    return numericDisplayValue(state.project.keyboards?.numeric || {}, key);
+  }
+  if (profile === 'symbolic') {
+    return symbolicDisplayValue(state.project.keyboards?.symbolic || {}, key);
+  }
+  if (profile === 'panel') {
+    return metricKeyLabel('panel', state.project.keyboards?.panel || {}, key);
+  }
+  if (profile === 'pinyin' || profile === 'pinyin9' || profile === 'alphabetic' || profile === 'keyboard26') {
+    return keyDisplayValue(state.project.keyboards?.keyboard26 || {}, key);
+  }
   return SWIPE_KEY_SHORT_LABELS[key] || NUMERIC_KEY_LABELS[key] || key;
 }
 
@@ -3850,34 +5675,16 @@ function renderSwipeToken(profile, direction, key, entry = {}) {
 function renderSwipeEntry(profile, direction, key, entry = {}) {
   const action = actionToFields(entry.action);
   const path = `data.swipes.${profile}.${direction}.${key}`;
-  const combineEditor = action.type === 'combine'
-    ? `<div class="field-card swipe-combine-field">
-        <label for="swipe-combine-${escapeHtml(profile)}-${escapeHtml(direction)}-${escapeHtml(key)}">组合 Action</label>
-        <textarea
-          id="swipe-combine-${escapeHtml(profile)}-${escapeHtml(direction)}-${escapeHtml(key)}"
-          data-json-action-path="${escapeHtml(path)}"
-        >${escapeHtml(JSON.stringify(entry.action || { combine: [] }, null, 2))}</textarea>
-      </div>`
-    : '';
+  const display = swipeDisplayLabel(entry);
   return `
     <section class="group-card key-edit-panel swipe-edit-panel" data-key-edit-panel-path="${escapeHtml(path)}">
-      <div class="key-edit-fields swipe-edit-fields">
-        ${input({ path: `data.swipes.${profile}.${direction}.${key}.label.text`, label: '显示文字', value: entry.label?.text || '' })}
-        ${selectField({
-    path: `data.swipes.${profile}.${direction}.${key}.actionType`,
-    label: '指令类型',
-    value: action.type,
-    className: 'action-type-field',
-    selectClassName: 'action-type-select',
-    options: ACTION_TYPES.map((item) => ({
-      value: item,
-      selectedLabel: displayActionType(item),
-      dropdownLabel: displayActionTypeWithCode(item),
-    })),
-  })}
-        ${input({ path: `data.swipes.${profile}.${direction}.${key}.actionValue`, label: '输入指令', value: action.value || '', suggestions: actionValueSuggestions(action.type) })}
-        ${combineEditor}
-      </div>
+      <section class="key-edit-section">
+        <h4>显示与指令</h4>
+        <div class="key-edit-fields swipe-edit-fields">
+          ${input({ path: `data.swipes.${profile}.${direction}.${key}.label.text`, label: '显示文字', value: display.value, className: 'swipe-label-field' })}
+          ${actionEditorFields({ basePath: path, action })}
+        </div>
+      </section>
       <span class="key-edit-focus-sentinel" tabindex="0" aria-hidden="true"></span>
     </section>
   `;
@@ -3895,11 +5702,11 @@ function renderSwipes(value) {
       : scope.mode === 'emoji'
         ? (effectiveKeyboardCombo().slots.emoji.source === 'custom'
           ? '自定义 Emoji 当前只支持数据源维护，不支持上下划动配置。'
-          : '系统 Emoji 键盘不支持上下划动配置，请切换到中文、英文、数字或自定义符号键盘后再编辑。')
-        : '输入法内置符号键盘不在这里配置上下划动，请切换到自定义符号键盘后再编辑。';
+          : 'App内emoji键盘不支持上下划动配置，请切换到中文、英文、数字或自定义符号键盘后再编辑。')
+        : 'App内符号键盘不在这里配置上下划动，请切换到自定义符号键盘后再编辑。';
     return `
       <section class="group-card">
-        ${renderPreviewScopeHeader('划动编辑', `当前为${scope.mode === 'panel' ? '自定义面板' : scope.mode === 'emoji' ? ' Emoji 数据源' : '输入法内置符号键盘'}预览。`)}
+        ${renderPreviewScopeHeader('划动编辑', `当前为${scope.mode === 'panel' ? '自定义面板' : scope.mode === 'emoji' ? ' Emoji 数据源' : 'App内符号键盘'}预览。`)}
         <p class="empty-note">${message}</p>
       </section>
     `;
@@ -3977,8 +5784,10 @@ function renderHintItem(group, key, index, item = {}) {
   return `
     <div class="hint-item-row">
       <span class="hint-index">候选 ${index + 1}</span>
-      <div class="hint-item-fields">
-        ${selectField({
+      <section class="hint-item-section">
+        <h4>标签</h4>
+        <div class="hint-item-fields">
+          ${selectField({
     path: `data.hints.${group}.${key}.list.${index}.labelType`,
     label: '标签类型',
     value: label.type,
@@ -3987,21 +5796,15 @@ function renderHintItem(group, key, index, item = {}) {
       { value: 'systemImageName', label: 'systemImageName' },
     ],
   })}
-        ${input({ path: `data.hints.${group}.${key}.list.${index}.labelValue`, label: '标签值', value: label.value })}
-        ${selectField({
-    path: `data.hints.${group}.${key}.list.${index}.actionType`,
-    label: '指令类型',
-    value: action.type,
-    className: 'action-type-field',
-    selectClassName: 'action-type-select',
-    options: ACTION_TYPES.map((itemType) => ({
-      value: itemType,
-      selectedLabel: displayActionType(itemType),
-      dropdownLabel: displayActionTypeWithCode(itemType),
-    })),
-  })}
-        ${input({ path: `data.hints.${group}.${key}.list.${index}.actionValue`, label: '输入指令', value: action.value || '', suggestions: actionValueSuggestions(action.type) })}
-      </div>
+          ${input({ path: `data.hints.${group}.${key}.list.${index}.labelValue`, label: '标签值', value: label.value })}
+        </div>
+      </section>
+      <section class="hint-item-section">
+        <h4>指令</h4>
+        <div class="hint-item-fields">
+          ${actionEditorFields({ basePath: `data.hints.${group}.${key}.list.${index}`, action })}
+        </div>
+      </section>
     </div>
   `;
 }
@@ -4043,14 +5846,20 @@ function renderHintEntryPanel(group, key, entry = {}) {
   const path = `data.hints.${group}.${key}`;
   return `
     <section class="group-card key-edit-panel hint-edit-panel" data-key-edit-panel-path="${escapeHtml(path)}">
-      <div class="hint-entry-fields">
-        ${input({ path: `data.hints.${group}.${key}.selectedIndex`, label: '默认选中序号', value: entry.selectedIndex ?? 0, type: 'number', step: '1' })}
-        ${input({ path: `data.hints.${group}.${key}.size.width`, label: '宽度', value: entry.size?.width ?? '', type: 'number', step: '1' })}
-        ${input({ path: `data.hints.${group}.${key}.size.height`, label: '高度', value: entry.size?.height ?? '', type: 'number', step: '1' })}
-      </div>
-      <div class="hint-item-list">
-        ${(entry.list || []).map((item, index) => renderHintItem(group, key, index, item)).join('') || '<p class="empty-note">这个按键还没有长按候选项。</p>'}
-      </div>
+      <section class="key-edit-section">
+        <h4>布局</h4>
+        <div class="hint-entry-fields">
+          ${input({ path: `data.hints.${group}.${key}.selectedIndex`, label: '默认选中序号', value: entry.selectedIndex ?? 0, type: 'number', step: '1' })}
+          ${input({ path: `data.hints.${group}.${key}.size.width`, label: '宽度', value: entry.size?.width ?? '', type: 'number', step: '1' })}
+          ${input({ path: `data.hints.${group}.${key}.size.height`, label: '高度', value: entry.size?.height ?? '', type: 'number', step: '1' })}
+        </div>
+      </section>
+      <section class="key-edit-section">
+        <h4>候选项</h4>
+        <div class="hint-item-list">
+          ${(entry.list || []).map((item, index) => renderHintItem(group, key, index, item)).join('') || '<p class="empty-note">这个按键还没有长按候选项。</p>'}
+        </div>
+      </section>
       <span class="key-edit-focus-sentinel" tabindex="0" aria-hidden="true"></span>
     </section>
   `;
@@ -4068,11 +5877,11 @@ function renderHints(value) {
       : scope.mode === 'emoji'
         ? (effectiveKeyboardCombo().slots.emoji.source === 'custom'
           ? '自定义 Emoji 当前只支持数据源维护，不支持长按候选编辑。'
-          : '系统 Emoji 键盘不支持长按候选编辑，请切换到支持的键盘类型后再操作。')
-        : '输入法内置符号键盘不在这里编辑长按候选，请切换到自定义符号键盘后再操作。';
+          : 'App内emoji键盘不支持长按候选编辑，请切换到支持的键盘类型后再操作。')
+        : 'App内符号键盘不在这里编辑长按候选，请切换到自定义符号键盘后再操作。';
     return `
       <section class="group-card">
-        ${renderPreviewScopeHeader('长按候选', `当前为${scope.mode === 'panel' ? '自定义面板' : scope.mode === 'emoji' ? ' Emoji 数据源' : '输入法内置符号键盘'}预览。`)}
+        ${renderPreviewScopeHeader('长按候选', `当前为${scope.mode === 'panel' ? '自定义面板' : scope.mode === 'emoji' ? ' Emoji 数据源' : 'App内符号键盘'}预览。`)}
         <p class="empty-note">${message}</p>
       </section>
     `;
@@ -4118,7 +5927,15 @@ function collectionSourceLabel(sourceKey) {
 }
 
 function collectionItemsText(items) {
-  return Array.isArray(items) ? items.join('\n') : '';
+  return Array.isArray(items) ? items.map((item) => normalizeCollectionItemText(item)).join('\n') : '';
+}
+
+function normalizeCollectionItemText(item) {
+  if (typeof item === 'string' || typeof item === 'number') return String(item);
+  if (item?.label !== undefined) return normalizeCollectionItemText(item.label);
+  if (item?.text !== undefined) return String(item.text);
+  if (item?.value !== undefined) return String(item.value);
+  return JSON.stringify(item);
 }
 
 function collectionObjectField(sourceKey, entryKey, fieldKey, value) {
@@ -4151,42 +5968,106 @@ function renderCollectionEntryEditor(sourceKey, entryKey, value) {
   }
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     const action = actionToFields(value.action);
-    const knownFields = [];
-    if ('label' in value) knownFields.push(collectionObjectField(sourceKey, entryKey, 'label', value.label));
-    if ('value' in value) knownFields.push(collectionObjectField(sourceKey, entryKey, 'value', value.value));
+    const displayFields = [];
+    const actionFields = [];
+    const extraFields = [];
+    if ('label' in value) displayFields.push(collectionObjectField(sourceKey, entryKey, 'label', value.label));
+    if ('value' in value) displayFields.push(collectionObjectField(sourceKey, entryKey, 'value', value.value));
     if ('action' in value) {
-      knownFields.push(selectField({
-        path: `data.collections.${sourceKey}.${entryKey}.actionType`,
-        label: '指令类型',
-        value: action.type,
-        className: 'collection-action-field',
-        selectClassName: 'action-type-select',
-        options: ACTION_TYPES.map((item) => ({
-          value: item,
-          selectedLabel: displayActionType(item),
-          dropdownLabel: displayActionTypeWithCode(item),
-        })),
-      }));
-      knownFields.push(input({
-        path: `data.collections.${sourceKey}.${entryKey}.actionValue`,
-        label: '输入指令',
-        value: action.value || '',
-        suggestions: actionValueSuggestions(action.type),
+      actionFields.push(actionEditorFields({
+        basePath: `data.collections.${sourceKey}.${entryKey}`,
+        action,
       }));
     }
     const unknownKeys = Object.keys(value).filter((key) => !['label', 'value', 'action'].includes(key));
-    if (!knownFields.length || unknownKeys.length) {
-      knownFields.push(`
+    if ((!displayFields.length && !actionFields.length) || unknownKeys.length) {
+      extraFields.push(`
         <label class="collection-json-field">
           <span>JSON</span>
           <textarea data-json-path="${escapeHtml(`data.collections.${sourceKey}.${entryKey}`)}">${escapeHtml(JSON.stringify(value, null, 2))}</textarea>
         </label>
       `);
     }
-    return `<div class="collection-entry-object">${knownFields.join('')}</div>`;
+    return `<div class="collection-entry-object">
+      ${displayFields.length ? `<section class="collection-entry-section"><h4>显示</h4>${displayFields.join('')}</section>` : ''}
+      ${actionFields.length ? `<section class="collection-entry-section"><h4>指令</h4>${actionFields.join('')}</section>` : ''}
+      ${extraFields.length ? `<section class="collection-entry-section"><h4>JSON</h4>${extraFields.join('')}</section>` : ''}
+    </div>`;
   }
   return `
     <textarea data-json-path="${escapeHtml(`data.collections.${sourceKey}.${entryKey}`)}">${escapeHtml(JSON.stringify(value, null, 2))}</textarea>
+  `;
+}
+
+function collectionItemObjectField(sourceKey, category, index, fieldKey, value) {
+  return `
+    <label class="collection-inline-field">
+      <span>${escapeHtml(fieldKey)}</span>
+      <input
+        type="text"
+        value="${escapeHtml(value ?? '')}"
+        data-collection-item-field="true"
+        data-source-key="${escapeHtml(sourceKey)}"
+        data-category-name="${escapeHtml(category)}"
+        data-item-index="${index}"
+        data-field-key="${escapeHtml(fieldKey)}"
+      />
+    </label>
+  `;
+}
+
+function renderCollectionItemEditor(sourceKey, category, item, index) {
+  const itemPath = `data.collections.${sourceKey}.${category}.${index}`;
+  if (typeof item === 'string' || typeof item === 'number') {
+    return `
+      <div class="collection-item-row">
+        <span class="collection-item-index">${index + 1}</span>
+        <input
+          type="text"
+          value="${escapeHtml(String(item))}"
+          data-collection-item-value="true"
+          data-source-key="${escapeHtml(sourceKey)}"
+          data-category-name="${escapeHtml(category)}"
+          data-item-index="${index}"
+        />
+      </div>
+    `;
+  }
+  if (item && typeof item === 'object' && !Array.isArray(item)) {
+    const action = actionToFields(item.action);
+    const displayFields = [];
+    if ('label' in item) displayFields.push(collectionItemObjectField(sourceKey, category, index, 'label', item.label));
+    if ('value' in item) displayFields.push(collectionItemObjectField(sourceKey, category, index, 'value', item.value));
+    return `
+      <div class="collection-item-row is-object">
+        <span class="collection-item-index">${index + 1}</span>
+        <div class="collection-item-object">
+          <div class="collection-item-display">
+            ${displayFields.join('') || collectionItemObjectField(sourceKey, category, index, 'label', normalizeCollectionItemText(item))}
+          </div>
+          ${item.action ? `<div class="collection-item-action">${actionEditorFields({ basePath: itemPath, action })}</div>` : ''}
+          <label class="collection-json-field">
+            <span>JSON</span>
+            <textarea data-json-path="${escapeHtml(itemPath)}">${escapeHtml(JSON.stringify(item, null, 2))}</textarea>
+          </label>
+        </div>
+      </div>
+    `;
+  }
+  return `
+    <div class="collection-item-row">
+      <span class="collection-item-index">${index + 1}</span>
+      <textarea data-json-path="${escapeHtml(itemPath)}">${escapeHtml(JSON.stringify(item, null, 2))}</textarea>
+    </div>
+  `;
+}
+
+function renderCollectionItemsEditor(sourceKey, category, items = []) {
+  const list = Array.isArray(items) ? items : [];
+  return `
+    <div class="collection-item-editor">
+      ${list.map((item, index) => renderCollectionItemEditor(sourceKey, category, item, index)).join('') || '<p class="empty-note">这个分类还没有内容。</p>'}
+    </div>
   `;
 }
 
@@ -4222,13 +6103,14 @@ function renderCategorizedCollection(sourceKey, source = {}) {
               </div>
             </div>
             <label class="collection-items-field">
-              <span>内容，一行一个</span>
+              <span>批量内容，一行一个</span>
               <textarea
                 data-collection-items="true"
                 data-source-key="${escapeHtml(sourceKey)}"
                 data-category-name="${escapeHtml(category)}"
               >${escapeHtml(collectionItemsText(source[category]))}</textarea>
             </label>
+            ${renderCollectionItemsEditor(sourceKey, category, source[category])}
           </section>
         `).join('') || '<p class="empty-note">暂无分类。</p>'}
       </div>
@@ -4287,21 +6169,140 @@ function renderCollections(value = {}) {
   `;
 }
 
-function renderJsonTextarea(path, value) {
+function currentPreviewNativeSource() {
+  const source = previewSourceName(state.previewMode);
+  if (!source) return null;
+  const orientation = state.previewOrientation || previewOrientationForKeyboardName(source);
+  const keyboardName = keyboardNameWithOrientation(source, orientation);
+  const payload = buildSkinEffectModel(state.project, { theme: state.theme, keyboardName })?.nativePayload || null;
+  if (!payload) return null;
+  return {
+    path: `${state.theme}/${keyboardName}.yaml`,
+    title: `${keyboardTemplateLabel(source)} · ${orientation === 'landscape' ? '横屏' : '竖屏'}完整预览源码`,
+    description: '这里显示右侧当前预览键盘最终送入导出的完整 native payload，包含 keyboardLayout、toolbarLayout、候选栏、工具栏按钮、按键样式和动作。',
+    value: payload,
+    editable: false,
+  };
+}
+
+function jsonSourceForMode(value, path = activeModule().path) {
+  if (activeModule().kind === 'customKeyboards') {
+    return currentPreviewNativeSource() || {
+      path,
+      title: '当前预览源码',
+      description: '当前预览没有可用 native payload。',
+      value,
+      editable: false,
+    };
+  }
+  return {
+    path,
+    title: '当前数据源码',
+    description: '这里显示当前左侧模块的数据源码，可直接编辑 JSON。',
+    value,
+    editable: true,
+  };
+}
+
+function jsonSourceText(value) {
+  return JSON.stringify(value ?? {}, null, 2);
+}
+
+function jsonSearchMatches(text, query) {
+  const search = String(query || '').trim().toLowerCase();
+  if (!search) return [];
+  const lines = String(text || '').split('\n');
+  const matches = [];
+  lines.forEach((line, index) => {
+    if (line.toLowerCase().includes(search)) matches.push(index);
+  });
+  return matches;
+}
+
+function renderJsonSearchBar(sourceText) {
+  const matches = jsonSearchMatches(sourceText, state.jsonSearch);
+  const activeIndex = matches.length ? Math.min(state.jsonSearchIndex, matches.length - 1) : 0;
+  const summary = state.jsonSearch.trim()
+    ? (matches.length ? `${activeIndex + 1} / ${matches.length}` : '0 / 0')
+    : '输入关键词';
   return `
-    <label class="json-label">当前数据源码</label>
-    <textarea data-json-path="${escapeHtml(path)}">${escapeHtml(JSON.stringify(value, null, 2))}</textarea>
+    <div class="json-source-toolbar">
+      <label class="json-search-field">
+        <span>搜索</span>
+        <input type="search" value="${escapeHtml(state.jsonSearch)}" data-json-search="query" placeholder="键名、动作、颜色、toolbar..." />
+      </label>
+      <span class="json-search-count">${escapeHtml(summary)}</span>
+      <button class="mini-button" type="button" data-json-search-action="prev" ${matches.length ? '' : 'disabled'}>上一个</button>
+      <button class="mini-button" type="button" data-json-search-action="next" ${matches.length ? '' : 'disabled'}>下一个</button>
+    </div>
+  `;
+}
+
+function renderJsonSearchPreview(sourceText) {
+  const matches = jsonSearchMatches(sourceText, state.jsonSearch);
+  if (!state.jsonSearch.trim()) return '';
+  const activeIndex = matches.length ? Math.min(state.jsonSearchIndex, matches.length - 1) : 0;
+  const activeLine = matches[activeIndex];
+  const lines = sourceText.split('\n');
+  if (!matches.length) {
+    return '<p class="empty-note json-search-empty">没有匹配项。</p>';
+  }
+  const start = Math.max(0, activeLine - 3);
+  const end = Math.min(lines.length, activeLine + 4);
+  const query = state.jsonSearch.trim();
+  const lowerQuery = query.toLowerCase();
+  const rows = [];
+  for (let index = start; index < end; index += 1) {
+    const line = lines[index];
+    const lowerLine = line.toLowerCase();
+    const hitIndex = lowerLine.indexOf(lowerQuery);
+    const highlighted = hitIndex >= 0
+      ? `${escapeHtml(line.slice(0, hitIndex))}<mark>${escapeHtml(line.slice(hitIndex, hitIndex + query.length))}</mark>${escapeHtml(line.slice(hitIndex + query.length))}`
+      : escapeHtml(line);
+    rows.push(`
+      <div class="json-search-line${index === activeLine ? ' is-active' : ''}">
+        <span>${index + 1}</span>
+        <code>${highlighted || ' '}</code>
+      </div>
+    `);
+  }
+  return `<div class="json-search-preview">${rows.join('')}</div>`;
+}
+
+function renderJsonTextarea(path, value, options = {}) {
+  const sourceText = jsonSourceText(value);
+  const readOnly = options.editable === false;
+  return `
+    <section class="json-source-panel">
+      <div class="json-source-head">
+        <div>
+          <h3>${escapeHtml(options.title || '当前数据源码')}</h3>
+          <p>${escapeHtml(options.description || '')}</p>
+        </div>
+      </div>
+      ${renderJsonSearchBar(sourceText)}
+      ${renderJsonSearchPreview(sourceText)}
+      <label class="json-label">${readOnly ? '完整源码预览' : '当前数据源码'}</label>
+      <textarea
+        class="json-source-textarea"
+        data-json-path="${escapeHtml(path)}"
+        data-json-source-textarea="true"
+        ${readOnly ? 'readonly' : ''}
+        spellcheck="false"
+      >${escapeHtml(sourceText)}</textarea>
+    </section>
   `;
 }
 
 function renderJsonEditor(value, path = activeModule().path) {
-  return renderJsonTextarea(path, value);
+  const source = jsonSourceForMode(value, path);
+  return renderJsonTextarea(source.path, source.value, source);
 }
 
 function renderCustomKeyboardSystemNotice(scope = currentPreviewScope()) {
   const message = scope.mode === 'emoji'
     ? 'Emoji 使用数据源预览，请到“符号数据源”模块维护内容。'
-    : '当前为输入法内置符号键盘，请通过“键盘组合”切换到自定义符号键盘后再编辑布局。';
+    : '当前为App内符号键盘，请通过“生成你的键盘方案”切换到自定义符号键盘后再编辑布局。';
   return `<section class="group-card"><p class="empty-note">${escapeHtml(message)}</p></section>`;
 }
 
@@ -4310,9 +6311,11 @@ function renderEditor() {
   const value = currentValue();
   el.moduleKicker.textContent = '';
   el.moduleKicker.hidden = true;
-  el.moduleTitle.textContent = module.title;
-  el.moduleDescription.textContent = '';
-  el.moduleDescription.hidden = true;
+  el.moduleTitle.textContent = module.id === 'keyboardCombo' ? '生成你的键盘方案' : module.title;
+  el.moduleDescription.textContent = module.id === 'keyboardCombo'
+    ? '根据你的习惯确认偏好后解锁自定义内容'
+    : '';
+  el.moduleDescription.hidden = !el.moduleDescription.textContent;
   el.jsonModeButton.textContent = state.jsonMode ? '表单模式' : '源码模式';
 
   if (state.jsonMode) {
@@ -4337,6 +6340,7 @@ function renderEditor() {
     animation: renderAnimation,
     keyboardFrame: renderKeyboardFrame,
     insetsTree: renderInsetsTree,
+    surfaceStyles: renderSurfaceStyles,
     customKeyboards: renderCustomKeyboards,
     keyboard26Text: renderKeyboard26Text,
     numericKeyboard: renderNumericKeyboard,
@@ -4347,12 +6351,14 @@ function renderEditor() {
     swipes: renderSwipes,
     hints: renderHints,
     collections: renderCollections,
+    candidateStyles: renderCandidateStyles,
     keyboardCombo: renderKeyboardCombo,
     json: renderJsonEditor,
     meta: renderMetaEditor,
   };
 
   el.editorRoot.innerHTML = (renderers[module.kind] || renderJsonEditor)(value);
+  autosizeJsonSourceEditors();
   el.editorRoot.querySelectorAll('.default-hint-input[data-uses-default="true"]').forEach((item) => {
     item.classList.add('is-default-value');
   });
@@ -4361,29 +6367,43 @@ function renderEditor() {
   });
 }
 
+function autosizeJsonSourceEditors() {
+  el.editorRoot.querySelectorAll('[data-json-source-textarea]').forEach((textarea) => {
+    textarea.style.height = 'auto';
+    const viewportSpace = Math.max(360, Math.floor(window.innerHeight - textarea.getBoundingClientRect().top - 36));
+    const contentHeight = textarea.scrollHeight + 6;
+    textarea.style.height = `${Math.min(Math.max(contentHeight, viewportSpace), 1400)}px`;
+  });
+}
+
 function renderModules() {
-  el.moduleList.innerHTML = MODULES.map((module) => `
+  el.moduleList.innerHTML = MODULES.map((module) => {
+    const disabledState = isModuleDisabled(module);
+    return `
       <button
         class="module-button ${module.id === state.moduleId ? 'active' : ''}"
         type="button"
         data-module="${module.id}"
-        ${module.disabled ? 'disabled aria-disabled="true" title="暂未开放"' : ''}
+        ${disabledState.disabled ? `disabled aria-disabled="true" title="${escapeHtml(disabledState.reason)}"` : ''}
       >
         <span>${escapeHtml(module.title)}</span>
-        ${module.disabled ? '<span class="module-status">未开放</span>' : ''}
+        ${disabledState.disabled ? `<span class="module-status">${escapeHtml(disabledState.statusLabel)}</span>` : ''}
       </button>
-    `).join('');
+    `;
+  }).join('');
 }
 
 function renderProjectSummary() {
   const validation = validateProject(state.project);
+  const guide = guideState();
   const lines = [
     `项目：${state.project.meta.name}`,
     `模板：${state.project.templateId}`,
     `结构版本：${state.project.schemaVersion}`,
+    `方案：${guide.status === 'ready' ? '已生成' : '待生成'}`,
     `校验：${validation.ok ? '通过' : `${validation.errors.length} 个错误`}`,
     `颜色设置：${Object.keys(state.project.theme.light.colors).length} / ${Object.keys(state.project.theme.dark.colors).length}`,
-    `可编辑模块：${MODULES.length}`,
+    `可编辑模块：${visibleModuleCount(state.project)}`,
   ];
   el.projectSummary.textContent = lines.join('\n');
 }
@@ -4567,7 +6587,11 @@ async function loadTemplateFromLibrary(id) {
       return;
     }
     pushUndoSnapshot();
-    state.project = mergeDefaultCollections(mergeDefaultSwipes(snapshot.project, state.sampleProject), state.sampleProject);
+    state.project = normalizedWorkbenchProject(
+      snapshot.project,
+      state.sampleProject,
+      snapshot.project?.guide ? snapshot.project.guide.status || 'ready' : 'ready',
+    );
     state.original = deepClone(state.project);
     state.savedAt = new Date().toISOString();
     saveProject(state.project);
@@ -4603,7 +6627,18 @@ function previewKeyboards() {
         source: item?.source || '',
       };
     })
-    .filter((item) => item.name);
+    .filter((item) => item.name)
+    .filter((item) => {
+      const source = String(item.source || item.name || '');
+      const guide = guideState();
+      if (guide.preferences.symbolLayout === 'system' && source.startsWith('symbolic_')) {
+        return false;
+      }
+      if (guide.preferences.emojiLayout === 'system' && source.startsWith('emoji_')) {
+        return false;
+      }
+      return true;
+    });
 }
 
 function hiddenPreviewKeyboardNames() {
@@ -4626,12 +6661,19 @@ function configPreviewValue(name) {
 
 function configPreviewKeyboards() {
   const hiddenNames = new Set(hiddenPreviewKeyboardNames());
-  const names = collectConfigKeyboardNames(effectiveConfig(state.project?.config || {}), { includePreviewKeyboards: false });
+  let names = collectConfigKeyboardNames(effectiveConfig(state.project?.config || {}), { includePreviewKeyboards: false });
+  const preferredNames = guidePreferredPreviewNames(state.project);
+  if (isGuideReady(state.project) && preferredNames.length) {
+    const preferredSet = new Set(preferredNames);
+    const filtered = names.filter((name) => preferredSet.has(name));
+    if (filtered.length) names = filtered;
+  }
   const visibleNames = names.filter((name) => !hiddenNames.has(name));
   return visibleNames.length ? visibleNames : names.slice(0, 1);
 }
 
 function defaultPreviewMode() {
+  if (!isGuideReady(state.project)) return '';
   const keyboards = configPreviewKeyboards();
   if (keyboards.includes('pinyin_26_portrait')) return configPreviewValue('pinyin_26_portrait');
   return keyboards.length ? configPreviewValue(keyboards[0]) : 'keyboard26';
@@ -4650,6 +6692,7 @@ function previewOptionValues() {
 }
 
 function previewModeOptionGroups() {
+  if (!isGuideReady(state.project)) return [];
   return [
     {
       label: '键盘配置',
@@ -4702,7 +6745,7 @@ function renderPreviewModeOptions() {
     ${configOptions ? `<optgroup label="键盘配置">${configOptions}</optgroup>` : ''}
     ${customOptions ? `<optgroup label="自定义键盘">${customOptions}</optgroup>` : ''}
   `;
-  el.previewMode.value = state.previewMode;
+  el.previewMode.value = state.previewMode || '';
   const selectedOption = groups.flatMap((group) => group.options).find((item) => item.value === state.previewMode);
   el.previewModeButton.textContent = selectedOption?.label || '选择键盘';
   el.previewModeMenu.innerHTML = groups.map((group) => `
@@ -4770,16 +6813,20 @@ function previewValueForMode(mode, orientation = 'portrait') {
     keyboard26: landscape
       ? [preferredPinyin, 'pinyin_9_landscape', 'pinyin_14_landscape', 'pinyin_17_landscape', 'pinyin_18_landscape', 'pinyin_26_landscape', 'alphabetic_26_landscape', 'alphabetic_26_plain_landscape']
       : [preferredPinyin, 'pinyin_9_portrait', 'pinyin_14_portrait', 'pinyin_17_portrait', 'pinyin_18_portrait', 'pinyin_26_portrait', 'alphabetic_26_portrait', 'alphabetic_26_plain_portrait'],
+    alphabetic: [
+      landscape ? 'alphabetic_26_landscape' : 'alphabetic_26_portrait',
+      landscape ? 'alphabetic_26_plain_landscape' : 'alphabetic_26_plain_portrait',
+    ],
     numeric: [
       `${numericVariant}_${landscape ? 'landscape' : 'portrait'}`,
       landscape ? 'numeric_9_landscape' : 'numeric_9_portrait',
       landscape ? 'numeric_ios_landscape' : 'numeric_ios_portrait',
     ],
     symbolic: combo.slots.symbolic.source === 'system'
-      ? ['symbolic_system']
+      ? []
       : [landscape ? 'symbolic_landscape' : 'symbolic_portrait', landscape ? 'symbolic_portrait' : 'symbolic_landscape'],
     emoji: combo.slots.emoji.source === 'system'
-      ? ['emoji_system']
+      ? []
       : [landscape ? 'emoji_landscape' : 'emoji_portrait'],
     panel: [landscape ? 'panel_landscape' : 'panel_portrait'],
   }[mode] || [];
@@ -4879,6 +6926,10 @@ function clearPressedPreviewCell() {
     clearTimeout(previewLongPressTimer);
     previewLongPressTimer = null;
   }
+  if (previewReleaseTimer) {
+    clearTimeout(previewReleaseTimer);
+    previewReleaseTimer = null;
+  }
   pressedPreviewCell?.classList.remove('is-pressed');
   pressedPreviewCell = null;
   if (state.previewHintKey || state.previewPressedKey) {
@@ -4898,8 +6949,8 @@ function currentPreviewRenderOptions(overrides = {}) {
     previewSourceName: previewSourceName(state.previewMode),
     keyboardProfile: currentKeyboardPreviewProfile(),
     activeHintKey: state.previewHintKey,
-    activePressedKey: state.previewPressedKey,
-    shiftActive: state.previewShiftActive,
+    activePressedKey: state.previewPressedKey || (state.centerEditMode === 'custom' ? state.selectedCenterTarget?.key : null),
+    shiftActive: state.previewCapsLocked || state.previewShiftActive,
     ...overrides,
   };
 }
@@ -4919,7 +6970,8 @@ function renderPreviewExpandDialog() {
   document.querySelector('.preview-expand-overlay')?.remove();
   if (!state.previewExpanded || !state.project) return;
   const previewOptions = currentPreviewRenderOptions({
-    maxDisplayWidth: Math.min(window.innerWidth - 80, 1100),
+    maxDisplayWidth: Math.max(0, window.innerWidth - 560),
+    maxDisplayHeight: Math.max(0, window.innerHeight - 300),
   });
   const overlay = document.createElement('div');
   overlay.className = 'preview-expand-overlay';
@@ -4956,9 +7008,6 @@ function pressPreviewKeyboardCell(event) {
   pressedPreviewCell.classList.add('is-pressed');
   const key = cell.dataset.previewKey;
   const renderMode = previewRenderMode(state.previewMode);
-  if (renderMode === 'keyboard26' && key === 'shift') {
-    state.previewShiftActive = !state.previewShiftActive;
-  }
   if (activeModule().id === 'metrics' && key && currentPreviewKeyboardKeys().includes(key)) {
     setSelectedMetricKeys([key], keyboardIdForPreviewMode(renderMode), previewRenderOrientation(state.previewMode));
     renderEditor();
@@ -4969,10 +7018,58 @@ function pressPreviewKeyboardCell(event) {
     previewLongPressTimer = setTimeout(() => {
       previewLongPressTimer = null;
       if (state.previewPressedKey !== key) return;
+      if (renderMode === 'keyboard26' && key === 'shift') {
+        state.previewCapsLocked = true;
+        state.previewShiftActive = true;
+      }
       state.previewHintKey = key;
       renderCurrentPreview();
     }, PREVIEW_LONG_PRESS_DELAY_MS);
   }
+}
+
+function releasePreviewKeyboardCell() {
+  if (!state.previewPressedKey && !state.previewHintKey && !pressedPreviewCell) return;
+  if (previewLongPressTimer) {
+    clearTimeout(previewLongPressTimer);
+    previewLongPressTimer = null;
+  }
+  if (previewReleaseTimer) {
+    clearTimeout(previewReleaseTimer);
+    previewReleaseTimer = null;
+  }
+  if (state.previewHintKey) {
+    clearPressedPreviewCell();
+    return;
+  }
+  const releasedKey = state.previewPressedKey;
+  const renderMode = previewRenderMode(state.previewMode);
+  if (renderMode === 'keyboard26' && releasedKey === 'cnen' && isChineseEnglishToggleAction(getPath(state.project, 'keyboards.keyboard26.keyActions.cnen') || DEFAULT_KEYBOARD26_FUNCTION_ACTIONS.cnen)) {
+    const orientation = previewRenderOrientation(state.previewMode);
+    const profile = currentKeyboardPreviewProfile();
+    state.previewMode = profile === 'alphabetic'
+      ? previewValueForMode('keyboard26', orientation)
+      : previewValueForMode('alphabetic', orientation);
+    state.previewShiftActive = false;
+    state.previewCapsLocked = false;
+    clearPressedPreviewCell();
+    renderEditor();
+    return;
+  }
+  if (renderMode === 'keyboard26' && releasedKey === 'shift') {
+    if (state.previewCapsLocked) {
+      state.previewCapsLocked = false;
+      state.previewShiftActive = false;
+    } else {
+      state.previewShiftActive = !state.previewShiftActive;
+    }
+    clearPressedPreviewCell();
+    return;
+  }
+  previewReleaseTimer = setTimeout(() => {
+    previewReleaseTimer = null;
+    clearPressedPreviewCell();
+  }, PREVIEW_PRESS_FEEDBACK_MS);
 }
 
 function setActiveTheme(theme) {
@@ -5012,15 +7109,96 @@ function renderConfirmDialog() {
   overlay.querySelector('[data-confirm-action="cancel"]')?.focus();
 }
 
+function shouldShowWelcomeNotice() {
+  try {
+    return localStorage.getItem(WELCOME_NOTICE_STORAGE_KEY) !== 'dismissed';
+  } catch {
+    return true;
+  }
+}
+
+function markWelcomeNoticeDismissed() {
+  try {
+    localStorage.setItem(WELCOME_NOTICE_STORAGE_KEY, 'dismissed');
+  } catch {
+    // localStorage 不可用时只在当前页面会话关闭。
+  }
+}
+
+function openWelcomeNotice() {
+  if (!shouldShowWelcomeNotice()) return;
+  state.welcomeNotice.visible = true;
+  state.welcomeNotice.remainingSeconds = WELCOME_NOTICE_SECONDS;
+  if (state.welcomeNotice.timer) clearInterval(state.welcomeNotice.timer);
+  state.welcomeNotice.timer = setInterval(() => {
+    state.welcomeNotice.remainingSeconds = Math.max(0, state.welcomeNotice.remainingSeconds - 1);
+    if (state.welcomeNotice.remainingSeconds === 0 && state.welcomeNotice.timer) {
+      clearInterval(state.welcomeNotice.timer);
+      state.welcomeNotice.timer = null;
+    }
+    renderWelcomeNotice();
+  }, 1000);
+  renderWelcomeNotice();
+}
+
+function closeWelcomeNotice() {
+  if (state.welcomeNotice.remainingSeconds > 0) return;
+  if (state.welcomeNotice.timer) {
+    clearInterval(state.welcomeNotice.timer);
+    state.welcomeNotice.timer = null;
+  }
+  state.welcomeNotice.visible = false;
+  markWelcomeNoticeDismissed();
+  renderWelcomeNotice();
+}
+
+function renderWelcomeNotice() {
+  document.querySelector('.welcome-notice-overlay')?.remove();
+  if (!state.welcomeNotice.visible) return;
+  const remaining = Number(state.welcomeNotice.remainingSeconds || 0);
+  const overlay = document.createElement('div');
+  overlay.className = 'welcome-notice-overlay';
+  overlay.innerHTML = `
+    <section class="welcome-notice-dialog" role="dialog" aria-modal="true" aria-labelledby="welcomeNoticeTitle">
+      <h2 id="welcomeNoticeTitle">开放性测试说明</h2>
+      <div class="welcome-notice-body">
+        <p>当前工具处于开放性测试阶段，暂时只支持纯色皮肤编辑。</p>
+        <p>导入功能支持读取纯色皮肤包，并会尝试解析同类导出后缀中的 Jsonnet / YAML 固定属性。</p>
+        <p>本工具不是元书作者创作。问题反馈请联系 Q 群浮生，或在元书频道皮肤专栏反馈，请勿反馈错人。</p>
+      </div>
+      <div class="welcome-notice-actions">
+        <button class="tool-button primary" type="button" data-welcome-action="close" ${remaining > 0 ? 'disabled' : ''}>
+          ${remaining > 0 ? `请阅读 ${remaining} 秒` : '我已了解'}
+        </button>
+      </div>
+    </section>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector('[data-welcome-action="close"]')?.focus();
+}
+
+function syncCandidateStateButtons() {
+  document.querySelectorAll('[data-candidate-state]').forEach((item) => {
+    item.classList.toggle('active', item.dataset.candidateState === state.candidateState);
+  });
+}
+
 function renderCurrentPreview() {
   renderPreviewModeOptions();
+  const guideReady = isGuideReady(state.project);
+  syncCandidateStateButtons();
   el.previewKeyboardNameInput.placeholder = defaultPreviewKeyboardName();
   const canDeletePreviewKeyboard = previewOptionValues().length > 1;
-  el.deletePreviewKeyboardButton.disabled = !canDeletePreviewKeyboard;
-  el.deletePreviewKeyboardButton.title = canDeletePreviewKeyboard ? '删除当前预览键盘' : '至少保留一个预览键盘';
+  el.deletePreviewKeyboardButton.disabled = !guideReady || !canDeletePreviewKeyboard;
+  el.deletePreviewKeyboardButton.title = !guideReady ? '请先完成“生成你的键盘方案”' : canDeletePreviewKeyboard ? '删除当前预览键盘' : '至少保留一个预览键盘';
   const canResetPreviewList = hiddenPreviewKeyboardNames().length > 0;
-  el.resetPreviewKeyboardListButton.disabled = !canResetPreviewList;
-  el.resetPreviewKeyboardListButton.title = canResetPreviewList ? '恢复隐藏的默认键盘' : '默认键盘列表已完整';
+  el.resetPreviewKeyboardListButton.disabled = !guideReady || !canResetPreviewList;
+  el.resetPreviewKeyboardListButton.title = !guideReady ? '请先完成“生成你的键盘方案”' : canResetPreviewList ? '恢复隐藏的默认键盘' : '默认键盘列表已完整';
+  el.previewModeButton.disabled = !guideReady;
+  el.previewMode.disabled = !guideReady;
+  el.previewKeyboardNameInput.disabled = !guideReady;
+  el.addPreviewKeyboardButton.disabled = !guideReady;
+  el.expandPreviewButton.disabled = !guideReady;
   const nextThemeLabel = state.theme === 'dark' ? '浅色' : '深色';
   const currentThemeLabel = state.theme === 'dark' ? '深色' : '浅色';
   el.themeToggleButton.innerHTML = `
@@ -5038,7 +7216,25 @@ function renderCurrentPreview() {
   el.themeToggleButton.classList.toggle('active', state.theme === 'dark');
   el.expandPreviewButton.setAttribute('aria-label', state.previewExpanded ? '关闭放大预览' : '放大预览');
   el.expandPreviewButton.title = state.previewExpanded ? '关闭放大预览' : '放大预览';
-  const previewOptions = currentPreviewRenderOptions();
+  if (!guideReady) {
+    el.previewModeButton.textContent = '等待生成方案';
+    el.previewRoot.innerHTML = `
+      <section class="preview-guide-placeholder">
+        <span class="preview-guide-badge">生成方案</span>
+        <h3>生成你的键盘方案</h3>
+        <p>请在左侧“生成你的键盘方案”里确认中文、英文、符号、Emoji、划动和空格行偏好。生成方案后，这里只显示当前方案相关的键盘预览。</p>
+      </section>
+    `;
+    renderPreviewExpandDialog();
+    return;
+  }
+  if (!state.previewInitialRootWidth && el.previewRoot?.clientWidth) {
+    state.previewInitialRootWidth = el.previewRoot.clientWidth;
+  }
+  const previewRootWidth = state.previewInitialRootWidth || el.previewRoot?.clientWidth || 0;
+  const previewOptions = currentPreviewRenderOptions({
+    maxDisplayWidth: Math.max(0, previewRootWidth - 24),
+  });
   const orientation = previewOptions.orientation;
   state.previewOrientation = orientation;
   el.previewRoot.innerHTML = renderPreview(state.project, state.theme, previewRenderMode(state.previewMode), previewOptions);
@@ -5047,11 +7243,296 @@ function renderCurrentPreview() {
   renderPreviewExpandDialog();
 }
 
-function syncPreviewModeForModule(moduleId) {
+function collectScreenshotStyles() {
+  const chunks = [];
+  for (const sheet of [...document.styleSheets]) {
+    try {
+      const rules = [...sheet.cssRules].map((rule) => rule.cssText).join('\n');
+      if (rules) chunks.push(rules);
+    } catch {
+      if (sheet.href) chunks.push(`@import url("${sheet.href}");`);
+    }
+  }
+  return chunks.join('\n');
+}
+
+function blobToUint8Array(blob) {
+  return blob.arrayBuffer().then((buffer) => new Uint8Array(buffer));
+}
+
+function canvasToPngBytes(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error('无法生成 demo.png。'));
+        return;
+      }
+      blobToUint8Array(blob).then(resolve, reject);
+    }, 'image/png');
+  });
+}
+
+function cssRgbToCanvasColor(value, fallback = '#000000') {
+  if (!value || value === 'transparent') return fallback;
+  const rgba = String(value).match(/^rgba?\(([^)]+)\)$/i);
+  if (!rgba) return value;
+  const parts = rgba[1].split(',').map((part) => part.trim());
+  const [r, g, b] = parts;
+  const a = parts[3] === undefined ? 1 : Number(parts[3]);
+  if (!Number.isFinite(a) || a >= 1) return `rgb(${r}, ${g}, ${b})`;
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
+function roundedRectPath(ctx, x, y, width, height, radius = 0) {
+  const r = Math.max(0, Math.min(Number(radius) || 0, width / 2, height / 2));
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function drawRoundedRect(ctx, rect, color, radius = 0) {
+  ctx.fillStyle = cssRgbToCanvasColor(color, 'transparent');
+  roundedRectPath(ctx, rect.x, rect.y, rect.width, rect.height, radius);
+  ctx.fill();
+}
+
+function drawCenteredText(ctx, text, rect, style = {}) {
+  const content = String(text || '').trim();
+  if (!content) return;
+  const fontSize = Math.max(8, Number.parseFloat(style.fontSize) || 16);
+  const fontWeight = style.fontWeight && style.fontWeight !== '400' ? style.fontWeight : '400';
+  ctx.fillStyle = cssRgbToCanvasColor(style.color, '#111827');
+  ctx.font = `${fontWeight} ${fontSize}px "Microsoft YaHei UI", "PingFang SC", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(content, rect.x + rect.width / 2, rect.y + rect.height / 2, Math.max(4, rect.width - 4));
+}
+
+function demoIconTextForNode(node) {
+  const cell = node.closest?.('.calayer-cell');
+  if (!cell) return '';
+  const className = String(cell.className || '');
+  for (const [key, label] of Object.entries(DEMO_SYSTEM_IMAGE_LABELS)) {
+    if (className.includes(`is-${key}`)) return label;
+  }
+  return '';
+}
+
+function drawCanvasPreviewFallback(ctx, stage, width, height) {
+  const stageRect = stage?.getBoundingClientRect?.();
+  const preview = stage?.querySelector?.('.skin-preview');
+  const previewStyle = preview ? getComputedStyle(preview) : null;
+  drawRoundedRect(ctx, { x: 0, y: 0, width, height }, previewStyle?.backgroundColor || (state.theme === 'dark' ? '#474747' : '#d0d3da'), 0);
+  if (!stage || !stageRect) {
+    drawCenteredText(ctx, state.project?.meta?.name || 'Hamster Skin Preview', { x: 0, y: 0, width, height }, { color: state.theme === 'dark' ? '#f5f5f5' : '#1f2933', fontSize: '16px' });
+    return;
+  }
+  const toLocalRect = (node) => {
+    const rect = node.getBoundingClientRect();
+    return {
+      x: rect.left - stageRect.left,
+      y: rect.top - stageRect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+  };
+
+  const backgrounds = [...stage.querySelectorAll('.calayer-background')];
+  for (const node of backgrounds) {
+    const rect = toLocalRect(node);
+    if (rect.width <= 0 || rect.height <= 0) continue;
+    const style = getComputedStyle(node);
+    const radius = Number.parseFloat(style.borderTopLeftRadius) || 0;
+    drawRoundedRect(ctx, rect, style.backgroundColor, radius);
+  }
+
+  const candidateContents = [...stage.querySelectorAll('.calayer-candidate-content')];
+  for (const node of candidateContents) {
+    const style = getComputedStyle(node);
+    if (!style.backgroundColor || style.backgroundColor === 'rgba(0, 0, 0, 0)') continue;
+    drawRoundedRect(ctx, toLocalRect(node), style.backgroundColor, 999);
+  }
+
+  const foregrounds = [...stage.querySelectorAll('.calayer-foreground, .calayer-candidate span, .calayer-candidate strong, .calayer-candidate em, .calayer-expanded-candidate span, .calayer-expanded-candidate strong, .calayer-expanded-candidate em')];
+  for (const node of foregrounds) {
+    const rect = toLocalRect(node);
+    if (rect.width <= 0 || rect.height <= 0) continue;
+    const style = getComputedStyle(node);
+    const content = node.classList?.contains('is-systemImage')
+      ? demoIconTextForNode(node)
+      : node.textContent;
+    drawCenteredText(ctx, content, rect, style);
+  }
+}
+
+function drawImageContain(ctx, image, targetWidth, targetHeight, sourceWidth, sourceHeight) {
+  const scale = Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight);
+  const drawWidth = sourceWidth * scale;
+  const drawHeight = sourceHeight * scale;
+  const x = (targetWidth - drawWidth) / 2;
+  const y = (targetHeight - drawHeight) / 2;
+  ctx.clearRect(0, 0, targetWidth, targetHeight);
+  ctx.drawImage(image, x, y, drawWidth, drawHeight);
+}
+
+function fallbackDemoPngBytes(width, height, stage = null) {
+  const sourceCanvas = document.createElement('canvas');
+  sourceCanvas.width = Math.max(1, Math.round(width * DEMO_SCREENSHOT_SCALE));
+  sourceCanvas.height = Math.max(1, Math.round(height * DEMO_SCREENSHOT_SCALE));
+  const sourceCtx = sourceCanvas.getContext('2d');
+  sourceCtx.scale(DEMO_SCREENSHOT_SCALE, DEMO_SCREENSHOT_SCALE);
+  drawCanvasPreviewFallback(sourceCtx, stage, width, height);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = DEMO_IMAGE_WIDTH;
+  canvas.height = DEMO_IMAGE_HEIGHT;
+  const ctx = canvas.getContext('2d');
+  drawImageContain(ctx, sourceCanvas, DEMO_IMAGE_WIDTH, DEMO_IMAGE_HEIGHT, sourceCanvas.width, sourceCanvas.height);
+  return canvasToPngBytes(canvas);
+}
+
+function buildDemoPreviewProject(sourceProject = state.project) {
+  const project = deepClone(sourceProject || state.sampleProject || {});
+  if (!isGuideReady(project)) {
+    ensureProjectGuide(project, 'pending');
+    applyGuidePlanToProject(project);
+  } else {
+    ensureProjectGuide(project, 'ready');
+  }
+  return project;
+}
+
+function demoPreviewOptionsForProject(project) {
+  const guide = guideState(project);
+  const preferences = guide.preferences || {};
+  const pinyinVariant = ['9', '14', '17', '18', '26'].includes(preferences.chineseLayout)
+    ? preferences.chineseLayout
+    : '26';
+  return {
+    candidateState: 'toolbar',
+    symbolicCategory: state.symbolicCategory,
+    orientation: 'portrait',
+    pinyinVariant,
+    previewSourceName: `pinyin_${pinyinVariant}_portrait`,
+    keyboardProfile: 'pinyin',
+    activeHintKey: null,
+    activePressedKey: null,
+    shiftActive: false,
+  };
+}
+
+function createHiddenDemoPreviewStage(sourceProject = state.project) {
+  const project = buildDemoPreviewProject(sourceProject);
+  const host = document.createElement('div');
+  host.style.position = 'fixed';
+  host.style.left = '-10000px';
+  host.style.top = '0';
+  host.style.width = '480px';
+  host.style.height = '360px';
+  host.style.overflow = 'hidden';
+  host.style.pointerEvents = 'none';
+  host.style.opacity = '0';
+  host.setAttribute('aria-hidden', 'true');
+  host.innerHTML = renderPreview(project, state.theme, 'keyboard26', demoPreviewOptionsForProject(project));
+  document.body.appendChild(host);
+  return {
+    stage: host.querySelector('.skin-preview-stage'),
+    cleanup: () => host.remove(),
+  };
+}
+
+function currentDemoPreviewStage(sourceProject = state.project) {
+  const stage = el.previewRoot.querySelector('.skin-preview-stage');
+  if (stage && sourceProject === state.project) return { stage, cleanup: () => {} };
+  return createHiddenDemoPreviewStage(sourceProject);
+}
+
+function sanitizeDemoPreviewClone(clone) {
+  clone.querySelectorAll?.('.calayer-foreground.is-systemImage svg text').forEach((node) => node.remove());
+  return clone;
+}
+
+async function captureStageDemoPng(stage) {
+  const rect = stage.getBoundingClientRect();
+  const width = Math.max(1, Math.ceil(rect.width));
+  const height = Math.max(1, Math.ceil(rect.height));
+  const clone = sanitizeDemoPreviewClone(stage.cloneNode(true));
+  clone.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+  const html = `
+    <div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;height:${height}px;overflow:hidden;background:transparent;">
+      <style>${collectScreenshotStyles()}</style>
+      ${clone.outerHTML}
+    </div>
+  `;
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width * DEMO_SCREENSHOT_SCALE}" height="${height * DEMO_SCREENSHOT_SCALE}" viewBox="0 0 ${width} ${height}">
+      <foreignObject width="100%" height="100%">${html}</foreignObject>
+    </svg>
+  `;
+  const image = new Image();
+  image.decoding = 'async';
+  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+  try {
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = reject;
+      image.src = url;
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = DEMO_IMAGE_WIDTH;
+    canvas.height = DEMO_IMAGE_HEIGHT;
+    const ctx = canvas.getContext('2d');
+    drawImageContain(ctx, image, DEMO_IMAGE_WIDTH, DEMO_IMAGE_HEIGHT, width, height);
+    return await canvasToPngBytes(canvas);
+  } catch {
+    return fallbackDemoPngBytes(width, height, stage);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function capturePreviewDemoPng(sourceProject = state.project) {
+  renderCurrentPreview();
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const { stage, cleanup } = currentDemoPreviewStage(sourceProject);
+  try {
+    if (!stage) return fallbackDemoPngBytes(420, 280);
+    return await captureStageDemoPng(stage);
+  } finally {
+    cleanup();
+  }
+}
+
+function restoreChinesePreviewAfterCollections(previousModuleId, moduleId) {
+  if (previousModuleId !== 'collections' || moduleId === 'collections') return false;
+  const orientation = currentPreviewScope().orientation === 'landscape' ? 'landscape' : 'portrait';
+  state.previewMode = previewValueForMode('keyboard26', orientation);
+  if (!previewModeExists(state.previewMode)) state.previewMode = defaultPreviewMode();
+  return true;
+}
+
+function syncPreviewModeForModule(moduleId, previousModuleId = '') {
+  const restoredFromCollections = restoreChinesePreviewAfterCollections(previousModuleId, moduleId);
+  if (moduleId === 'candidateStyles') {
+    if (!previewModeExists(state.previewMode)) state.previewMode = defaultPreviewMode();
+    if (!['candidates', 'expanded'].includes(state.candidateState)) {
+      state.candidateState = 'candidates';
+    }
+    return;
+  }
   if (['customKeyboards', 'metrics', 'swipes', 'hints'].includes(moduleId)) {
     if (!previewModeExists(state.previewMode)) state.previewMode = defaultPreviewMode();
     return;
   }
+  if (restoredFromCollections) return;
   if (moduleId === 'collections') {
     if (!previewModeExists(state.previewMode)) {
       state.previewMode = defaultPreviewMode();
@@ -5072,6 +7553,11 @@ function syncPreviewModeForModule(moduleId) {
 
 function renderAll() {
   if (!state.project) return;
+  if (!isGuideReady(state.project) && state.moduleId !== 'keyboardCombo') {
+    state.moduleId = 'keyboardCombo';
+    state.jsonMode = false;
+    state.editingKey = null;
+  }
   el.workspace.dataset.activeModule = state.moduleId;
   el.workspace.dataset.sidebar = state.sidebarCollapsed ? 'collapsed' : 'expanded';
   const module = activeModule();
@@ -5086,13 +7572,26 @@ function renderAll() {
   renderUndoState();
   renderCurrentPreview();
   renderConfirmDialog();
+  renderWelcomeNotice();
   renderTemplateLibraryDialog();
+}
+
+function setSidebarCollapsed(collapsed) {
+  const next = collapsed === true;
+  if (state.sidebarCollapsed === next) return;
+  state.sidebarCollapsed = next;
+  renderAll();
 }
 
 function setKeyboardLayoutArray(path, items) {
   pushUndoSnapshot();
   setPath(state.project, path, items);
   if (path.startsWith(keyboard26RowsPath())) syncKeyboard26LegacyPortrait();
+  if (path === 'guide.preferences.spacebarRow') {
+    state.project.guide = state.project.guide || {};
+    state.project.guide.status = 'pending';
+    state.project.guide.generatedPlan = null;
+  }
   markDirty();
   renderAll();
 }
@@ -5135,6 +7634,17 @@ function moveKeyboardLayoutItem(fromPath, fromIndex, toPath, toIndex) {
   renderAll();
 }
 
+function insertGuideSpacebarKey(key, toIndex) {
+  if (!GUIDE_SPACEBAR_ALLOWED_KEYS.has(key)) return;
+  const currentRow = currentGuideSpacebarRow();
+  if (currentRow.includes(key)) return;
+  const insertAt = Math.max(0, Math.min(Number(toIndex), currentRow.length));
+  const nextRow = [...currentRow];
+  nextRow.splice(insertAt, 0, key);
+  pushUndoSnapshot();
+  setGuideSpacebarRow(nextRow);
+}
+
 function handleKeyDragStart(event) {
   const rowCard = event.target.closest('.key-row-card[draggable="true"][data-drag-row-path]');
   if (rowCard && !event.target.closest('.key-token-editor[draggable="true"]')) {
@@ -5147,6 +7657,18 @@ function handleKeyDragStart(event) {
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('application/x-hamster-row', rowPayload);
     event.dataTransfer.setData('text/plain', rowPayload);
+    return;
+  }
+  const guideOption = event.target.closest('.guide-spacebar-option[draggable="true"][data-guide-space-drag-key]');
+  if (guideOption) {
+    guideOption.classList.add('is-dragging');
+    const payload = JSON.stringify({
+      type: 'guide-spacebar-option',
+      key: guideOption.dataset.guideSpaceDragKey,
+    });
+    event.dataTransfer.effectAllowed = 'copyMove';
+    event.dataTransfer.setData('application/x-hamster-key', payload);
+    event.dataTransfer.setData('text/plain', payload);
     return;
   }
   const token = event.target.closest('.key-token-editor[draggable="true"]');
@@ -5163,6 +7685,13 @@ function handleKeyDragStart(event) {
 }
 
 function handleKeyDragOver(event) {
+  const guideDropList = event.target.closest('[data-guide-space-drop-list]');
+  if (guideDropList && !event.target.closest('.key-token-editor[data-drag-path]')) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    guideDropList.classList.add('is-drag-over');
+    return;
+  }
   const rowCard = event.target.closest('.key-row-card[data-drag-row-path]');
   if (rowCard && !event.target.closest('.key-token-editor[data-drag-path]')) {
     event.preventDefault();
@@ -5178,11 +7707,28 @@ function handleKeyDragOver(event) {
 }
 
 function handleKeyDragLeave(event) {
+  event.target.closest('[data-guide-space-drop-list]')?.classList.remove('is-drag-over');
   event.target.closest('.key-row-card')?.classList.remove('is-drag-over');
   event.target.closest('.key-token-editor')?.classList.remove('is-drag-over');
 }
 
 function handleKeyDrop(event) {
+  const guideDropList = event.target.closest('[data-guide-space-drop-list]');
+  if (guideDropList && !event.target.closest('.key-token-editor[data-drag-path]')) {
+    event.preventDefault();
+    guideDropList.classList.remove('is-drag-over');
+    const rawGuideKey = event.dataTransfer.getData('application/x-hamster-key') || event.dataTransfer.getData('text/plain');
+    if (!rawGuideKey) return;
+    let guidePayload;
+    try {
+      guidePayload = JSON.parse(rawGuideKey);
+    } catch {
+      return;
+    }
+    if (guidePayload.type !== 'guide-spacebar-option') return;
+    insertGuideSpacebarKey(guidePayload.key, currentGuideSpacebarRow().length);
+    return;
+  }
   const rowCard = event.target.closest('.key-row-card[data-drag-row-path]');
   if (rowCard && !event.target.closest('.key-token-editor[data-drag-path]')) {
     event.preventDefault();
@@ -5211,11 +7757,15 @@ function handleKeyDrop(event) {
   } catch {
     return;
   }
+  if (payload.type === 'guide-spacebar-option' && token.dataset.dragPath === 'guide.preferences.spacebarRow') {
+    insertGuideSpacebarKey(payload.key, Number(token.dataset.dragIndex));
+    return;
+  }
   moveKeyboardLayoutItem(payload.path, Number(payload.index), token.dataset.dragPath, Number(token.dataset.dragIndex));
 }
 
 function handleKeyDragEnd() {
-  el.editorRoot.querySelectorAll('.key-token-editor.is-dragging, .key-token-editor.is-drag-over, .key-row-card.is-dragging, .key-row-card.is-drag-over').forEach((token) => {
+  el.editorRoot.querySelectorAll('.key-token-editor.is-dragging, .key-token-editor.is-drag-over, .key-row-card.is-dragging, .key-row-card.is-drag-over, .guide-spacebar-option.is-dragging').forEach((token) => {
     token.classList.remove('is-dragging', 'is-drag-over');
   });
 }
@@ -5270,6 +7820,12 @@ function switchKeyEditor(token) {
   const path = token.dataset.keyEditPath;
   if (!path) return;
   state.editingKey = { path };
+  if (token.dataset.centerGroup && token.dataset.centerKey) {
+    state.selectedCenterTarget = {
+      group: token.dataset.centerGroup,
+      key: token.dataset.centerKey,
+    };
+  }
   renderEditor();
   focusKeyEditPanel();
 }
@@ -5447,8 +8003,7 @@ function handleSwipeAction(target) {
 
   if (action === 'toggle-enabled') {
     pushUndoSnapshot();
-    state.project.data = state.project.data || {};
-    state.project.data.swipesEnabled = !swipesEnabled();
+    setCurrentSwipeProfileEnabled(!swipesEnabled());
     state.editingKey = null;
     markDirty();
     renderAll();
@@ -5646,6 +8201,45 @@ function setCollectionItems(target) {
   renderCurrentPreview();
 }
 
+function setCollectionItemValue(target) {
+  const sourceKey = target.dataset.sourceKey;
+  const category = target.dataset.categoryName;
+  const index = Number(target.dataset.itemIndex);
+  if (!sourceKey || !category || !Number.isInteger(index)) return;
+  captureInputUndo(target);
+  const { source } = collectionSource(sourceKey);
+  const list = Array.isArray(source[category]) ? source[category] : [];
+  list[index] = target.value;
+  source[category] = list;
+  syncCollectionDerivedFields(state.project, 'collections');
+  markDirty();
+  renderProjectSummary();
+  renderSaveState();
+  renderCurrentPreview();
+}
+
+function setCollectionItemField(target) {
+  const sourceKey = target.dataset.sourceKey;
+  const category = target.dataset.categoryName;
+  const index = Number(target.dataset.itemIndex);
+  const fieldKey = target.dataset.fieldKey;
+  if (!sourceKey || !category || !Number.isInteger(index) || !fieldKey) return;
+  captureInputUndo(target);
+  const { source } = collectionSource(sourceKey);
+  const list = Array.isArray(source[category]) ? source[category] : [];
+  const entry = list[index] && typeof list[index] === 'object' && !Array.isArray(list[index])
+    ? list[index]
+    : {};
+  entry[fieldKey] = target.value;
+  list[index] = entry;
+  source[category] = list;
+  syncCollectionDerivedFields(state.project, 'collections');
+  markDirty();
+  renderProjectSummary();
+  renderSaveState();
+  renderCurrentPreview();
+}
+
 function setCollectionEntryValue(target) {
   const sourceKey = target.dataset.sourceKey;
   const entryKey = target.dataset.entryKey;
@@ -5699,6 +8293,26 @@ function handleToolbarAction(target) {
 }
 
 function setFieldValue(path, value, type) {
+  if (path.includes('.combine.')) {
+    const match = path.match(/^(.+)\.combine\.(\d+)\.action(Type|Value|KeyboardSelection)$/);
+    if (match) {
+      const [, basePath, indexText, field] = match;
+      const nextValue = field === 'KeyboardSelection' ? keyboardTypeSelectionToActionValue(String(value || '')) : value;
+      updateCombineActionState(
+        basePath,
+        Number(indexText),
+        field === 'Type' ? value : undefined,
+        field === 'Value' || field === 'KeyboardSelection' ? nextValue : '',
+        { toolbar: basePath.startsWith('toolbar.actions.') },
+      );
+      markDirty();
+      renderProjectSummary();
+      renderSaveState();
+      renderCurrentPreview();
+      renderEditor();
+      return;
+    }
+  }
   if (path === `${keyboard26PunctuationColumnPath()}.itemsText`) {
     setPath(state.project, `${keyboard26PunctuationColumnPath()}.items`, parsePunctuationColumnInput(String(value || '')));
     syncCollectionDerivedFields(state.project, 'pinyin9Keyboard');
@@ -5726,8 +8340,11 @@ function setFieldValue(path, value, type) {
     const basePath = path.replace(/\.actionKeyboardSelection$/, '');
     const actionType = getPath(state.project, `${basePath}.actionType`) || 'keyboardType';
     const mappedValue = keyboardTypeSelectionToActionValue(String(value || ''));
-    setPath(state.project, `${basePath}.actionValue`, mappedValue);
-    setPath(state.project, basePath, buildAction(actionType, mappedValue));
+    setPath(state.project, basePath, {
+      ...buildToolbarAction(actionType, mappedValue),
+      actionType,
+      actionValue: mappedValue,
+    });
     markDirty();
     renderProjectSummary();
     renderSaveState();
@@ -5737,6 +8354,49 @@ function setFieldValue(path, value, type) {
   }
   if (path.startsWith('keyboardCombo.') && (value === 'true' || value === 'false')) {
     setPath(state.project, path, value === 'true');
+    markDirty();
+    renderAll();
+    return;
+  }
+  if (path.startsWith('guide.preferences.') && (value === 'true' || value === 'false')) {
+    setPath(state.project, path, value === 'true');
+    if (state.project?.guide?.status === 'ready') {
+      state.project.guide.status = 'pending';
+      state.project.guide.generatedPlan = null;
+    }
+    markDirty();
+    renderAll();
+    return;
+  }
+  if (path === 'guide.preferences.keyboardPreset') {
+    const preset = keyboardSkinPresetByValue(value || DEFAULT_KEYBOARD_SKIN_PRESET);
+    applyKeyboardPresetPreferences(state.project, preset);
+    if (state.project?.guide?.status === 'ready') {
+      rebuildReadyGuidePlanAfterPreferenceEdit();
+      return;
+    }
+    markDirty();
+    renderAll();
+    return;
+  }
+  if (path === 'guide.preferences.chineseLayout') {
+    const preset = keyboardSkinPresetByValue(`ios-${value}`);
+    applyKeyboardPresetPreferences(state.project, preset);
+    if (state.project?.guide?.status === 'ready') {
+      rebuildReadyGuidePlanAfterPreferenceEdit();
+      return;
+    }
+    markDirty();
+    renderAll();
+    return;
+  }
+
+  if (path.startsWith('config.')) {
+    setPath(state.project, path, parseInputValue(value, type));
+    syncGuideAndComboFromConfig(state.project, { preserveGuideStatus: true });
+    if (!previewModeExists(state.previewMode)) {
+      state.previewMode = defaultPreviewMode();
+    }
     return;
   }
 
@@ -5795,7 +8455,7 @@ function setFieldValue(path, value, type) {
     const current = getPath(state.project, basePath) || {};
     const currentAction = actionToFields(current.action);
     const nextType = path.endsWith('.actionType') ? value : currentAction.type;
-    const nextValue = path.endsWith('.actionValue') ? value : currentAction.value;
+    const nextValue = path.endsWith('.actionValue') ? value : '';
     updateActionState(basePath, nextType, nextValue);
     syncCollectionDerivedFields(state.project, 'collections');
     return;
@@ -5831,18 +8491,19 @@ function setFieldValue(path, value, type) {
 
   if (path.startsWith('toolbar.actions.') && (path.endsWith('.actionType') || path.endsWith('.actionValue'))) {
     const basePath = path.replace(/\.(actionType|actionValue)$/, '');
+    if (path.includes('.combine.')) return;
     const currentAction = actionToFields(getPath(state.project, basePath));
     const nextType = path.endsWith('.actionType') ? value : currentAction.type;
-    const nextValue = path.endsWith('.actionValue') ? value : currentAction.value;
+    const nextValue = path.endsWith('.actionValue') ? value : '';
     updateActionState(basePath, nextType, nextValue, { toolbar: true });
     return;
   }
 
   if (path.startsWith('keyboards.keyboard26.keyActions.') && path.endsWith('.actionType')) {
     const basePath = path.replace(/\.actionType$/, '');
-    const currentAction = actionToFields(getPath(state.project, `${basePath}.action`));
+    const currentAction = keyboard26FunctionActionFieldsForPath(basePath);
     const nextType = value;
-    const nextValue = currentAction.value;
+    const nextValue = '';
     updateActionState(basePath, nextType, nextValue);
     markDirty();
     renderProjectSummary();
@@ -5862,12 +8523,44 @@ function setFieldValue(path, value, type) {
     return;
   }
 
+  if (path === 'keyboardCombo.spaceRow.showSchemaNameOnSpace') {
+    const enabled = value === 'true';
+    setPath(state.project, path, enabled);
+    if (enabled) {
+      const currentText = String(getPath(state.project, 'keyboards.keyboard26.pinyinSchemaName.text') || '').trim();
+      if (!currentText) {
+        setPath(state.project, 'keyboards.keyboard26.pinyinSchemaName.text', DEFAULT_SCHEMA_NAME_TEXT);
+      }
+    }
+    markDirty();
+    renderProjectSummary();
+    renderSaveState();
+    renderCurrentPreview();
+    renderEditor();
+    return;
+  }
+
+  if (path.startsWith('keyboards.keyboard26.keyActions.') && path.endsWith('.actionValue')) {
+    const basePath = path.replace(/\.actionValue$/, '');
+    const currentAction = keyboard26FunctionActionFieldsForPath(basePath);
+    if (path.includes('.combine.')) return;
+    const nextType = currentAction.type;
+    updateActionState(basePath, nextType, value);
+    markDirty();
+    renderProjectSummary();
+    renderSaveState();
+    renderCurrentPreview();
+    renderEditor();
+    return;
+  }
+
   if (path.includes('.actionType') || path.includes('.actionValue')) {
     const basePath = path.replace(/\.(actionType|actionValue)$/, '');
     const current = getPath(state.project, basePath) || {};
     const currentAction = actionToFields(current.action);
+    if (path.includes('.combine.')) return;
     const nextType = path.endsWith('.actionType') ? value : currentAction.type;
-    const nextValue = path.endsWith('.actionValue') ? value : currentAction.value;
+    const nextValue = path.endsWith('.actionValue') ? value : '';
     updateActionState(basePath, nextType, nextValue);
     return;
   }
@@ -5883,6 +8576,11 @@ function setFieldValue(path, value, type) {
   }
 
   setPath(state.project, path, parseInputValue(value, type));
+  if (path.startsWith('guide.preferences.')) {
+    state.project.guide = state.project.guide || {};
+    state.project.guide.status = 'pending';
+    state.project.guide.generatedPlan = null;
+  }
 }
 
 function captureInputUndo(target) {
@@ -5893,8 +8591,22 @@ function captureInputUndo(target) {
 
 function handleInput(event) {
   const target = event.target;
+  if (target.matches('[data-json-search="query"]')) {
+    state.jsonSearch = target.value;
+    state.jsonSearchIndex = 0;
+    renderEditor();
+    return;
+  }
   if (target.matches('[data-collection-items]')) {
     setCollectionItems(target);
+    return;
+  }
+  if (target.matches('[data-collection-item-value]')) {
+    setCollectionItemValue(target);
+    return;
+  }
+  if (target.matches('[data-collection-item-field]')) {
+    setCollectionItemField(target);
     return;
   }
   if (target.matches('[data-collection-entry-value]')) {
@@ -5915,11 +8627,14 @@ function handleInput(event) {
     target.dataset.usesDefault = 'false';
     target.classList.remove('is-default-value');
     setFieldValue(path, target.value, target.dataset.type);
+    syncColorSwatchForInput(target);
     markDirty();
     if (
       path.startsWith('toolbar.actions.')
       || path.startsWith('keyboards.keyboard26.keyActions.')
       || path.startsWith('keyboards.keyboard26.keyDisplayTypes.')
+      || path === 'keyboardCombo.spaceRow.showSchemaNameOnSpace'
+      || path.startsWith('guide.preferences.')
       || (path.startsWith('toolbar.display.') && path.endsWith('.type'))
       || /^toolbar\.layout\.\d+$/.test(path)
     ) renderEditor();
@@ -5972,35 +8687,39 @@ async function chooseDownloadDirectory() {
   }
 }
 
+async function writeExportBlob(filename, blob) {
+  if (!state.downloadDirectoryHandle) {
+    downloadBlob(filename, blob);
+    return;
+  }
+  const permission = await state.downloadDirectoryHandle.requestPermission?.({ mode: 'readwrite' });
+  if (permission && permission !== 'granted') {
+    downloadBlob(filename, blob);
+    return;
+  }
+  const fileHandle = await state.downloadDirectoryHandle.getFileHandle(filename, { create: true });
+  const writable = await fileHandle.createWritable();
+  await writable.write(blob);
+  await writable.close();
+}
+
+function advanceToNextGeneratedProject(exportProject) {
+  const nextProject = nextGeneratedProject(exportProject);
+  ensureProjectGuide(nextProject, 'pending');
+  state.project = nextProject;
+  state.original = deepClone(state.project);
+  state.savedAt = null;
+  saveProject(state.project);
+  renderAll();
+}
+
 async function exportProjectPackage() {
   try {
     const exportProject = stampProjectForGeneration(state.project);
-    const files = buildSkinPackageFiles(exportProject);
-    const blob = createZipBlob(files);
-    const filename = defaultPackageFileName(exportProject);
-    const advanceToNextProject = () => {
-      state.project = nextGeneratedProject(exportProject);
-      state.original = deepClone(state.project);
-      state.savedAt = null;
-      saveProject(state.project);
-      renderAll();
-    };
-    if (state.downloadDirectoryHandle) {
-      const permission = await state.downloadDirectoryHandle.requestPermission?.({ mode: 'readwrite' });
-      if (permission && permission !== 'granted') {
-        downloadBlob(filename, blob);
-        advanceToNextProject();
-        return;
-      }
-      const fileHandle = await state.downloadDirectoryHandle.getFileHandle(filename, { create: true });
-      const writable = await fileHandle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-      advanceToNextProject();
-      return;
-    }
-    downloadBlob(filename, blob);
-    advanceToNextProject();
+    const demoPng = await capturePreviewDemoPng(exportProject);
+    const files = buildSkinPackageFiles(exportProject, { demoPng });
+    await writeExportBlob(defaultPackageFileName(exportProject), createZipBlob(files));
+    advanceToNextGeneratedProject(exportProject);
   } catch (error) {
     alert(`导出失败：${error.message}`);
   }
@@ -6009,7 +8728,7 @@ async function exportProjectPackage() {
 function confirmImportProject() {
   openConfirmDialog({
     title: '导入皮肤',
-    message: '注意，导入的皮肤需要由本工具所制作！',
+    message: '支持导入本工具导出的 .cskin/.zip，也会尝试读取普通 Hamster 皮肤包里的 Jsonnet/YAML 固定属性；Jsonnet 优先于 YAML。',
     confirmLabel: '确认',
     confirmClass: '',
     onConfirm: () => {
@@ -6021,6 +8740,11 @@ function confirmImportProject() {
 
 function bindEvents() {
   document.body.addEventListener('click', (event) => {
+    const welcomeAction = event.target.closest('[data-welcome-action]')?.dataset.welcomeAction;
+    if (welcomeAction === 'close') {
+      closeWelcomeNotice();
+      return;
+    }
     const action = event.target.closest('[data-confirm-action]')?.dataset.confirmAction;
     if (!action) return;
     if (action === 'cancel') {
@@ -6057,25 +8781,49 @@ function bindEvents() {
     const button = event.target.closest('[data-module]');
     if (!button) return;
     if (button.disabled) return;
+    const previousModuleId = state.moduleId;
     state.moduleId = button.dataset.module;
     state.jsonMode = false;
+    state.jsonSearch = '';
+    state.jsonSearchIndex = 0;
     state.editingKey = null;
-    syncPreviewModeForModule(state.moduleId);
+    syncPreviewModeForModule(state.moduleId, previousModuleId);
     renderAll();
   });
   el.sidebarToggleButton.addEventListener('click', (event) => {
     event.stopPropagation();
     event.currentTarget.blur();
-    state.sidebarCollapsed = !state.sidebarCollapsed;
-    renderAll();
+    setSidebarCollapsed(!state.sidebarCollapsed);
   });
   el.sidebar.addEventListener('click', () => {
     if (!state.sidebarCollapsed) return;
-    state.sidebarCollapsed = false;
-    renderAll();
+    setSidebarCollapsed(false);
   });
 
   el.editorRoot.addEventListener('click', (event) => {
+    const jsonSearchButton = event.target.closest('[data-json-search-action]');
+    if (jsonSearchButton) {
+      handleJsonSearchAction(jsonSearchButton);
+      return;
+    }
+    const candidateStyleButton = event.target.closest('[data-candidate-style-action]');
+    if (candidateStyleButton) {
+      state.candidateState = candidateStyleButton.dataset.candidateStyleAction === 'show-expanded' ? 'expanded' : 'candidates';
+      syncCandidateStateButtons();
+      renderCurrentPreview();
+      renderEditor();
+      return;
+    }
+    const guideActionButton = event.target.closest('[data-guide-action]');
+    if (guideActionButton) {
+      handleGuideAction(guideActionButton);
+      return;
+    }
+    const guideSpaceActionButton = event.target.closest('[data-guide-space-action]');
+    if (guideSpaceActionButton) {
+      handleGuideSpacebarAction(guideSpaceActionButton);
+      return;
+    }
     const button = event.target.closest('[data-keyboard-action]');
     if (!button) return;
     handleKeyboardLayoutAction(button);
@@ -6083,7 +8831,7 @@ function bindEvents() {
   el.editorRoot.addEventListener('click', (event) => {
     const button = event.target.closest('[data-custom-keyboard-panel]');
     if (!button) return;
-    state.customKeyboardPanel = button.dataset.customKeyboardPanel === 'toolbar' ? 'toolbar' : 'preview';
+    state.customKeyboardPanel = 'preview';
     state.editingKey = null;
     renderEditor();
   });
@@ -6091,6 +8839,17 @@ function bindEvents() {
     const button = event.target.closest('[data-toolbar-action]');
     if (!button) return;
     handleToolbarAction(button);
+  });
+  el.editorRoot.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-center-mode]');
+    if (!button) return;
+    state.centerEditMode = button.dataset.centerMode === 'custom' ? 'custom' : 'uniform';
+    renderEditor();
+  });
+  el.editorRoot.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-combine-action]');
+    if (!button) return;
+    handleCombineAction(button);
   });
   el.editorRoot.addEventListener('click', (event) => {
     const button = event.target.closest('[data-layout-action]');
@@ -6151,6 +8910,12 @@ function bindEvents() {
   el.editorRoot.addEventListener('drop', handleKeyDrop);
   el.editorRoot.addEventListener('dragend', handleKeyDragEnd);
   el.editorRoot.addEventListener('pointerdown', handleKeyPointerDown);
+  el.editorRoot.addEventListener('pointerdown', (event) => {
+    const target = event.target;
+    if (!target.matches('select.action-type-select')) return;
+    suppressKeyEditorAutoClose();
+    syncSelectOptionLabels(target, true);
+  });
   el.editorRoot.addEventListener('pointerup', handleKeyPointerUp);
   el.editorRoot.addEventListener('pointercancel', () => {
     state.keyDrag = null;
@@ -6214,13 +8979,24 @@ function bindEvents() {
   document.querySelectorAll('[data-candidate-state]').forEach((button) => {
     button.addEventListener('click', () => {
       state.candidateState = button.dataset.candidateState;
-      document.querySelectorAll('[data-candidate-state]').forEach((item) => item.classList.toggle('active', item === button));
+      syncCandidateStateButtons();
       if (isPreviewScopedModule()) renderEditor();
       renderCurrentPreview();
     });
   });
 
   el.previewRoot.addEventListener('click', (event) => {
+    const keyCell = event.target.closest('[data-preview-key]');
+    const target = centerTargetForPreviewKey(keyCell?.dataset.previewKey);
+    if (target) {
+      state.selectedCenterTarget = target;
+      state.editingKey = { path: centerTargetPath(target) };
+      if (state.moduleId === 'center') {
+        state.centerEditMode = 'custom';
+        renderEditor();
+      }
+    }
+
     const category = event.target.closest('[data-symbolic-category]');
     if (!category) return;
     state.symbolicCategory = category.dataset.symbolicCategory;
@@ -6237,10 +9013,16 @@ function bindEvents() {
   el.previewRoot.addEventListener('pointerdown', pressPreviewKeyboardCell);
   el.previewRoot.addEventListener('pointerleave', clearPressedPreviewCell);
   el.previewRoot.addEventListener('pointercancel', clearPressedPreviewCell);
-  document.addEventListener('pointerup', clearPressedPreviewCell);
+  document.addEventListener('pointerup', releasePreviewKeyboardCell);
 
   el.previewMode.addEventListener('change', () => {
     setPreviewMode(el.previewMode.value);
+  });
+  el.sidebar.addEventListener('mouseenter', () => {
+    setSidebarCollapsed(false);
+  });
+  el.sidebar.addEventListener('mouseleave', () => {
+    setSidebarCollapsed(true);
   });
   el.previewModeButton.addEventListener('click', (event) => {
     event.stopPropagation();
@@ -6284,13 +9066,19 @@ function bindEvents() {
   el.importProjectInput.addEventListener('change', async () => {
     const file = el.importProjectInput.files?.[0];
     if (!file) return;
-    const parsed = safeJsonParse(await file.text());
-    if (!parsed.ok) {
-      alert(`导入失败：${parsed.error.message}`);
+    let imported;
+    try {
+      imported = await importSkinProjectFromFile(file, state.sampleProject);
+    } catch (error) {
+      alert(`导入失败：${error.message}`);
       return;
     }
     pushUndoSnapshot();
-    state.project = mergeDefaultCollections(mergeDefaultSwipes(parsed.value, state.sampleProject), state.sampleProject);
+    state.project = normalizedWorkbenchProject(
+      imported.project,
+      state.sampleProject,
+      imported.project?.guide ? imported.project.guide.status || 'ready' : 'ready',
+    );
     state.original = deepClone(state.project);
     markDirty();
     renderAll();
@@ -6298,14 +9086,26 @@ function bindEvents() {
 
   el.resetModuleButton.addEventListener('click', () => {
     const module = activeModule();
+    const source = moduleResetSource();
     pushUndoSnapshot();
-    setPath(state.project, module.path, deepClone(getPath(state.original, module.path)));
+    moduleResetPaths(module).forEach((path) => {
+      resetProjectPathFromSource(state.project, source, path);
+    });
+    if (state.sampleProject) {
+      state.project = normalizedWorkbenchProject(state.project, state.sampleProject, state.project?.guide?.status || 'ready');
+    }
+    if (!previewModeExists(state.previewMode)) {
+      state.previewMode = defaultPreviewMode();
+    }
+    state.editingKey = null;
     markDirty();
     renderAll();
   });
 
   el.jsonModeButton.addEventListener('click', () => {
     state.jsonMode = !state.jsonMode;
+    state.jsonSearch = '';
+    state.jsonSearchIndex = 0;
     renderEditor();
   });
 }
@@ -6358,6 +9158,219 @@ function ensureSchemaNameColor(project) {
     const legacyColorKey = schemaName.colorKey || '划动字符颜色';
     colors['方案名颜色'] = colors[legacyColorKey] || colors['划动字符颜色'] || (theme === 'dark' ? '#b6b7b9' : '#838383ff');
   }
+}
+
+function migrateSchemaNameFontSize(project, sampleProject) {
+  const fontSizes = project.theme?.shared?.fontSize;
+  if (!fontSizes) return;
+  const schemaName = project.keyboards?.keyboard26?.pinyinSchemaName;
+  if (fontSizes['方案名字号'] === undefined) {
+    fontSizes['方案名字号'] = Number(schemaName?.fontSize || sampleProject.theme?.shared?.fontSize?.['方案名字号'] || 8);
+  }
+  if (schemaName && typeof schemaName === 'object') delete schemaName.fontSize;
+}
+
+function migrateCandidateFontSizeDefaults(project, sampleProject) {
+  const fontSizes = project.theme?.shared?.fontSize;
+  const sampleFontSizes = sampleProject.theme?.shared?.fontSize;
+  if (!fontSizes || !sampleFontSizes) return;
+  const legacyDefaults = {
+    '未展开候选字体选中字体大小': 12,
+    '未展开comment字体大小': 10,
+    '展开候选字体选中字体大小': 14,
+    '展开comment字体大小': 10,
+  };
+  const intermediateDefaults = {
+    '未展开候选字体选中字体大小': 18,
+    '未展开comment字体大小': 14,
+    '展开候选字体选中字体大小': 16,
+    '展开comment字体大小': 13,
+  };
+  [legacyDefaults, intermediateDefaults].forEach((defaults) => Object.entries(defaults).forEach(([key, legacyValue]) => {
+    if (fontSizes[key] === legacyValue && sampleFontSizes[key] !== undefined && sampleFontSizes[key] !== legacyValue) {
+      fontSizes[key] = sampleFontSizes[key];
+    }
+  }));
+}
+
+function migrateSwipeMarkerDefaults(project, sampleProject) {
+  const fontSizes = project.theme?.shared?.fontSize;
+  const sampleFontSizes = sampleProject.theme?.shared?.fontSize;
+  const centers = project.theme?.shared?.center;
+  const sampleCenters = sampleProject.theme?.shared?.center;
+  if (fontSizes && sampleFontSizes) {
+    for (const key of ['上划文字大小', '下划文字大小']) {
+      if (fontSizes[key] === 9 && sampleFontSizes[key] !== undefined) {
+        fontSizes[key] = sampleFontSizes[key];
+      }
+    }
+  }
+  if (centers && sampleCenters) {
+    const legacyCenters = {
+      上划文字偏移: { x: 0.25, y: 0.28 },
+      上划文字偏移2: { x: 0.3, y: 0.32 },
+      下划文字偏移: { x: 0.75, y: 0.28 },
+      下划文字偏移2: { x: 0.7, y: 0.32 },
+      上划sf符号偏移: { x: 0.25, y: 0.68 },
+      下划sf符号偏移: { x: 0.75, y: 0.68 },
+    };
+    for (const [legacyKey, legacy] of Object.entries(legacyCenters)) {
+      const key = legacyKey.replace(/\d+$/, '');
+      const current = centers[key];
+      if (
+        current
+        && Number(current.x) === legacy.x
+        && Number(current.y) === legacy.y
+        && sampleCenters[key]
+      ) {
+        centers[key] = deepClone(sampleCenters[key]);
+      }
+    }
+  }
+  for (const profile of ['pinyin', 'alphabetic']) {
+    const swipes = project.data?.swipes?.[profile];
+    const sampleSwipes = sampleProject.data?.swipes?.[profile];
+    if (!swipes || !sampleSwipes) continue;
+    for (const direction of ['swipe_up', 'swipe_down']) {
+      for (const [key, entry] of Object.entries(swipes[direction] || {})) {
+        const sampleCenter = sampleSwipes[direction]?.[key]?.center;
+        if (entry?.center && sampleCenter) {
+          const current = entry.center;
+          const legacyTop = direction === 'swipe_up'
+            && Number(current.x) === 0.5
+            && (Number(current.y) === 0.25 || Number(current.y) === 0.24);
+          const legacyBottom = direction === 'swipe_down'
+            && Number(current.x) === 0.5
+            && [0.75, 0.8, 0.85].includes(Number(current.y));
+          if (legacyTop || legacyBottom) entry.center = deepClone(sampleCenter);
+        }
+      }
+    }
+  }
+}
+
+function handleJsonSearchAction(button) {
+  const source = jsonSourceForMode(currentValue());
+  const matches = jsonSearchMatches(jsonSourceText(source.value), state.jsonSearch);
+  if (!matches.length) return;
+  const direction = button.dataset.jsonSearchAction === 'prev' ? -1 : 1;
+  state.jsonSearchIndex = (state.jsonSearchIndex + direction + matches.length) % matches.length;
+  renderEditor();
+}
+
+function migratePinyin9MetricDefaults(project, sampleProject) {
+  const metrics = project.keyboards?.keyboard26?.variants?.['9']?.metrics?.portrait;
+  const sampleMetrics = sampleProject.keyboards?.keyboard26?.variants?.['9']?.metrics?.portrait;
+  if (!metrics || !sampleMetrics) return;
+  const legacyDefault = (
+    metrics['123']?.width?.percentage === 0.18
+    && metrics.normal?.width?.percentage === 0.3333
+    && metrics.space?.width?.percentage === 0.62
+    && metrics.enter?.width?.percentage === 0.2
+  );
+  const missingDetailedMetrics = !metrics.punctuationColumn || !metrics.backspace || !metrics.reinput || !metrics.symbol || !metrics.cnen;
+  if (!legacyDefault && !missingDetailedMetrics) return;
+  for (const key of ['punctuationColumn', 'backspace', 'reinput', 'normal', 'symbol', '123', 'space', 'cnen', 'enter']) {
+    if (sampleMetrics[key]) metrics[key] = deepClone(sampleMetrics[key]);
+  }
+}
+
+function migrateEnterAccentSurfaceDefaults(project, sampleProject) {
+  const surface = project.keyStyles?.surfaceStyles?.keyboard26?.enterAccent;
+  const sampleSurface = sampleProject.keyStyles?.surfaceStyles?.keyboard26?.enterAccent;
+  if (!surface || !sampleSurface) return;
+  const offset = surface.shadowOffset || {};
+  const isLegacyThickSurface = (
+    Number(surface.borderSize) === 0.45
+    && Number(surface.shadowRadius) === 2.2
+    && Number(surface.shadowOpacity) === 1
+    && Number(offset.x || 0) === 0
+    && Number(offset.y) === 1.1
+  );
+  if (isLegacyThickSurface) {
+    project.keyStyles.surfaceStyles.keyboard26.enterAccent = deepClone(sampleSurface);
+  }
+}
+
+function migrateDefaultPresetValues(project, sampleProject) {
+  if (!project || !sampleProject) return project;
+  migrateSchemaNameFontSize(project, sampleProject);
+  migrateCandidateFontSizeDefaults(project, sampleProject);
+  migrateSwipeMarkerDefaults(project, sampleProject);
+  migratePinyin9MetricDefaults(project, sampleProject);
+  migrateEnterAccentSurfaceDefaults(project, sampleProject);
+  normalizeLegacyTransparentKeyboardBackgrounds(project);
+  const darkColors = project.theme?.dark?.colors;
+  if (darkColors) {
+    if (darkColors['字母键背景颜色-普通'] === '#2C2C2E') {
+      darkColors['字母键背景颜色-普通'] = '#3A3A3C';
+    }
+    if (darkColors['功能键背景颜色-普通'] === '#5B6270') {
+      darkColors['功能键背景颜色-普通'] = '#3A3A3C';
+    }
+  }
+  const sharedCenter = project.theme?.shared?.center;
+  const sampleCenter = sampleProject.theme?.shared?.center;
+  if (sharedCenter && sampleCenter && !sharedCenter['toolbar按键偏移']) {
+    sharedCenter['toolbar按键偏移'] = deepClone(
+      sharedCenter['toolbar按键sf符号偏移']
+      || sharedCenter['toolbar按键文字偏移']
+      || sampleCenter['toolbar按键偏移'],
+    );
+  }
+
+  const metrics = project.keyboards?.keyboard26?.metrics?.portrait;
+  const sampleMetrics = sampleProject.keyboards?.keyboard26?.metrics?.portrait;
+  if (metrics && sampleMetrics) {
+    const current = {
+      '123': metrics['123']?.width?.percentage,
+      cnen: metrics.cnen?.width?.percentage,
+      space: metrics.space?.width?.percentage,
+      spaceRight: metrics.spaceRight?.width?.percentage,
+      enter: metrics.enter?.width?.percentage,
+    };
+    const legacyDefault = (
+      current['123'] === 0.15
+      && current.cnen === 0.08
+      && current.space === 0.46
+      && current.spaceRight === 0.08
+      && current.enter === 0.15
+    );
+    const legacyIos26Preset = (
+      current['123'] === 0.12
+      && current.cnen === 0.085
+      && current.space === 0.495
+      && current.spaceRight === 0.1
+      && current.enter === 0.2
+    );
+    if (legacyDefault || legacyIos26Preset) {
+      for (const key of ['123', 'cnen', 'space', 'spaceRight', 'enter']) {
+        metrics[key] = deepClone(sampleMetrics[key]);
+      }
+    }
+  }
+  return project;
+}
+
+function normalizeLegacyTransparentColorValue(value) {
+  if (typeof value !== 'string') return value;
+  return value
+    .replace(/#?D0D3DA00/gi, (match) => (match.startsWith('#') ? '#D0D3DA01' : 'D0D3DA01'))
+    .replace(/#?47474700/gi, (match) => (match.startsWith('#') ? '#47474701' : '47474701'));
+}
+
+function normalizeLegacyTransparentKeyboardBackgrounds(value) {
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      value[index] = normalizeLegacyTransparentKeyboardBackgrounds(value[index]);
+    }
+    return value;
+  }
+  if (!value || typeof value !== 'object') return normalizeLegacyTransparentColorValue(value);
+  for (const [key, item] of Object.entries(value)) {
+    value[key] = normalizeLegacyTransparentKeyboardBackgrounds(item);
+  }
+  return value;
 }
 
 function mergeDefaultCollections(project, sampleProject) {
@@ -6446,6 +9459,7 @@ function mergeDefaultCollections(project, sampleProject) {
     next.meta.description = DEFAULT_DOWNLOAD_PATH;
   }
   ensureSchemaNameColor(next);
+  migrateDefaultPresetValues(next, sampleProject);
   syncCollectionDerivedFields(next);
   return next;
 }
@@ -6455,6 +9469,7 @@ async function boot() {
   state.sampleProject = sampleProject;
   const templateRecords = await listTemplateSnapshots().catch(() => []);
   const defaultProject = applyDefaultSkinMeta(sampleProject, nextDefaultSkinIndex(templateRecords));
+  ensureProjectGuide(defaultProject, 'pending');
   state.project = deepClone(defaultProject);
   state.original = deepClone(defaultProject);
   const stored = loadProject();
@@ -6463,16 +9478,26 @@ async function boot() {
     && validateProject(stored.project).ok
     && stored.project.templateId === sampleProject.templateId
   ) {
-    const merged = mergeDefaultCollections(mergeDefaultSwipes(stored.project, sampleProject), sampleProject);
+    const storedGuideStatus = stored.project?.guide
+      ? (stored.project.guide.status || 'ready')
+      : 'pending';
+    const merged = normalizedWorkbenchProject(
+      stored.project,
+      sampleProject,
+      storedGuideStatus,
+    );
+    resetGuideGenerationForFreshBoot(merged, stored.project);
     state.project = isLegacyDefaultSkinMeta(merged)
       ? applyDefaultSkinMeta(merged, nextDefaultSkinIndex(templateRecords))
       : merged;
+    ensureProjectGuide(state.project, 'pending');
     state.original = deepClone(state.project);
     state.savedAt = stored.savedAt;
   }
   bindEvents();
   renderAll();
   refreshVisitorStats();
+  openWelcomeNotice();
 }
 
 boot().catch((error) => {

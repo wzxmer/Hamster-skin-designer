@@ -3741,9 +3741,9 @@
           "划动字符颜色": "#b6b7b9",
           "列表未选中字体颜色": "#FFFFFF",
           "列表选中字体颜色": "#FFFFFF",
-          "功能键背景颜色-普通": "#D1D1D624",
+          "功能键背景颜色-普通": "#3A3A3C",
           "功能键背景颜色-高亮": "#D1D1D659",
-          "字母键背景颜色-普通": "#D1D1D165",
+          "字母键背景颜色-普通": "#3A3A3C",
           "字母键背景颜色-高亮": "#D1D1D624",
           "底边缘颜色-普通": "#1E1E1E",
           "底边缘颜色-高亮": "#1D1D1D",
@@ -3812,7 +3812,7 @@
         "中文九键字根前景文字大小": 10,
         "中文九键字符键前景文字大小": 15,
         "划动气泡前景文字大小": 28,
-        "展开comment字体大小": 13,
+        "展开comment字体大小": 18,
         "展开候选字体选中字体大小": 16,
         "按键前景sf符号大小": 15,
         "按键前景文字大小": 18,
@@ -4380,7 +4380,7 @@
               },
               {
                 "action": {
-                  "runTranslateScript": "谷歌中英互译"
+                  "runScript": "谷歌中英互译"
                 },
                 "fontSize": 14,
                 "label": {
@@ -4719,7 +4719,7 @@
           "cnenTarget": "pinyin",
           "customKeys": {},
           "schemaKey": "英文键盘方案",
-          "spaceLabel": "空格",
+          "spaceLabel": "",
           "spaceRight": {
             "action": {
               "symbol": "."
@@ -4863,7 +4863,7 @@
             "fontSize": 8,
             "text": "$rimeSchemaName"
           },
-          "spaceLabel": "空格",
+          "spaceLabel": "",
           "spaceRight": {
             "action": {
               "character": "，"
@@ -5478,7 +5478,7 @@
             "label": {
               "fontSizeKey": "按键前景文字大小",
               "fontSizeOffset": -3,
-              "text": "空格"
+              "text": ""
             }
           },
           "symbol": {
@@ -6567,7 +6567,6 @@
           "toolbar按键文字偏移": {
             "x": 0.5
           },
-          "toolbar按键缩放": 0.52,
           "上划sf符号偏移": {
             "x": 0.25,
             "y": 0.68
@@ -6684,7 +6683,7 @@
                 "shortcut": "#showPhraseView"
               },
               "fontSize": 20,
-              "key": "toolbarPhrasee",
+              "key": "toolbarPhrase",
               "label": {
                 "systemImageName": "list.bullet.clipboard"
               }
@@ -6711,7 +6710,7 @@
             },
             "translate": {
               "action": {
-                "openScript": "AI翻译"
+                "runScript": "AI翻译"
               },
               "fontSize": 20,
               "key": "toolbarTranslate",

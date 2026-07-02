@@ -3,8 +3,8 @@ const MODULE_DEFINITIONS = [
     id: 'keyboardCombo',
     title: '使用引导',
     kicker: 'keyboardCombo',
-    description: '组合中文、英文、数字、符号、Emoji、面板、工具栏和划动策略。',
-    path: 'keyboardCombo',
+    description: '先确认使用偏好并生成当前键盘方案，再进入其他模块细调。',
+    path: 'guide',
     kind: 'keyboardCombo',
   },
   {
@@ -14,6 +14,46 @@ const MODULE_DEFINITIONS = [
     description: '皮肤名称、作者、下载位置和模板版本。',
     path: 'meta',
     kind: 'meta',
+  },
+  {
+    id: 'keyboardFrame',
+    title: '键盘高度',
+    kicker: 'keys.keyboardFrame',
+    description: '竖屏、横屏的预编辑区、工具栏区、按键区高度，以及面板浮动参数。',
+    path: 'keyboardFrame',
+    kind: 'keyboardFrame',
+  },
+  {
+    id: 'buttonInsets',
+    title: '按键边距',
+    kicker: 'keys.buttonInsets',
+    description: '普通键、功能键、面板、长按候选等边距。',
+    path: 'keyStyles.buttonInsets',
+    kind: 'insetsTree',
+  },
+  {
+    id: 'surfaceStyles',
+    title: '按键立体样式',
+    kicker: 'keys.surfaceStyles',
+    description: '圆角、边框、阴影、底边缘等立体参数，预览与导出共用。',
+    path: 'keyStyles.surfaceStyles',
+    kind: 'surfaceStyles',
+  },
+  {
+    id: 'customKeyboards',
+    title: '自定义键盘',
+    kicker: 'keys / toolbar',
+    description: '统一编辑 26 键、数字键盘、符号键盘预览流和自定义面板。',
+    path: 'keyboards',
+    kind: 'customKeyboards',
+  },
+  {
+    id: 'metrics',
+    title: '按键尺寸',
+    kicker: 'keyboardLayout.libsonnet',
+    description: '按模板中的键盘布局编辑各按键尺寸。',
+    path: 'keyboards',
+    kind: 'metrics',
   },
   {
     id: 'assets',
@@ -51,9 +91,17 @@ const MODULE_DEFINITIONS = [
     id: 'scale',
     title: '前景缩放',
     kicker: 'center.libsonnet',
-    description: '26 键、工具栏、数字键盘等前景缩放比例。',
+    description: '26 键、数字键盘等前景缩放比例。',
     path: 'theme.shared.scale',
     kind: 'numberMap',
+  },
+  {
+    id: 'candidateStyles',
+    title: '候选样式',
+    kicker: 'toolbar.candidates',
+    description: '集中设置横向候选、展开候选和高亮候选的颜色、字号、边距。',
+    path: 'toolbar',
+    kind: 'candidateStyles',
   },
   {
     id: 'animation',
@@ -62,38 +110,6 @@ const MODULE_DEFINITIONS = [
     description: '按键按下缩放、时长、回弹等动画参数。',
     path: 'theme.shared.animation',
     kind: 'animation',
-  },
-  {
-    id: 'keyboardFrame',
-    title: '键盘高度',
-    kicker: 'keys.keyboardFrame',
-    description: '竖屏、横屏的预编辑区、工具栏区、按键区高度，以及面板浮动参数。',
-    path: 'keyboardFrame',
-    kind: 'keyboardFrame',
-  },
-  {
-    id: 'buttonInsets',
-    title: '按键边距',
-    kicker: 'keys.buttonInsets',
-    description: '普通键、功能键、候选栏、面板、长按候选等边距。',
-    path: 'keyStyles.buttonInsets',
-    kind: 'insetsTree',
-  },
-  {
-    id: 'customKeyboards',
-    title: '自定义键盘',
-    kicker: 'keys / toolbar',
-    description: '统一编辑 26 键、数字键盘、符号键盘、工具栏和自定义面板。',
-    path: 'keyboards',
-    kind: 'customKeyboards',
-  },
-  {
-    id: 'metrics',
-    title: '按键尺寸',
-    kicker: 'keyboardLayout.libsonnet',
-    description: '按模板中的键盘布局编辑各按键尺寸。',
-    path: 'keyboards',
-    kind: 'metrics',
   },
   {
     id: 'swipes',
@@ -119,17 +135,9 @@ const MODULE_DEFINITIONS = [
     path: 'data.collections',
     kind: 'collections',
   },
-  {
-    id: 'export',
-    title: '导出设置',
-    kicker: 'Export',
-    description: '源码导出目标和映射策略。',
-    path: 'export',
-    kind: 'json',
-  },
 ];
 
-export const DISABLED_MODULE_IDS = new Set(['assets', 'animation']);
+export const DISABLED_MODULE_IDS = new Set(['animation']);
 
 export const MODULES = MODULE_DEFINITIONS.map((module) => ({
   ...module,
@@ -137,7 +145,7 @@ export const MODULES = MODULE_DEFINITIONS.map((module) => ({
 }));
 
 export const COVERAGE_ITEMS = [
-  ['config/keys.libsonnet', '边距、高度、文案、工具栏已拆为模块；图片和面板暂时禁用'],
+  ['config/keys.libsonnet', '边距、高度、文案、工具栏和图片已拆为模块；动画暂时禁用'],
   ['color.libsonnet', '颜色模块覆盖浅色和深色'],
   ['fontSize.libsonnet', '字号模块覆盖共享字号'],
   ['center.libsonnet', '偏移和缩放模块覆盖位置与缩放'],

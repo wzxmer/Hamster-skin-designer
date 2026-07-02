@@ -58,6 +58,51 @@ function validateInset(errors, path, value) {
   }
 }
 
+function validatePoint(errors, path, value) {
+  if (!isPlainObject(value)) {
+    addIssue(errors, path, '必须是对象。');
+    return;
+  }
+  for (const key of ['x', 'y']) {
+    if (value[key] !== undefined && !isFiniteNumber(value[key])) {
+      addIssue(errors, `${path}.${key}`, '必须是数字。');
+    }
+  }
+}
+
+function validateSurfaceStyle(errors, path, value) {
+  if (!isPlainObject(value)) {
+    addIssue(errors, path, 'surfaceStyle 必须是对象。');
+    return;
+  }
+  for (const key of ['cornerRadius', 'borderSize', 'shadowRadius', 'shadowOpacity']) {
+    if (value[key] !== undefined && !isFiniteNumber(value[key])) {
+      addIssue(errors, `${path}.${key}`, '必须是数字。');
+    }
+  }
+  if (value.shadowOffset !== undefined) {
+    validatePoint(errors, `${path}.shadowOffset`, value.shadowOffset);
+  }
+}
+
+function walkSurfaceStyles(errors, value, path) {
+  if (!isPlainObject(value)) {
+    addIssue(errors, path, 'surfaceStyles 节点必须是对象。');
+    return;
+  }
+
+  const looksLikeLeaf = ['cornerRadius', 'borderSize', 'shadowRadius', 'shadowOpacity', 'shadowOffset']
+    .some((key) => value[key] !== undefined);
+  if (looksLikeLeaf) {
+    validateSurfaceStyle(errors, path, value);
+    return;
+  }
+
+  for (const [key, child] of Object.entries(value)) {
+    walkSurfaceStyles(errors, child, `${path}.${key}`);
+  }
+}
+
 function isInsetMetadataKey(key) {
   return ['mode', 'keys'].includes(key);
 }
@@ -103,6 +148,23 @@ function validateColorMap(errors, colors, path) {
   for (const [key, value] of Object.entries(colors)) {
     if (typeof value !== 'string' || !HEX_COLOR_PATTERN.test(value)) {
       addIssue(errors, `${path}.${key}`, '颜色必须是 #RGB、#RGBA、#RRGGBB 或 #RRGGBBAA 格式。');
+    }
+  }
+}
+
+function walkPointMap(errors, value, path) {
+  if (value === undefined) return;
+  if (!isPlainObject(value)) {
+    addIssue(errors, path, '必须是对象。');
+    return;
+  }
+  for (const [key, child] of Object.entries(value)) {
+    if (child === undefined) continue;
+    const childPath = `${path}.${key}`;
+    if (isPlainObject(child) && ('x' in child || 'y' in child)) {
+      validatePoint(errors, childPath, child);
+    } else {
+      walkPointMap(errors, child, childPath);
     }
   }
 }
@@ -170,6 +232,36 @@ function validateExport(errors, exportConfig) {
   }
 }
 
+function validateNativeKeyboardPayloads(errors, value) {
+  if (value === undefined) return;
+  if (!isPlainObject(value)) {
+    addIssue(errors, 'nativeKeyboardPayloads', '必须是对象。');
+    return;
+  }
+  for (const themeName of ['light', 'dark']) {
+    const themePayloads = value[themeName];
+    if (themePayloads === undefined) continue;
+    if (!isPlainObject(themePayloads)) {
+      addIssue(errors, `nativeKeyboardPayloads.${themeName}`, '必须是键盘 payload 对象。');
+      continue;
+    }
+    for (const [keyboardName, payload] of Object.entries(themePayloads)) {
+      if (!isPlainObject(payload)) {
+        addIssue(errors, `nativeKeyboardPayloads.${themeName}.${keyboardName}`, '必须是原生键盘 payload 对象。');
+        continue;
+      }
+      for (const key of ['preeditHeight', 'toolbarHeight', 'keyboardHeight']) {
+        if (payload[key] !== undefined && !isFiniteNumber(payload[key])) {
+          addIssue(errors, `nativeKeyboardPayloads.${themeName}.${keyboardName}.${key}`, '高度必须是数字。');
+        }
+      }
+      if (payload.keyboardLayout !== undefined && !Array.isArray(payload.keyboardLayout)) {
+        addIssue(errors, `nativeKeyboardPayloads.${themeName}.${keyboardName}.keyboardLayout`, '必须是布局数组。');
+      }
+    }
+  }
+}
+
 export function validateProject(project) {
   const errors = [];
   const warnings = [];
@@ -207,6 +299,8 @@ export function validateProject(project) {
     }
   }
 
+  walkPointMap(errors, project.theme?.shared?.customCenters, 'theme.shared.customCenters');
+
   if (isPlainObject(project.keyboardFrame)) {
     validateKeyboardFrame(errors, project.keyboardFrame);
   }
@@ -218,6 +312,13 @@ export function validateProject(project) {
     addIssue(errors, 'keyStyles.buttonInsets', '不能为空。');
   }
 
+  const surfaceStyles = project.keyStyles?.surfaceStyles;
+  if (surfaceStyles !== undefined) {
+    walkSurfaceStyles(errors, surfaceStyles, 'keyStyles.surfaceStyles');
+  } else {
+    addIssue(errors, 'keyStyles.surfaceStyles', '不能为空。');
+  }
+
   validateKeyboard26Layout(errors, project.keyboards?.keyboard26?.layout);
 
   if (!isPlainObject(project.assets?.images)) {
@@ -227,6 +328,8 @@ export function validateProject(project) {
   if (isPlainObject(project.export)) {
     validateExport(errors, project.export);
   }
+
+  validateNativeKeyboardPayloads(errors, project.nativeKeyboardPayloads);
 
   if (project.schemaVersion && project.schemaVersion !== '0.1.0') {
     addIssue(warnings, 'schemaVersion', '当前 validator 只按 0.1.0 规则校验。');

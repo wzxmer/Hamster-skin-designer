@@ -12,11 +12,18 @@ export const SYSTEM_IMAGE_MAP = {
   'face.smiling': '🙂',
   'list.bullet.clipboard': '📝',
   'doc.on.clipboard': '📋',
+  'doc.on.doc': '▣',
   'apple.terminal': '⌘',
+  gearshape: '⚙',
+  'gearshape.fill': '⚙',
   'keyboard.chevron.compact.down': '⌄',
+  'keyboard.chevron.compact.down.fill': '⌄',
   'xmark.triangle.circle.square': '⌘#',
   translate: '译',
   'slider.horizontal.3': '☰',
+  'circle.grid.2x1': '⌘',
+  'rectangle.and.text.magnifyingglass': '▤',
+  'square.grid.3x3': '▦',
   'character.textbox': '字',
   mic: '🎤',
   command: '⌘',
@@ -128,6 +135,14 @@ export const SYSTEM_IMAGE_SVG_MAP = {
       <path d="M14.8 9.4v1.85h1.9"></path>
     `,
   },
+  'doc.on.doc': {
+    body: `
+      <path d="M8.2 7.4V6.2a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v8.2a2 2 0 0 1-2 2h-1.1"></path>
+      <path d="M5.8 7.6h6a2 2 0 0 1 2 2v8.2a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2V9.6a2 2 0 0 1 2-2Z"></path>
+      <path d="M7.5 11.2h4.4"></path>
+      <path d="M7.5 14.2h4.4"></path>
+    `,
+  },
   'apple.terminal': {
     strokeWidth: 1.6,
     body: `
@@ -137,7 +152,41 @@ export const SYSTEM_IMAGE_SVG_MAP = {
       <path d="M7.55 7.85h8.9"></path>
     `,
   },
+  gearshape: {
+    strokeWidth: 1.55,
+    body: `
+      <circle cx="12" cy="12" r="3.2"></circle>
+      <path d="M12 3.4v2"></path>
+      <path d="M12 18.6v2"></path>
+      <path d="m18.1 5.9-1.4 1.4"></path>
+      <path d="m7.3 16.7-1.4 1.4"></path>
+      <path d="M20.6 12h-2"></path>
+      <path d="M5.4 12h-2"></path>
+      <path d="m18.1 18.1-1.4-1.4"></path>
+      <path d="m7.3 7.3-1.4-1.4"></path>
+      <path d="M14.8 4.2 16 5.1l1.5-.35 1.75 3.05-1.05 1.15.15 1.55 1.35 0.75v3.5l-1.35.75-.15 1.55 1.05 1.15-1.75 3.05-1.5-.35-1.2.9-0.45 1.45h-3.5l-0.45-1.45-1.2-.9-1.5.35-1.75-3.05 1.05-1.15-.15-1.55-1.35-.75v-3.5l1.35-.75.15-1.55-1.05-1.15 1.75-3.05 1.5.35 1.2-.9.45-1.45h3.5Z"></path>
+    `,
+  },
+  'gearshape.fill': {
+    strokeWidth: 1.55,
+    body: `
+      <circle cx="12" cy="12" r="3.2"></circle>
+      <path d="M14.8 4.2 16 5.1l1.5-.35 1.75 3.05-1.05 1.15.15 1.55 1.35.75v3.5l-1.35.75-.15 1.55 1.05 1.15-1.75 3.05-1.5-.35-1.2.9-.45 1.45h-3.5l-.45-1.45-1.2-.9-1.5.35-1.75-3.05 1.05-1.15-.15-1.55-1.35-.75v-3.5l1.35-.75.15-1.55-1.05-1.15 1.75-3.05 1.5.35 1.2-.9.45-1.45h3.5Z"></path>
+    `,
+  },
   'keyboard.chevron.compact.down': {
+    strokeWidth: 1.6,
+    body: `
+      <rect x="4.3" y="5.2" width="15.4" height="8.7" rx="2.4"></rect>
+      <path d="M6.7 8.05h1.35"></path>
+      <path d="M9.35 8.05h1.35"></path>
+      <path d="M12 8.05h1.35"></path>
+      <path d="M14.65 8.05H16"></path>
+      <path d="M6.7 10.9h10.6"></path>
+      <path d="m7.95 17.55 4.05 3.25 4.05-3.25"></path>
+    `,
+  },
+  'keyboard.chevron.compact.down.fill': {
     strokeWidth: 1.6,
     body: `
       <rect x="4.3" y="5.2" width="15.4" height="8.7" rx="2.4"></rect>
@@ -182,6 +231,40 @@ export const SYSTEM_IMAGE_SVG_MAP = {
       <circle cx="15.2" cy="16.75" r="1.7"></circle>
     `,
   },
+  'circle.grid.2x1': {
+    strokeWidth: 1.55,
+    body: `
+      <circle cx="8" cy="9.2" r="2.25"></circle>
+      <circle cx="16" cy="9.2" r="2.25"></circle>
+      <circle cx="8" cy="15.2" r="2.25"></circle>
+      <circle cx="16" cy="15.2" r="2.25"></circle>
+    `,
+  },
+  'rectangle.and.text.magnifyingglass': {
+    strokeWidth: 1.55,
+    body: `
+      <rect x="4.2" y="5.4" width="13.5" height="13.2" rx="2.2"></rect>
+      <path d="M7.1 9.2h7.2"></path>
+      <path d="M7.1 12.2h5.4"></path>
+      <path d="M7.1 15.2h4.2"></path>
+      <circle cx="16.1" cy="16.1" r="2.45"></circle>
+      <path d="m18 18 2.1 2.1"></path>
+    `,
+  },
+  'square.grid.3x3': {
+    strokeWidth: 1.45,
+    body: `
+      <rect x="5.1" y="5.1" width="3.2" height="3.2" rx="0.8"></rect>
+      <rect x="10.4" y="5.1" width="3.2" height="3.2" rx="0.8"></rect>
+      <rect x="15.7" y="5.1" width="3.2" height="3.2" rx="0.8"></rect>
+      <rect x="5.1" y="10.4" width="3.2" height="3.2" rx="0.8"></rect>
+      <rect x="10.4" y="10.4" width="3.2" height="3.2" rx="0.8"></rect>
+      <rect x="15.7" y="10.4" width="3.2" height="3.2" rx="0.8"></rect>
+      <rect x="5.1" y="15.7" width="3.2" height="3.2" rx="0.8"></rect>
+      <rect x="10.4" y="15.7" width="3.2" height="3.2" rx="0.8"></rect>
+      <rect x="15.7" y="15.7" width="3.2" height="3.2" rx="0.8"></rect>
+    `,
+  },
   'character.textbox': {
     body: `
       <rect x="4.4" y="5.1" width="15.2" height="13.8" rx="2.4"></rect>
@@ -202,7 +285,7 @@ export const SYSTEM_IMAGE_SVG_MAP = {
 
 export function renderSystemImageSvg(systemImageName, className = 'system-image-svg') {
   const icon = SYSTEM_IMAGE_SVG_MAP[systemImageName];
-  if (!icon) return '';
+  if (!icon) return SYSTEM_IMAGE_MAP[systemImageName] || systemImageName || '';
   const viewBox = icon.viewBox || '0 0 24 24';
   const strokeWidth = icon.strokeWidth || 1.75;
   return `<svg class="${className}" viewBox="${viewBox}" fill="none" stroke="currentColor" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${icon.body}</svg>`;
