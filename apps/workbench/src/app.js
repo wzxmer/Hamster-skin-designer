@@ -8738,7 +8738,32 @@ function confirmImportProject() {
   });
 }
 
+function closeShortcutReference() {
+  const wrap = document.querySelector('.brand-guide-wrap');
+  const trigger = document.querySelector('.brand-guide-trigger');
+  if (!wrap || !trigger) return;
+  wrap.classList.remove('is-open');
+  trigger.setAttribute('aria-expanded', 'false');
+}
+
+function toggleShortcutReference() {
+  const wrap = document.querySelector('.brand-guide-wrap');
+  const trigger = document.querySelector('.brand-guide-trigger');
+  if (!wrap || !trigger) return;
+  const nextOpen = !wrap.classList.contains('is-open');
+  wrap.classList.toggle('is-open', nextOpen);
+  trigger.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+}
+
 function bindEvents() {
+  document.querySelector('.brand-guide-trigger')?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    toggleShortcutReference();
+  });
+  document.querySelector('.shortcut-reference-card')?.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+
   document.body.addEventListener('click', (event) => {
     const welcomeAction = event.target.closest('[data-welcome-action]')?.dataset.welcomeAction;
     if (welcomeAction === 'close') {
@@ -9041,6 +9066,7 @@ function bindEvents() {
     openPreviewExpand();
   });
   document.addEventListener('click', (event) => {
+    closeShortcutReference();
     if (event.target.closest('.preview-mode-select')) return;
     closePreviewModeMenu();
     if (event.target.closest('.preview-expand-overlay')) {
@@ -9048,6 +9074,9 @@ function bindEvents() {
     }
   });
   document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeShortcutReference();
+    }
     if (event.key === 'Escape' && state.previewExpanded) {
       closePreviewExpand();
     }

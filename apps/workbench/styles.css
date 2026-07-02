@@ -183,6 +183,7 @@ button:disabled:hover {
   display: inline-flex;
   align-items: center;
   min-height: 30px;
+  font: inherit;
   padding: 0 10px;
   border: 1px solid rgba(37, 99, 235, 0.18);
   border-radius: 999px;
@@ -192,6 +193,7 @@ button:disabled:hover {
   font-weight: 800;
   line-height: 1.2;
   user-select: none;
+  cursor: pointer;
 }
 
 .brand-guide-trigger:hover,
@@ -207,8 +209,8 @@ button:disabled:hover {
   top: calc(100% + 8px);
   left: 0;
   z-index: 40;
-  width: min(680px, calc(100vw - 32px));
-  max-height: 420px;
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(360px, calc(100vh - 96px));
   overflow: auto;
   padding: 14px;
   border: 1px solid rgba(191, 219, 254, 0.9);
@@ -229,8 +231,7 @@ button:disabled:hover {
   -webkit-overflow-scrolling: touch;
 }
 
-.brand-guide-wrap:hover .shortcut-reference-card,
-.brand-guide-wrap:focus-within .shortcut-reference-card {
+.brand-guide-wrap.is-open .shortcut-reference-card {
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
