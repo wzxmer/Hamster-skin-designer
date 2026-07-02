@@ -2,6 +2,8 @@
 .codegraph/
 .codex/
 .superpowers/
+AGENTS.md
+RTK.md
 memory/
 node_modules/
 dist/
