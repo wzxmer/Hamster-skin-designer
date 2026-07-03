@@ -1747,6 +1747,13 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   };
   const normalizePinyin14Payload = () => {
     if (!keyboardName.startsWith('pinyin_14_')) return;
+    const containerBackgroundStyle = sharedKeyboardContainerBackgroundStyle();
+    payload.keyboardBackgroundStyle = structuredClone(containerBackgroundStyle);
+    payload.toolbarBackgroundStyle = structuredClone(containerBackgroundStyle);
+    payload.keyboardStyle = payload.keyboardStyle && isPlainObject(payload.keyboardStyle) ? payload.keyboardStyle : {};
+    payload.keyboardStyle.backgroundStyle = 'keyboardBackgroundStyle';
+    payload.toolbarStyle = payload.toolbarStyle && isPlainObject(payload.toolbarStyle) ? payload.toolbarStyle : {};
+    payload.toolbarStyle.backgroundStyle = 'toolbarBackgroundStyle';
     const letterBackgroundKeys = [
       'qwBg', 'erBg', 'tyBg', 'uiBg', 'opBg',
       'asBg', 'dfBg', 'ghBg', 'jkBg', 'lBg',

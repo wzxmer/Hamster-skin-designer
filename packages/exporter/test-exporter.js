@@ -739,6 +739,10 @@ for (const { preset, project: presetProject, files, config, keyboardName, keyboa
 const preset14 = presetChecks.find((item) => item.preset.value === 'ios-14');
 assert(preset14.payload.toolbarHeight === 41 && preset14.payload.keyboardHeight === 216, '示例14键预设应使用统一竖屏 toolbar/keyboard 高度。');
 assert(preset14.payload.toolbarStyle.insets?.top === 5 && preset14.payload.toolbarStyle.insets?.left === 3, '示例14键预设应使用统一 toolbarStyle 顶部/左侧边距。');
+assert(preset14.payload.toolbarStyle.backgroundStyle === 'toolbarBackgroundStyle'
+  && preset14.payload.keyboardStyle.backgroundStyle === 'keyboardBackgroundStyle'
+  && preset14.payload.toolbarBackgroundStyle?.normalColor === preset14.payload.keyboardBackgroundStyle?.normalColor
+  && preset14.payload.toolbarBackgroundStyle?.normalColor !== '#00000001', '示例14键预设 toolbar/keyboard 容器背景应使用统一背景样式，不能残留 raw seed 透明圆角背景。');
 assert(preset14.keyboard.includes('Cell: "qwButton"') && preset14.keyboard.includes('Cell: "cvButton"'), '示例14键预设应导出 14 键布局骨架。');
 assert(preset14.payload['123Button'].size.width.percentage === preset14.payload.enterButton.size.width.percentage
   && preset14.payload.commaButton.size.width.percentage === preset14.payload.cnenButton.size.width.percentage
