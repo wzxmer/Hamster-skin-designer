@@ -10,7 +10,6 @@
   "scripts": {
     "dev": "node scripts/workbench-server.mjs",
     "start": "node scripts/workbench-server.mjs",
-    "dev:builder": "node apps/builder/server.js",
     "validate:project-schema": "node packages/project-schema/validate-sample.js",
     "test:skin-effect": "node packages/skin-effect/test-skin-effect.js",
     "test:exporter": "node packages/exporter/test-exporter.js",

@@ -1,11 +1,29 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="workbench-booting">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="hamster-visitor-stats-endpoint" content="https://poultry.jiaqinyy.cn/hamster-stats/visit" />
     <meta name="hamster-workbench-version" content="dev" />
     <title>元书输入法皮肤工作台</title>
+    <style>
+      html.workbench-booting body {
+        margin: 0;
+        background: #eef3f9;
+      }
+
+      html.workbench-booting .app-shell {
+        visibility: hidden;
+      }
+
+      html.workbench-booting::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        background: #eef3f9;
+      }
+    </style>
   </head>
   <body>
     <div class="app-shell">
@@ -127,6 +145,7 @@
             </div>
             <div class="preview-controls">
               <button id="themeToggleButton" class="theme-toggle-button" type="button">浅色</button>
+              <button id="previewCalibrationButton" class="preview-calibration-button" type="button" aria-pressed="false">校准</button>
               <div class="candidate-tabs">
                 <button type="button" data-candidate-state="toolbar" class="active">工具栏</button>
                 <button type="button" data-candidate-state="candidates">候选</button>
@@ -138,7 +157,7 @@
           <section class="panel preview-operation-panel" aria-label="自定义操作提示">
             <div class="preview-operation-tip">
               <span class="preview-operation-label">操作提示</span>
-              <p>自定义模块会根据右侧当前键盘预览显示可操作内容；需要调配中文、英文、数字、符号或自定义面板时，请先切换对应键盘预览。</p>
+              <p>自定义模块会根据右侧当前键盘预览显示可操作内容；需要调配中文、英文、数字、符号或自定义面板时，请先切换对应键盘预览。横屏预览可将鼠标悬停在键盘上放大查看细节。</p>
             </div>
           </section>
           <section class="panel">
@@ -172,17 +191,26 @@
       }
 
       function loadStylesheet(path, cacheKey) {
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = assetUrl(path, cacheKey);
-        document.head.appendChild(link);
+        return new Promise((resolve, reject) => {
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = assetUrl(path, cacheKey);
+          link.addEventListener('load', resolve, { once: true });
+          link.addEventListener('error', () => reject(new Error(`stylesheet load failed: ${link.href}`)), { once: true });
+          document.head.appendChild(link);
+        });
       }
 
-      const version = await loadWorkbenchVersion();
-      const minuteBucket = Math.floor(Date.now() / CACHE_BUCKET_MS);
-      const cacheKey = `${version}-${minuteBucket}`;
-      loadStylesheet('./styles.css', cacheKey);
-      await import(assetUrl('./src/app.js', cacheKey));
+      try {
+        const version = await loadWorkbenchVersion();
+        const minuteBucket = Math.floor(Date.now() / CACHE_BUCKET_MS);
+        const cacheKey = `${version}-${minuteBucket}`;
+        await loadStylesheet('./styles.css', cacheKey);
+        await import(assetUrl('./src/app.js', cacheKey));
+      } finally {
+        document.documentElement.classList.remove('workbench-booting');
+        document.documentElement.classList.add('workbench-ready');
+      }
     </script>
   </body>
 </html>

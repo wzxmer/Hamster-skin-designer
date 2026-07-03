@@ -36,12 +36,14 @@ const state = {
   previewMode: 'keyboard26',
   previewModeStack: [],
   previewOrientation: 'portrait',
+  previewKeyboardDismissed: false,
   candidateState: 'toolbar',
   symbolicCategory: '常用',
   previewHintKey: null,
   previewPressedKey: null,
   previewShiftActive: false,
   previewCapsLocked: false,
+  previewCalibrationMode: false,
   previewExpanded: false,
   keyDrag: null,
   skipNextKeyEditorClick: false,
@@ -667,18 +669,22 @@ const DEFAULT_KEYBOARD26_FUNCTION_ACTIONS = {
 };
 const GUIDE_KEYBOARD_PRESET_OPTIONS = KEYBOARD_SKIN_PRESETS.map((preset) => ({
   value: preset.value,
-  label: preset.label,
+  label: `${preset.layout || '26'}键`,
 }));
 const GUIDE_ENGLISH_LAYOUT_OPTIONS = [
   { value: 'standard', label: '美式26键' },
 ];
 const GUIDE_PINYIN26_LETTER_CASE_OPTIONS = [
-  { value: 'lower', label: '小写 qwerty' },
-  { value: 'upper', label: '大写 QWERTY' },
+  { value: 'lower', label: '小写' },
+  { value: 'upper', label: '大写' },
 ];
 const GUIDE_ALPHABETIC26_LETTER_CASE_OPTIONS = [
-  { value: 'lower', label: '小写 qwerty' },
-  { value: 'upper', label: '大写 QWERTY' },
+  { value: 'lower', label: '小写' },
+  { value: 'upper', label: '大写' },
+];
+const GUIDE_LANDSCAPE_LAYOUT_OPTIONS = [
+  { value: 'split', label: '默认' },
+  { value: 'standard', label: '常规26' },
 ];
 const GUIDE_SYMBOL_LAYOUT_OPTIONS = [
   { value: 'system', label: 'App内符号键盘' },
@@ -751,6 +757,7 @@ const el = {
   resetPreviewKeyboardListButton: document.getElementById('resetPreviewKeyboardListButton'),
   expandPreviewButton: document.getElementById('expandPreviewButton'),
   themeToggleButton: document.getElementById('themeToggleButton'),
+  previewCalibrationButton: document.getElementById('previewCalibrationButton'),
   projectSummary: document.getElementById('projectSummary'),
   visitorStats: document.getElementById('visitorStats'),
   saveState: document.getElementById('saveState'),
@@ -1616,6 +1623,14 @@ function effectiveConfig(config = state.project?.config || {}, comboOverride = n
       next.pinyin[device].portrait = 'pinyin_9_portrait';
       next.pinyin[device].landscape = 'pinyin_9_landscape';
       if (device === 'iPad') next.pinyin[device].floating = 'pinyin_9_portrait';
+    }
+  }
+  if (combo.slots.pinyin.variant === '26' && combo.slots.pinyin.source !== 'disabled' && combo.slots.pinyin.enabled !== false) {
+    for (const device of ['iPhone', 'iPad']) {
+      next.pinyin[device] = next.pinyin[device] || {};
+      next.pinyin[device].portrait = 'pinyin_26_portrait';
+      next.pinyin[device].landscape = 'pinyin_26_landscape';
+      if (device === 'iPad') next.pinyin[device].floating = 'pinyin_26_portrait';
     }
   }
   if (['14', '17', '18'].includes(combo.slots.pinyin.variant) && combo.slots.pinyin.source !== 'disabled' && combo.slots.pinyin.enabled !== false) {
@@ -4342,6 +4357,8 @@ function guideFieldOptions() {
     keyboardPreset: GUIDE_KEYBOARD_PRESET_OPTIONS,
     pinyin26LetterCase: GUIDE_PINYIN26_LETTER_CASE_OPTIONS,
     alphabetic26LetterCase: GUIDE_ALPHABETIC26_LETTER_CASE_OPTIONS,
+    pinyinLandscapeLayout: GUIDE_LANDSCAPE_LAYOUT_OPTIONS,
+    alphabeticLandscapeLayout: GUIDE_LANDSCAPE_LAYOUT_OPTIONS,
     englishLayout: GUIDE_ENGLISH_LAYOUT_OPTIONS,
     symbolLayout: GUIDE_SYMBOL_LAYOUT_OPTIONS,
     emojiLayout: GUIDE_EMOJI_LAYOUT_OPTIONS,
@@ -4438,7 +4455,7 @@ function renderKeyboardCombo() {
   const fields = guideFieldOptions();
   const ready = guide.status === 'ready';
   return `
-    <section class="group-card">
+    <section class="group-card guide-layout-card">
       <h3>键盘布局</h3>
       <div class="keyboard-combo-grid">
         <section class="field-card keyboard-combo-card">
@@ -4456,6 +4473,12 @@ function renderKeyboardCombo() {
     value: guide.preferences.pinyin26LetterCase,
     options: fields.pinyin26LetterCase,
   })}
+            ${selectField({
+    path: 'guide.preferences.pinyinLandscapeLayout',
+    label: '26键横屏',
+    value: guide.preferences.pinyinLandscapeLayout,
+    options: fields.pinyinLandscapeLayout,
+  })}
           </div>
         </section>
         <section class="field-card keyboard-combo-card">
@@ -4472,6 +4495,12 @@ function renderKeyboardCombo() {
     label: '26键字母',
     value: guide.preferences.alphabetic26LetterCase,
     options: fields.alphabetic26LetterCase,
+  })}
+            ${selectField({
+    path: 'guide.preferences.alphabeticLandscapeLayout',
+    label: '26键横屏',
+    value: guide.preferences.alphabeticLandscapeLayout,
+    options: fields.alphabeticLandscapeLayout,
   })}
           </div>
         </section>
@@ -4494,7 +4523,7 @@ function renderKeyboardCombo() {
         </section>
       </div>
     </section>
-    <section class="group-card">
+    <section class="group-card guide-behavior-card">
       <h3>输入行为</h3>
       <div class="keyboard-combo-grid">
         ${GUIDE_SWIPE_PROFILE_CONFIGS.map((profile) => renderGuideSwipeProfileFields(profile, fields)).join('')}
@@ -4514,7 +4543,9 @@ function renderKeyboardCombo() {
     ${renderGuideSpacebarBuilder(guide)}
     <section class="group-card guide-generate-card">
       <div class="guide-generate-summary">
-        <p>${escapeHtml(guideSummaryText())}</p>
+        <div class="guide-summary-tags">
+          ${guideSummaryTags().map((item) => `<span>${escapeHtml(item)}</span>`).join('')}
+        </div>
       </div>
       <button class="tool-button primary guide-generate-button" type="button" data-guide-action="generate">${ready ? '重新生成方案' : '生成我的键盘方案'}</button>
     </section>
@@ -4663,6 +4694,8 @@ function buildGuidePlan(preferences = {}) {
     toolbarEnabled,
     pinyin26LetterCase: preferences.pinyin26LetterCase === 'upper' ? 'upper' : 'lower',
     alphabetic26LetterCase: preferences.alphabetic26LetterCase === 'upper' ? 'upper' : 'lower',
+    pinyinLandscapeLayout: preferences.pinyinLandscapeLayout === 'standard' ? 'standard' : 'split',
+    alphabeticLandscapeLayout: preferences.alphabeticLandscapeLayout === 'standard' ? 'standard' : 'split',
     swipeDirections: ['swipe_up', 'swipe_down'].filter((direction) => (
       direction === 'swipe_up'
         ? pinyinSwipeUpEnabled || alphabeticSwipeUpEnabled
@@ -4698,6 +4731,8 @@ function normalizedGuide(value = {}, fallbackStatus = 'pending') {
     chineseLayout: preset.layout || (['9', '14', '17', '18', '26'].includes(preferences.chineseLayout) ? preferences.chineseLayout : '26'),
     pinyin26LetterCase: preferences.pinyin26LetterCase === 'upper' ? 'upper' : 'lower',
     alphabetic26LetterCase: preferences.alphabetic26LetterCase === 'upper' ? 'upper' : 'lower',
+    pinyinLandscapeLayout: preferences.pinyinLandscapeLayout === 'standard' ? 'standard' : 'split',
+    alphabeticLandscapeLayout: preferences.alphabeticLandscapeLayout === 'standard' ? 'standard' : 'split',
     englishLayout: 'standard',
     symbolLayout: preferences.symbolLayout === 'custom' ? 'custom' : 'system',
     emojiLayout: preferences.emojiLayout === 'custom' ? 'custom' : 'system',
@@ -4729,6 +4764,8 @@ function normalizedGuide(value = {}, fallbackStatus = 'pending') {
       toolbarEnabled: value.generatedPlan.toolbarEnabled !== false,
       pinyin26LetterCase: value.generatedPlan.pinyin26LetterCase === 'upper' ? 'upper' : derivedPlan.pinyin26LetterCase,
       alphabetic26LetterCase: value.generatedPlan.alphabetic26LetterCase === 'upper' ? 'upper' : derivedPlan.alphabetic26LetterCase,
+      pinyinLandscapeLayout: value.generatedPlan.pinyinLandscapeLayout === 'standard' ? 'standard' : derivedPlan.pinyinLandscapeLayout,
+      alphabeticLandscapeLayout: value.generatedPlan.alphabeticLandscapeLayout === 'standard' ? 'standard' : derivedPlan.alphabeticLandscapeLayout,
       swipeDirections: Array.isArray(value.generatedPlan.swipeDirections)
         ? value.generatedPlan.swipeDirections.filter((item) => ['swipe_up', 'swipe_down'].includes(item))
         : derivedPlan.swipeDirections,
@@ -4854,6 +4891,8 @@ function inferGuidePreferencesFromProject(project = {}) {
     chineseLayout,
     pinyin26LetterCase: project?.guide?.preferences?.pinyin26LetterCase === 'upper' ? 'upper' : 'lower',
     alphabetic26LetterCase: project?.guide?.preferences?.alphabetic26LetterCase === 'upper' ? 'upper' : 'lower',
+    pinyinLandscapeLayout: project?.guide?.preferences?.pinyinLandscapeLayout === 'standard' ? 'standard' : 'split',
+    alphabeticLandscapeLayout: project?.guide?.preferences?.alphabeticLandscapeLayout === 'standard' ? 'standard' : 'split',
     englishLayout: 'standard',
     symbolLayout: combo.slots.symbolic.source === 'system' ? 'system' : 'custom',
     emojiLayout: combo.slots.emoji.source === 'custom' ? 'custom' : 'system',
@@ -4915,19 +4954,28 @@ function guideSummaryText(project = state.project) {
     ? inferGuidePreferencesFromProject(project)
     : guide.preferences;
   const preset = keyboardSkinPresetByValue(preferences.keyboardPreset || DEFAULT_KEYBOARD_SKIN_PRESET);
+  const presetLabel = `${preset.layout || preferences.chineseLayout || '26'}键`;
   const swipeText = [
     `中文${preferences.pinyinSwipeUpEnabled ? '上划' : '不含上划'}${preferences.pinyinSwipeDownEnabled ? '/下划' : ''}`,
     `英文${preferences.alphabeticSwipeUpEnabled ? '上划' : '不含上划'}${preferences.alphabeticSwipeDownEnabled ? '/下划' : ''}`,
   ].join(' / ');
   const toolbarText = preferences.defaultToolbarEnabled ? '默认工具栏' : '不生成默认工具栏';
   return [
-    `当前选择：${preset.label}`,
+    `当前选择：${presetLabel}`,
     `中文26键${preferences.pinyin26LetterCase === 'upper' ? '大写字母' : '小写字母'}`,
+    `横屏：中文${preferences.pinyinLandscapeLayout === 'standard' ? '常规26' : '默认'} / 英文${preferences.alphabeticLandscapeLayout === 'standard' ? '常规26' : '默认'}`,
     `英文${preferences.englishLayout === 'standard' ? '美式26键' : preferences.englishLayout}${preferences.alphabetic26LetterCase === 'upper' ? '大写字母' : '小写字母'}`,
     `Symbols：符号${preferences.symbolLayout === 'system' ? 'App内' : '自定义'} / Emoji${preferences.emojiLayout === 'system' ? 'App内' : '自定义'}`,
     swipeText,
     toolbarText,
   ].filter(Boolean).join(' / ');
+}
+
+function guideSummaryTags(project = state.project) {
+  return guideSummaryText(project)
+    .split(' / ')
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function visibleModuleCount(project = state.project) {
@@ -6769,6 +6817,7 @@ function togglePreviewModeMenu() {
 function setPreviewMode(mode) {
   state.previewMode = mode;
   state.previewModeStack = [];
+  state.previewKeyboardDismissed = false;
   state.editingKey = null;
   closePreviewModeMenu();
   if (isPreviewScopedModule()) renderEditor();
@@ -6778,6 +6827,7 @@ function setPreviewMode(mode) {
 function setPreviewModeFromControl(mode) {
   state.previewMode = mode;
   state.previewModeStack = [];
+  state.previewKeyboardDismissed = false;
 }
 
 function renderPreviewModeOptions() {
@@ -7060,6 +7110,7 @@ function currentPreviewRenderOptions(overrides = {}) {
     activeHintKey: state.previewHintKey,
     activePressedKey: state.previewPressedKey || (state.centerEditMode === 'custom' ? state.selectedCenterTarget?.key : null),
     shiftActive: state.previewCapsLocked || state.previewShiftActive,
+    calibrationMode: state.previewCalibrationMode,
     ...overrides,
   };
 }
@@ -7159,8 +7210,16 @@ function releasePreviewKeyboardCell() {
     state.previewMode = switchTargetMode;
     state.previewShiftActive = false;
     state.previewCapsLocked = false;
+    state.previewKeyboardDismissed = false;
     clearPressedPreviewCell();
     renderEditor();
+    return;
+  }
+  if (releasedKey === 'close') {
+    state.previewKeyboardDismissed = true;
+    state.previewShiftActive = false;
+    state.previewCapsLocked = false;
+    clearPressedPreviewCell();
     return;
   }
   if (renderMode === 'keyboard26' && releasedKey === 'shift') {
@@ -7269,8 +7328,8 @@ function renderWelcomeNotice() {
     <section class="welcome-notice-dialog" role="dialog" aria-modal="true" aria-labelledby="welcomeNoticeTitle">
       <h2 id="welcomeNoticeTitle">开放性测试说明</h2>
       <div class="welcome-notice-body">
-        <p>当前工具处于开放性测试阶段，暂时只支持纯色皮肤编辑。</p>
-        <p>导入功能支持读取纯色皮肤包，并会尝试解析同类导出后缀中的 Jsonnet / YAML 固定属性。</p>
+        <p>当前工具处于开放性测试阶段，图片素材编辑尚未完整开放。</p>
+        <p>导入功能支持读取当前工作台导出的皮肤包，并会尝试解析同类导出后缀中的 Jsonnet / YAML 固定属性。</p>
         <p>本工具不是元书作者创作。问题反馈请联系 Q 群浮生，或在元书频道皮肤专栏反馈，请勿反馈错人。</p>
       </div>
       <div class="welcome-notice-actions">
@@ -7321,6 +7380,9 @@ function renderCurrentPreview() {
   el.themeToggleButton.title = `点击切换为${nextThemeLabel}`;
   el.themeToggleButton.dataset.theme = state.theme;
   el.themeToggleButton.classList.toggle('active', state.theme === 'dark');
+  el.previewCalibrationButton.classList.toggle('active', state.previewCalibrationMode);
+  el.previewCalibrationButton.setAttribute('aria-pressed', state.previewCalibrationMode ? 'true' : 'false');
+  el.previewCalibrationButton.title = state.previewCalibrationMode ? '当前显示真实字号/偏移，用于检查遮挡' : '显示真实字号/偏移，用于检查遮挡';
   el.expandPreviewButton.setAttribute('aria-label', state.previewExpanded ? '关闭放大预览' : '放大预览');
   el.expandPreviewButton.title = state.previewExpanded ? '关闭放大预览' : '放大预览';
   if (!guideReady) {
@@ -7336,6 +7398,15 @@ function renderCurrentPreview() {
     return;
   }
   const previewRootWidth = el.previewRoot?.clientWidth || 0;
+  if (state.previewKeyboardDismissed) {
+    el.previewRoot.innerHTML = `
+      <section class="preview-dismissed-placeholder">
+        <span>键盘已收起</span>
+      </section>
+    `;
+    renderPreviewExpandDialog();
+    return;
+  }
   const previewOptions = currentPreviewRenderOptions({
     maxDisplayWidth: Math.max(0, (previewRootWidth - 24) * 0.96),
   });
@@ -9098,6 +9169,11 @@ function bindEvents() {
 
   el.themeToggleButton.addEventListener('click', () => {
     setActiveTheme(state.theme === 'dark' ? 'light' : 'dark');
+  });
+
+  el.previewCalibrationButton.addEventListener('click', () => {
+    state.previewCalibrationMode = !state.previewCalibrationMode;
+    renderCurrentPreview();
   });
 
   document.querySelector('.preview-controls')?.addEventListener('click', (event) => {

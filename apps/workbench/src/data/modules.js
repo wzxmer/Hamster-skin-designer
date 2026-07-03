@@ -59,7 +59,7 @@ const MODULE_DEFINITIONS = [
     id: 'assets',
     title: '图片素材',
     kicker: 'Assets',
-    description: '控制背景、长按、候选等图片素材引用。',
+    description: '图片素材编辑尚未完整开放，暂时保留底层引用能力。',
     path: 'assets.images',
     kind: 'assets',
   },
@@ -137,7 +137,7 @@ const MODULE_DEFINITIONS = [
   },
 ];
 
-export const DISABLED_MODULE_IDS = new Set(['animation']);
+export const DISABLED_MODULE_IDS = new Set(['assets', 'animation']);
 
 export const MODULES = MODULE_DEFINITIONS.map((module) => ({
   ...module,
@@ -145,7 +145,7 @@ export const MODULES = MODULE_DEFINITIONS.map((module) => ({
 }));
 
 export const COVERAGE_ITEMS = [
-  ['config/keys.libsonnet', '边距、高度、文案、工具栏和图片已拆为模块；动画暂时禁用'],
+  ['config/keys.libsonnet', '边距、高度、文案、工具栏已拆为模块；图片素材和动画暂时禁用'],
   ['color.libsonnet', '颜色模块覆盖浅色和深色'],
   ['fontSize.libsonnet', '字号模块覆盖共享字号'],
   ['center.libsonnet', '偏移和缩放模块覆盖位置与缩放'],

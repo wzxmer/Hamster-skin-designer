@@ -252,6 +252,14 @@ function effectiveConfigForExport(config = {}, keyboardCombo = {}) {
       if (device === 'iPad') next.pinyin[device].floating = `pinyin_${slots.pinyin.variant}_portrait`;
     }
   }
+  if (slots.pinyin?.variant === '26' && slots.pinyin?.source !== 'disabled' && slots.pinyin?.enabled !== false) {
+    for (const device of ['iPhone', 'iPad']) {
+      next.pinyin[device] = next.pinyin[device] || {};
+      next.pinyin[device].portrait = 'pinyin_26_portrait';
+      next.pinyin[device].landscape = 'pinyin_26_landscape';
+      if (device === 'iPad') next.pinyin[device].floating = 'pinyin_26_portrait';
+    }
+  }
 
   if (inputStrategy !== 'separateAlphabetic' || slots.alphabetic?.source === 'disabled') {
     next.alphabetic = {};
@@ -263,6 +271,14 @@ function effectiveConfigForExport(config = {}, keyboardCombo = {}) {
       next.numeric[device].portrait = 'numeric_ios_portrait';
       next.numeric[device].landscape = 'numeric_ios_landscape';
       if (device === 'iPad') next.numeric[device].floating = 'numeric_ios_portrait';
+    }
+  }
+  if (slots.numeric?.variant === '9') {
+    for (const device of ['iPhone', 'iPad']) {
+      next.numeric[device] = next.numeric[device] || {};
+      next.numeric[device].portrait = 'numeric_9_portrait';
+      next.numeric[device].landscape = 'numeric_9_landscape';
+      if (device === 'iPad') next.numeric[device].floating = 'numeric_9_portrait';
     }
   }
 
@@ -499,8 +515,8 @@ function buildSymbolicNativeKeyboardPayload(project, themeName, keyboardName) {
   const descriptionWidth = isLandscape ? '611/667' : '319/375';
   const keyboardHeight = Number(frame.keyboardHeight) || (isLandscape ? 160 : 268);
   const foregroundColor = themeColors['按键前景颜色'] || (themeName === 'dark' ? '#FFFFFF' : '#000000');
-  const keyboardBackground = themeColors['键盘背景颜色'] || (themeName === 'dark' ? '#1f2024' : '#D0D3DA01');
-  const functionNormal = themeColors['功能键背景颜色-普通'] || (themeName === 'dark' ? '#4d535d' : '#979faf80');
+  const keyboardBackground = themeColors['键盘背景颜色'] || (themeName === 'dark' ? '#1f2024' : '#E1E2E7');
+  const functionNormal = themeColors['功能键背景颜色-普通'] || (themeName === 'dark' ? '#4d535d' : '#BDC1CC');
   const functionHighlight = themeColors['功能键背景颜色-高亮'] || (themeName === 'dark' ? '#5c6370' : '#FFFFFFE6');
   const lowerEdge = themeColors['底边缘颜色-普通'] || (themeName === 'dark' ? '#2b2d31' : '#88898D');
   const categoryBg = themeColors['符号键盘左侧collection背景颜色'] || functionNormal;
@@ -715,7 +731,7 @@ function buildPanelNativeKeyboardPayload(project, themeName, keyboardName) {
     keyboardBackgroundStyle: {
       buttonStyleType: 'geometry',
       cornerRadius: panelFrame.cornerRadius ?? 15,
-      normalColor: themeColors['键盘背景颜色'] || '#D0D3DA00',
+      normalColor: themeColors['键盘背景颜色'] || '#E1E2E7',
     },
     ButtonBackgroundStyle: {
       buttonStyleType: 'geometry',
@@ -1002,7 +1018,9 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
       delete payload[buttonName].size;
       delete payload[buttonName].bounds;
       const configuredAction = project.toolbar?.actions?.[toolbarKey];
-      if (isPlainObject(configuredAction)) {
+      if (toolbarKey === 'close' && normalizeActionObject(configuredAction)?.action === 'dismissKeyboard') {
+        payload[buttonName].action = 'dismissKeyboard';
+      } else if (isPlainObject(configuredAction)) {
         payload[buttonName].action = structuredClone(configuredAction);
       } else if (toolbarKey === 'close') {
         payload[buttonName].action = 'dismissKeyboard';
@@ -1277,7 +1295,13 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
     const style = payload?.[styleName];
     if (!isPlainObject(style)) continue;
     if (style.normalColor !== undefined) {
-      style.normalColor = normalizeContainerColor(style.normalColor, themeColors['键盘背景颜色'] || '#00000001');
+      const themedBackground = themeColors['键盘背景颜色'];
+      const currentColor = String(style.normalColor || '');
+      if (themedBackground && /^#?[0-9a-fA-F]{6}0[01]$/.test(currentColor)) {
+        style.normalColor = normalizeContainerColor(themedBackground, '#00000001');
+      } else {
+        style.normalColor = normalizeContainerColor(style.normalColor, themedBackground || '#00000001');
+      }
     }
   }
   if ((keyboardName.startsWith('pinyin_') || keyboardName.startsWith('alphabetic_'))
@@ -1335,6 +1359,17 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
     const legacyUppercasedStyle = payload[`${buttonName}UppercasedStateForegroundStyle`];
     if (legacyUppercasedStyle && !payload[`${buttonName}UppercasedForegroundStyle`]) {
       payload[`${buttonName}UppercasedForegroundStyle`] = structuredClone(legacyUppercasedStyle);
+    }
+    if (/^pinyin_26_|^alphabetic_26_/.test(keyboardName)) {
+      for (const refKey of ['uppercasedStateForegroundStyle', 'capsLockedStateForegroundStyle']) {
+        if (!Array.isArray(button[refKey])) continue;
+        const upperRef = `${buttonName}UppercasedForegroundStyle`;
+        const legacyRef = `${buttonName}UppercasedStateForegroundStyle`;
+        button[refKey] = button[refKey]
+          .filter((item) => item !== legacyRef)
+          .filter((item, index, items) => items.indexOf(item) === index);
+        if (!button[refKey].includes(upperRef)) button[refKey].unshift(upperRef);
+      }
     }
   }
 
@@ -1483,9 +1518,9 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
     return {
       buttonStyleType: 'text',
       center: isSwipe
-        ? sharedCenter[isSwipeUp ? '上划文字偏移' : '下划文字偏移'] || { x: 0.5, y: isSwipeUp ? 0.24 : 0.76 }
+        ? sharedCenter[isSwipeUp ? '上划文字偏移' : '下划文字偏移'] || { x: 0.5, y: isSwipeUp ? 0.18 : 0.84 }
         : sharedCenter['26键中文前景偏移'] || sharedCenter['按键前景文字偏移'] || { x: 0.5, y: 0.5 },
-      fontSize: isSwipe ? sharedFontSize['上划文字大小'] || 8 : sharedFontSize['按键前景文字大小'] || 14,
+      fontSize: isSwipe ? sharedFontSize[isSwipeUp ? '上划文字大小' : '下划文字大小'] || 7 : sharedFontSize['按键前景文字大小'] || 14,
       highlightColor: isSwipe ? swipeTextColor : keyTextColor,
       normalColor: isSwipe ? swipeTextColor : keyTextColor,
       text: fallbackTextForStyle(styleName, button),
@@ -1496,6 +1531,26 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
     cornerRadius: styleName === 'toolbarButtonBackgroundStyle' ? 7 : 8,
     highlightColor: '#00000001',
     normalColor: '#00000001',
+  });
+  const sharedFunctionBackgroundStyle = () => {
+    const style = structuredClone(payload.systemButtonBackgroundStyle || payload.alphabeticBackgroundStyle || fallbackBackgroundStyle('systemButtonBackgroundStyle'));
+    applySurfaceStyle(style, project.keyStyles?.surfaceStyles?.keyboard26?.functionKey);
+    applyInsets(style, project.keyStyles?.buttonInsets?.keyboard26?.functionKey);
+    style.normalColor = themeColors['功能键背景颜色-普通'] || style.normalColor;
+    style.highlightColor = themeColors['功能键背景颜色-高亮'] || style.highlightColor;
+    style.normalLowerEdgeColor = themeColors['底边缘颜色-普通'] || style.normalLowerEdgeColor;
+    style.highlightLowerEdgeColor = themeColors['底边缘颜色-高亮'] || style.highlightLowerEdgeColor;
+    style.borderColor = themeColors['按键边缘颜色'] || style.borderColor;
+    return style;
+  };
+  const sharedCollectionBackgroundStyle = () => {
+    const style = sharedFunctionBackgroundStyle();
+    applyInsets(style, project.keyStyles?.buttonInsets?.keyboard26?.punctuationColumn || project.keyStyles?.buttonInsets?.keyboard26?.functionKey);
+    return style;
+  };
+  const sharedKeyboardContainerBackgroundStyle = () => ({
+    buttonStyleType: 'geometry',
+    normalColor: normalizeContainerColor(themeColors['键盘背景颜色'], '#00000001'),
   });
   const setTextStyle = (styleName, text, options = {}) => {
     payload[styleName] = {
@@ -1532,6 +1587,13 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
       fontSize: sharedFontSize['未展开候选字体选中字体大小'] || 16,
       normalColor: keyTextColor,
     };
+    if (isPlainObject(payload.collectionBackgroundStyle)) {
+      const collectionBackgroundStyle = sharedCollectionBackgroundStyle();
+      payload.collectionBackgroundStyle = {
+        ...payload.collectionBackgroundStyle,
+        ...collectionBackgroundStyle,
+      };
+    }
     if (isPlainObject(payload.collection)) {
       payload.collection.type = 't9Symbols';
       payload.collection.dataSource = 'symbols';
@@ -1573,6 +1635,45 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   };
   const normalizeNumeric9Payload = () => {
     if (!keyboardName.startsWith('numeric_9_')) return;
+    const containerBackgroundStyle = sharedKeyboardContainerBackgroundStyle();
+    payload.keyboardBackgroundStyle = isPlainObject(payload.keyboardBackgroundStyle)
+      ? payload.keyboardBackgroundStyle
+      : structuredClone(containerBackgroundStyle);
+    payload.toolbarBackgroundStyle = isPlainObject(payload.toolbarBackgroundStyle)
+      ? payload.toolbarBackgroundStyle
+      : structuredClone(containerBackgroundStyle);
+    payload.keyboardStyle = payload.keyboardStyle && isPlainObject(payload.keyboardStyle) ? payload.keyboardStyle : {};
+    payload.keyboardStyle.backgroundStyle = 'keyboardBackgroundStyle';
+    payload.toolbarStyle = payload.toolbarStyle && isPlainObject(payload.toolbarStyle) ? payload.toolbarStyle : {};
+    payload.toolbarStyle.backgroundStyle = 'toolbarBackgroundStyle';
+    const normalBackgroundStyle = structuredClone(payload.alphabeticBackgroundStyle || payload.number1Bg || fallbackBackgroundStyle('numericNumberBackgroundStyle'));
+    applySurfaceStyle(normalBackgroundStyle, project.keyStyles?.surfaceStyles?.keyboard26?.normal);
+    applyInsets(normalBackgroundStyle, project.keyStyles?.buttonInsets?.keyboard26?.normal);
+    normalBackgroundStyle.normalColor = themeColors['按键背景颜色-普通'] || normalBackgroundStyle.normalColor;
+    normalBackgroundStyle.highlightColor = themeColors['按键背景颜色-高亮'] || normalBackgroundStyle.highlightColor;
+    normalBackgroundStyle.normalLowerEdgeColor = themeColors['底边缘颜色-普通'] || normalBackgroundStyle.normalLowerEdgeColor;
+    normalBackgroundStyle.highlightLowerEdgeColor = themeColors['底边缘颜色-高亮'] || normalBackgroundStyle.highlightLowerEdgeColor;
+    normalBackgroundStyle.borderColor = themeColors['按键边缘颜色'] || normalBackgroundStyle.borderColor;
+    const functionBackgroundStyle = sharedFunctionBackgroundStyle();
+    const collectionBackgroundStyle = sharedCollectionBackgroundStyle();
+    payload.systemButtonBackgroundStyle = structuredClone(functionBackgroundStyle);
+    for (const styleName of [
+      'backspaceBg',
+      'clearBg',
+      'commaBg',
+      'equalBg',
+      'periodBg',
+      'returnBgGray',
+      'returnBgCol',
+      'enterBgGray',
+      'enterBgCol',
+      'symbolicBg',
+    ]) {
+      payload[styleName] = structuredClone(functionBackgroundStyle);
+    }
+    payload.spaceBg = structuredClone(normalBackgroundStyle);
+    payload.symbolsCollectionBg = structuredClone(collectionBackgroundStyle);
+    payload.collectionBackgroundStyle = structuredClone(collectionBackgroundStyle);
     if (!isPlainObject(payload.collection) && isPlainObject(payload.Numeric)) {
       const source = isPlainObject(payload.Numeric.system) ? payload.Numeric.system : payload.Numeric.custom;
       if (isPlainObject(source)) payload.collection = structuredClone(source);
@@ -1580,6 +1681,20 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
     if (isPlainObject(payload.collection)) {
       payload.collection.type = payload.collection.type || 'numericSymbols';
       payload.collection.dataSource = payload.collection.dataSource || 'numericSymbols';
+    }
+    for (let index = 0; index <= 9; index += 1) {
+      const buttonName = `number${index}Button`;
+      const styleName = `number${index}Fg`;
+      if (isPlainObject(payload[buttonName])) {
+        payload[buttonName].backgroundStyle = `number${index}Bg`;
+        payload[buttonName].foregroundStyle = [styleName];
+      }
+      payload[`number${index}Bg`] = structuredClone(normalBackgroundStyle);
+      setTextStyle(styleName, String(index), {
+        center: { ...(sharedCenter['数字键盘数字前景偏移'] || sharedCenter['26键中文前景偏移'] || {}), x: 0.5, y: 0.54 },
+        fontSize: sharedFontSize['数字键盘数字前景字体大小'] || sharedFontSize['按键前景文字大小'] || 15,
+      });
+      payload[`${buttonName}ForegroundStyle`] = structuredClone(payload[styleName]);
     }
   };
   const normalizeIos14AlphabeticPayload = () => {
@@ -1612,7 +1727,15 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
       'asBg', 'dfBg', 'ghBg', 'jkBg', 'lBg',
       'zxBg', 'cvBg', 'bnBg', 'mBg',
     ];
-    const functionBackgroundKeys = ['shiftBg', 'backspaceBg', '123Bg', 'commaBg', 'cnenBg', 'enterBgGray'];
+    const functionBackgroundKeys = ['shiftBg', 'backspaceBg', '123Bg', 'commaBg', 'cnenBg', 'periodBg', 'enterBgGray'];
+    const normalBackgroundStyle = structuredClone(payload.alphabeticBackgroundStyle || fallbackBackgroundStyle('alphabeticBackgroundStyle'));
+    applySurfaceStyle(normalBackgroundStyle, project.keyStyles?.surfaceStyles?.keyboard26?.normal);
+    applyInsets(normalBackgroundStyle, project.keyStyles?.buttonInsets?.keyboard26?.normal);
+    normalBackgroundStyle.normalColor = themeColors['按键背景颜色-普通'] || normalBackgroundStyle.normalColor;
+    normalBackgroundStyle.highlightColor = themeColors['按键背景颜色-高亮'] || normalBackgroundStyle.highlightColor;
+    normalBackgroundStyle.normalLowerEdgeColor = themeColors['底边缘颜色-普通'] || normalBackgroundStyle.normalLowerEdgeColor;
+    normalBackgroundStyle.highlightLowerEdgeColor = themeColors['底边缘颜色-高亮'] || normalBackgroundStyle.highlightLowerEdgeColor;
+    normalBackgroundStyle.borderColor = themeColors['按键边缘颜色'] || normalBackgroundStyle.borderColor;
     const functionBackgroundStyle = structuredClone(payload.systemButtonBackgroundStyle || payload.alphabeticBackgroundStyle || fallbackBackgroundStyle('systemButtonBackgroundStyle'));
     applySurfaceStyle(functionBackgroundStyle, project.keyStyles?.surfaceStyles?.keyboard26?.functionKey);
     applyInsets(functionBackgroundStyle, project.keyStyles?.buttonInsets?.keyboard26?.functionKey);
@@ -1636,6 +1759,7 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
     for (const styleName of functionBackgroundKeys) {
       payload[styleName] = structuredClone(functionBackgroundStyle);
     }
+    payload.spaceBg = structuredClone(normalBackgroundStyle);
     payload.enterBgCol = structuredClone(enterBackgroundStyle);
     if (keyboardName.includes('portrait')) {
       const footerWidths = {
@@ -1893,8 +2017,8 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
         buttonStyleType: 'text',
         center: baseMatch
           ? sharedCenter['26键中文前景偏移'] || sharedCenter['按键前景文字偏移'] || { x: 0.5, y: 0.5 }
-          : sharedCenter[upMatch ? '上划文字偏移' : '下划文字偏移'] || { x: 0.5, y: upMatch ? 0.24 : 0.76 },
-        fontSize: baseMatch ? sharedFontSize['按键前景文字大小'] || 14 : sharedFontSize['上划文字大小'] || 8,
+          : sharedCenter[upMatch ? '上划文字偏移' : '下划文字偏移'] || { x: 0.5, y: upMatch ? 0.18 : 0.84 },
+        fontSize: baseMatch ? sharedFontSize['按键前景文字大小'] || 14 : sharedFontSize[upMatch ? '上划文字大小' : '下划文字大小'] || 7,
         highlightColor: baseMatch ? keyTextColor : swipeTextColor,
         normalColor: baseMatch ? keyTextColor : swipeTextColor,
         text: text || '',
@@ -1979,14 +2103,17 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
       continue;
     }
 
-    if (/^[a-z]ButtonUppercasedStateForegroundStyle$/i.test(styleName)) {
-      const keyId = styleName.slice(0, styleName.indexOf('ButtonUppercasedStateForegroundStyle'));
+    if (/^[a-z]Button(?:Uppercased|UppercasedState)ForegroundStyle$/i.test(styleName)) {
+      const keyId = styleName
+        .replace(/ButtonUppercasedStateForegroundStyle$/i, '')
+        .replace(/ButtonUppercasedForegroundStyle$/i, '');
       applyTextStyle(style, {
         fontSize: sharedFontSize['按键前景文字大小'],
         center: customCenters.keyboard26?.[keyId],
         normalColor: keyTextColor,
         highlightColor: keyTextColor,
       });
+      if (/^[a-z]$/i.test(keyId)) style.text = keyId.toUpperCase();
       continue;
     }
 

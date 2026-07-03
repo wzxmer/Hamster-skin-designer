@@ -36,7 +36,7 @@ assert(model.nativePayload.toolbarMenuButton?.action?.keyboardType === 'panel', 
 assert(!model.nativePayload.toolbarMenuButton?.action?.floatKeyboardType, '工具栏菜单不应继续导出 floatKeyboardType: panel。');
 assert(model.nativePayload.toolbarPhraseButton?.action?.shortcut === '#showPhraseView', '工具栏常用语应导出 showPhraseView 快捷指令。');
 assert(model.nativePayload.toolbarPasteboardButton?.action?.shortcut === '#showPasteboardView', '工具栏剪贴板应导出 showPasteboardView 快捷指令。');
-assert(model.nativePayload.toolbarCloseButton?.action?.action === 'dismissKeyboard', '工具栏收起键应导出标准 action，不应退化成 shortcut。');
+assert(model.nativePayload.toolbarCloseButton?.action === 'dismissKeyboard', '工具栏收起键应导出 App 可直接执行的标准 action 字符串。');
 assert(normalizeActionObject({ action: 'dismissKeyboard' })?.action === 'dismissKeyboard', '标准 action 包装对象不应被规范化为 shortcut。');
 assert(normalizeActionObject({ shortcutCommand: '#Phrase' })?.shortcut === '#showPhraseView', '旧 shortcutCommand 常用语应兼容归一为官方 shortcut。');
 assert(normalizeActionObject({ shortcut: '#Pasteboard' })?.shortcut === '#showPasteboardView', '旧剪贴板快捷指令应兼容归一为官方 shortcut。');
@@ -51,12 +51,12 @@ assert(!model.nativePayload.qButton?.foregroundStyle?.includes('qButtonSwipeUpFo
 assert(!model.nativePayload.qButton?.foregroundStyle?.includes('qButtonSwipeDownForegroundStyle'), '26 键导出不应把预览 SwipeDown 别名写入按钮引用。');
 assert(!model.nativePayload.qButtonSwipeUpForegroundStyle, '26 键导出不应生成预览 SwipeUp 别名样式。');
 assert(!model.nativePayload.qButtonSwipeDownForegroundStyle, '26 键导出不应生成预览 SwipeDown 别名样式。');
-assert(model.nativePayload.qButtonUpForegroundStyle?.fontSize === 8, '上划提示应使用收窄后的默认字号。');
-assert(model.nativePayload.qButtonUpForegroundStyle?.center?.x === 0.5 && model.nativePayload.qButtonUpForegroundStyle?.center?.y === 0.24, '上划提示应使用上方居中的默认偏移。');
-assert(model.nativePayload.qButtonDownForegroundStyle?.fontSize === 8, '下划提示应使用收窄后的默认字号。');
-assert(model.nativePayload.qButtonDownForegroundStyle?.center?.x === 0.5 && model.nativePayload.qButtonDownForegroundStyle?.center?.y === 0.76, '下划提示应使用下方居中的默认偏移。');
+assert(model.nativePayload.qButtonUpForegroundStyle?.fontSize === 7, '上划提示应使用校准后的默认字号。');
+assert(model.nativePayload.qButtonUpForegroundStyle?.center?.x === 0.5 && model.nativePayload.qButtonUpForegroundStyle?.center?.y === 0.18, '上划提示应使用更靠上的默认偏移。');
+assert(model.nativePayload.qButtonDownForegroundStyle?.fontSize === 7, '下划提示应使用校准后的默认字号。');
+assert(model.nativePayload.qButtonDownForegroundStyle?.center?.x === 0.5 && model.nativePayload.qButtonDownForegroundStyle?.center?.y === 0.84, '下划提示应使用更靠下的默认偏移。');
 assert(model.nativePayload.candidateStyle?.preferredBackgroundColor, '效果模型应包含候选高亮背景。');
-assert(model.nativePayload.keyboardBackgroundStyle?.normalColor?.endsWith('01'), '默认几何容器背景应保持 01 近透明。');
+assert(model.nativePayload.keyboardBackgroundStyle?.normalColor === '#E1E2E7', '默认几何容器背景应使用实机校准后的键盘灰。');
 assert(model.nativePayload.enterButtonBlueBackgroundStyle?.borderSize === 0, '蓝色发送键默认不应保留普通键边框。');
 assert(model.nativePayload.enterButtonBlueBackgroundStyle?.shadowRadius <= 0.6, '蓝色发送键默认阴影应比普通键更轻。');
 assert(model.nativePayload.enterButtonBlueBackgroundStyle?.shadowOffset?.y <= 0.45, '蓝色发送键默认底部阴影不应过厚。');
@@ -129,7 +129,7 @@ invalidBackgroundProject.nativeKeyboardPayloads.light.pinyin_26_portrait.keyboar
 };
 const invalidBackgroundModel = buildSkinEffectModel(invalidBackgroundProject, { theme: 'light', keyboardName: 'pinyin_26_portrait' });
 assert(invalidBackgroundModel.nativePayload.keyboardBackgroundStyle?.buttonStyleType === 'geometry', '未打包资源的键盘背景图片应回退几何样式。');
-assert(invalidBackgroundModel.nativePayload.keyboardBackgroundStyle?.normalColor?.endsWith('01'), '回退后的键盘背景应保持近透明容器色。');
+assert(invalidBackgroundModel.nativePayload.keyboardBackgroundStyle?.normalColor === '#E1E2E7', '回退后的键盘背景应使用当前主题键盘灰。');
 
 const stalePayloadProject = createSampleProject();
 stalePayloadProject.theme.shared.fontSize['按键前景文字大小'] = 31;

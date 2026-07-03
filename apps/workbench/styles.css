@@ -889,6 +889,18 @@ button:disabled:hover {
   gap: 12px;
 }
 
+.guide-layout-card,
+.guide-behavior-card {
+  gap: 12px;
+  padding: 14px;
+}
+
+.guide-layout-card .keyboard-combo-grid,
+.guide-behavior-card .keyboard-combo-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 8px;
+}
+
 .keyboard-combo-card {
   display: grid;
   gap: 10px;
@@ -905,7 +917,8 @@ button:disabled:hover {
 
 .guide-spacebar-card {
   display: grid;
-  gap: 12px;
+  gap: 8px;
+  padding: 14px;
 }
 
 .guide-spacebar-card .row-title {
@@ -918,10 +931,10 @@ button:disabled:hover {
 }
 
 .guide-spacebar-selected {
-  min-height: 56px;
-  padding: 10px;
+  min-height: 44px;
+  padding: 6px;
   border: 1px dashed #cbd5e1;
-  border-radius: 14px;
+  border-radius: 12px;
   background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
 }
 
@@ -932,6 +945,7 @@ button:disabled:hover {
 
 .guide-spacebar-token {
   grid-template-columns: auto minmax(56px, 1fr) auto;
+  min-height: 34px;
 }
 
 .guide-spacebar-token.is-fixed {
@@ -948,7 +962,7 @@ button:disabled:hover {
   align-items: center;
   justify-content: center;
   min-width: 34px;
-  height: 24px;
+  height: 22px;
   padding: 0 8px;
   border-radius: 999px;
   background: #dbeafe;
@@ -961,21 +975,21 @@ button:disabled:hover {
 .guide-spacebar-pool {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .guide-spacebar-option {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 42px;
-  padding: 0 16px;
+  min-height: 34px;
+  padding: 0 12px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 12px;
   background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
   color: var(--text);
   cursor: pointer;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 850;
   line-height: 1;
 }
@@ -998,10 +1012,10 @@ button:disabled:hover {
 .guide-generate-card {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr;
-  place-items: center;
-  gap: 16px;
-  padding: 22px 16px 20px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
   border-color: #bfdbfe;
   background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.82) inset;
@@ -1018,30 +1032,39 @@ button:disabled:hover {
 
 .guide-generate-summary {
   position: relative;
-  display: grid;
-  justify-items: center;
-  text-align: center;
+  min-width: 0;
 }
 
-.guide-generate-summary p {
-  max-width: 880px;
-  margin: 0;
-  color: #475569;
-  font-size: 22px;
+.guide-summary-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.guide-summary-tags span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #334155;
+  font-size: 12px;
   font-weight: 760;
-  line-height: 1.35;
+  line-height: 1.2;
 }
 
 .tool-button.primary.guide-generate-button {
-  justify-self: center;
-  width: min(100%, 360px);
-  min-height: 52px;
-  padding: 0 28px;
+  justify-self: end;
+  width: min(100%, 236px);
+  min-height: 42px;
+  padding: 0 20px;
   border-color: #2563eb;
-  border-radius: 16px;
+  border-radius: 14px;
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   color: #fff;
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 880;
   letter-spacing: 0;
   box-shadow: 0 10px 22px rgba(37, 99, 235, 0.2);
@@ -4079,7 +4102,7 @@ textarea {
 
 .preview-controls {
   display: grid;
-  grid-template-columns: minmax(98px, 108px) minmax(196px, 1fr);
+  grid-template-columns: minmax(98px, 108px) minmax(72px, 86px) minmax(196px, 1fr);
   align-items: center;
   gap: 6px;
   margin-bottom: 8px;
@@ -4103,6 +4126,7 @@ textarea {
 
 .preview-orientation-tabs button,
 .theme-toggle-button,
+.preview-calibration-button,
 .candidate-tabs button {
   min-width: 0;
   min-height: 32px;
@@ -4124,6 +4148,20 @@ textarea {
   background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
   color: #1d4ed8;
   box-shadow: 0 6px 16px rgba(37, 99, 235, 0.12);
+}
+
+.preview-calibration-button {
+  justify-self: stretch;
+  border-color: #cbd5e1;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  color: #475569;
+}
+
+.preview-calibration-button.active {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16);
 }
 
 .theme-toggle-button:hover {
@@ -4193,6 +4231,8 @@ textarea {
 }
 
 .preview-root {
+  position: relative;
+  z-index: 0;
   width: 100%;
   min-width: 0;
   min-height: 0;
@@ -4205,7 +4245,7 @@ textarea {
     radial-gradient(circle at top, rgba(255, 255, 255, 0.76), transparent 34%),
     linear-gradient(180deg, #edf2f8 0%, #d8e1ed 100%);
   padding: 8px 10px;
-  overflow: auto;
+  overflow: visible;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.72),
     0 16px 30px rgba(15, 23, 42, 0.08);
@@ -4214,6 +4254,8 @@ textarea {
 }
 
 .product-preview-shell {
+  position: relative;
+  z-index: 1;
   width: calc(100% + 20px);
   display: grid;
   justify-items: center;
@@ -4222,6 +4264,38 @@ textarea {
   border-radius: 27px;
   background: var(--preview-keyboard-bg, transparent);
   box-sizing: border-box;
+  transform-origin: 100% 0;
+  transition:
+    transform 140ms ease,
+    filter 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.preview-dismissed-placeholder {
+  display: grid;
+  place-items: center;
+  width: min(100%, 390px);
+  min-height: 118px;
+  border: 1px dashed rgba(148, 163, 184, 0.55);
+  border-radius: 22px;
+  background: rgba(248, 250, 252, 0.72);
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 760;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .preview-root:has(.product-preview-shell.is-landscape:hover),
+  .preview-root:has(.product-preview-shell.is-landscape:focus-within) {
+    z-index: 70;
+  }
+
+  .product-preview-shell.is-landscape:hover,
+  .product-preview-shell.is-landscape:focus-within {
+    z-index: 80;
+    transform: scale(1.45);
+    filter: drop-shadow(0 24px 42px rgba(15, 23, 42, 0.28));
+  }
 }
 
 .product-preview-stage {
@@ -5008,9 +5082,23 @@ textarea {
   transform: translate(-50%, calc(-50% + 4px));
 }
 
+.product-preview-shell.is-landscape .is-native-toolbar .calayer-cell,
+.product-preview-shell.is-landscape .is-native-toolbar .calayer-visible {
+  overflow: visible;
+}
+
+.product-preview-shell.is-landscape .is-native-toolbar .calayer-foreground.is-systemImage {
+  transform: translate(-50%, -50%);
+}
+
 .calayer-foreground.is-swipe {
   max-width: 92%;
   text-align: center;
+}
+
+.calayer-foreground.is-calibration-main {
+  outline: 1px solid rgba(245, 158, 11, 0.55);
+  outline-offset: 1px;
 }
 
 .system-image-svg {
@@ -5244,9 +5332,9 @@ textarea {
 
   .tool-button.primary.guide-generate-button {
     width: 100%;
-    min-height: 48px;
+    min-height: 44px;
     padding: 0 18px;
-    font-size: 20px;
+    font-size: 16px;
   }
 }
 

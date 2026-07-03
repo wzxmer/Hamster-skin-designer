@@ -31,9 +31,17 @@ function keyboard26PreviewStyleName(styleName = '') {
   return styleName;
 }
 
-function adaptKeyboard26TextStyle(project, styleName, style) {
+function adaptKeyboard26TextStyle(project, styleName, style, options = {}) {
   if (!/^[a-z]Button(?:Uppercased(?:State)?)?ForegroundStyle$/i.test(styleName)) {
     return style;
+  }
+  if (options.calibrationMode) {
+    return {
+      ...style,
+      center: project.theme?.shared?.center?.['26键中文前景偏移'] || style.center || { x: 0.5, y: 0.5 },
+      previewFontScale: 1,
+      className: [style.className, 'is-calibration-main'].filter(Boolean).join(' '),
+    };
   }
   return {
     ...style,
@@ -58,7 +66,7 @@ function adaptKeyboard26SwipeStyle(project, styleName, style) {
   return style;
 }
 
-function adaptKeyboard26PayloadForPreview(project, payload) {
+function adaptKeyboard26PayloadForPreview(project, payload, options = {}) {
   const next = deepClone(payload);
   if (next?.HStackStyle?.size?.height === '1/5') {
     next.HStackStyle = {
@@ -78,7 +86,7 @@ function adaptKeyboard26PayloadForPreview(project, payload) {
   }
   for (const [key, value] of Object.entries(next || {})) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
-    next[key] = adaptKeyboard26SwipeStyle(project, key, adaptKeyboard26TextStyle(project, key, value));
+    next[key] = adaptKeyboard26SwipeStyle(project, key, adaptKeyboard26TextStyle(project, key, value, options));
   }
   for (const [buttonName, button] of Object.entries(next || {})) {
     if (!/^[a-z]Button$/i.test(buttonName) || !button || typeof button !== 'object') continue;
@@ -92,11 +100,11 @@ function adaptKeyboard26PayloadForPreview(project, payload) {
   return next;
 }
 
-export function buildPreviewNativeKeyboardPayload(project, themeName, keyboardName) {
+export function buildPreviewNativeKeyboardPayload(project, themeName, keyboardName, options = {}) {
   const effectPayload = buildSkinEffectModel(project, { theme: themeName, keyboardName })?.nativePayload;
   if (!effectPayload || typeof effectPayload !== 'object' || Array.isArray(effectPayload)) return null;
   if (/^(pinyin|alphabetic)_26_/.test(keyboardName || '')) {
-    return adaptKeyboard26PayloadForPreview(project, effectPayload);
+    return adaptKeyboard26PayloadForPreview(project, effectPayload, options);
   }
   return deepClone(effectPayload);
 }

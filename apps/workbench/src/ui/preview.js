@@ -225,12 +225,12 @@ function resolveToolbarCenter(project, fallback = { x: 0.5, y: 0.6 }) {
 function buildEffectiveNativeKeyboardPayloadSafe(project, themeName, keyboardName, options = {}) {
   if (!keyboardName) return null;
   const cache = options.__nativePayloadCache;
-  const cacheKey = `${themeName}:${keyboardName}`;
+  const cacheKey = `${themeName}:${keyboardName}:${options.calibrationMode ? 'calibration' : 'normal'}`;
   if (cache instanceof Map && cache.has(cacheKey)) {
     const cachedPayload = cache.get(cacheKey);
     return cachedPayload ? structuredClone(cachedPayload) : null;
   }
-  const effectPayload = buildPreviewNativeKeyboardPayload(project, themeName, keyboardName);
+  const effectPayload = buildPreviewNativeKeyboardPayload(project, themeName, keyboardName, options);
   if (effectPayload && typeof effectPayload === 'object' && !Array.isArray(effectPayload)) {
     if (cache instanceof Map) cache.set(cacheKey, structuredClone(effectPayload));
     return structuredClone(effectPayload);
@@ -300,8 +300,8 @@ function layerStyles(project, theme, options = {}) {
   const candidateText = resolveColor(project, theme, '候选字体未选中字体颜色', '#000000');
   const preferredCandidateText = resolveColor(project, theme, '候选字体选中字体颜色', theme === 'dark' ? '#ffffff' : '#000000');
   const keyboardPreviewBackground = solidPreviewColor(
-    resolveColor(project, theme, '键盘背景颜色', theme === 'dark' ? '#474747' : '#d0d3da'),
-    theme === 'dark' ? '#474747' : '#d0d3da',
+    resolveColor(project, theme, '键盘背景颜色', theme === 'dark' ? '#474747' : '#E1E2E7'),
+    theme === 'dark' ? '#474747' : '#E1E2E7',
   );
   const fallbackNativePayload = buildEffectiveNativeKeyboardPayloadSafe(project, theme, 'pinyin_26_portrait', options) || {};
   const nativeStyle = (styleName, fallback) => {
@@ -346,7 +346,7 @@ function layerStyles(project, theme, options = {}) {
       buttonStyleType: 'geometry',
       insets: project.keyStyles?.buttonInsets?.keyboard26?.functionKey || {},
       ...keySurfaceStyle('functionKey'),
-      normalColor: resolveColor(project, theme, '功能键背景颜色-普通', theme === 'dark' ? '#3A3A3C' : '#979faf80'),
+      normalColor: resolveColor(project, theme, '功能键背景颜色-普通', theme === 'dark' ? '#3A3A3C' : '#BDC1CC'),
       highlightColor: resolveColor(project, theme, '功能键背景颜色-高亮', '#ffffffE6'),
       normalLowerEdgeColor: resolveColor(project, theme, '底边缘颜色-普通', 'rgba(0,0,0,.18)'),
       highlightLowerEdgeColor: resolveColor(project, theme, '底边缘颜色-高亮', 'rgba(0,0,0,.18)'),
@@ -365,24 +365,26 @@ function layerStyles(project, theme, options = {}) {
       buttonStyleType: 'geometry',
       insets: project.keyStyles?.buttonInsets?.numeric?.functionKey || {},
       ...keySurfaceStyle('functionKey'),
-      normalColor: resolveColor(project, theme, '功能键背景颜色-普通', theme === 'dark' ? '#3A3A3C' : '#979faf80'),
+      normalColor: resolveColor(project, theme, '功能键背景颜色-普通', theme === 'dark' ? '#3A3A3C' : '#BDC1CC'),
       highlightColor: resolveColor(project, theme, '功能键背景颜色-高亮', '#ffffffE6'),
       normalLowerEdgeColor: resolveColor(project, theme, '底边缘颜色-普通', 'rgba(0,0,0,.18)'),
       highlightLowerEdgeColor: resolveColor(project, theme, '底边缘颜色-高亮', 'rgba(0,0,0,.18)'),
     },
     numericCollectionBackgroundStyle: {
-      buttonStyleType: 'geometry',
-      insets: resolveInsets(project, 'numeric', 'collection'),
       ...keySurfaceStyle('functionKey'),
-      normalColor: resolveColor(project, theme, '功能键背景颜色-普通', theme === 'dark' ? '#3A3A3C' : '#979faf80'),
+      insets: resolveInsets(project, 'keyboard26', 'punctuationColumn'),
+      normalColor: resolveColor(project, theme, '功能键背景颜色-普通', theme === 'dark' ? '#3A3A3C' : '#BDC1CC'),
+      highlightColor: resolveColor(project, theme, '功能键背景颜色-高亮', '#ffffffE6'),
       normalLowerEdgeColor: resolveColor(project, theme, '底边缘颜色-普通', 'rgba(0,0,0,.18)'),
+      highlightLowerEdgeColor: resolveColor(project, theme, '底边缘颜色-高亮', 'rgba(0,0,0,.18)'),
+      borderColor: resolveColor(project, theme, '按键边缘颜色', 'transparent'),
     },
     numericCollectionCellBackgroundStyle: {
       buttonStyleType: 'geometry',
       insets: resolveInsets(project, 'numeric', 'collectionCell'),
-      cornerRadius: 7,
+      cornerRadius: 0,
       normalColor: '#ffffff00',
-      highlightColor: '#ffffff',
+      highlightColor: '#ffffff00',
     },
     enterButtonBackgroundStyle: {
       buttonStyleType: 'geometry',
@@ -405,7 +407,7 @@ function layerStyles(project, theme, options = {}) {
         shadowOpacity: 0,
         shadowOffset: { x: 0, y: 0 },
       }),
-      normalColor: resolveColor(project, theme, '功能键背景颜色-普通', theme === 'dark' ? '#3A3A3C' : '#979faf80'),
+      normalColor: resolveColor(project, theme, '功能键背景颜色-普通', theme === 'dark' ? '#3A3A3C' : '#BDC1CC'),
       highlightColor: resolveColor(project, theme, '功能键背景颜色-高亮', '#ffffffE6'),
       normalLowerEdgeColor: resolveColor(project, theme, '底边缘颜色-普通', 'rgba(0,0,0,.18)'),
       highlightLowerEdgeColor: resolveColor(project, theme, '底边缘颜色-高亮', 'rgba(0,0,0,.18)'),
@@ -428,17 +430,20 @@ function layerStyles(project, theme, options = {}) {
         shadowOpacity: 0,
         shadowOffset: { x: 0, y: 0 },
       }),
-      normalColor: resolveColor(project, theme, '功能键背景颜色-普通', theme === 'dark' ? '#3A3A3C' : '#979faf80'),
+      normalColor: resolveColor(project, theme, '功能键背景颜色-普通', theme === 'dark' ? '#3A3A3C' : '#BDC1CC'),
       highlightColor: resolveColor(project, theme, '功能键背景颜色-高亮', '#ffffffE6'),
       normalLowerEdgeColor: resolveColor(project, theme, '底边缘颜色-普通', 'rgba(0,0,0,.18)'),
       borderColor: resolveColor(project, theme, '按键边缘颜色', 'transparent'),
     },
     keyForegroundStyle: {
       buttonStyleType: 'text',
-      center: keyboard26PreviewTextCenter(resolveCenter(project, '26键中文前景偏移', { x: 0.5, y: 0.54 })),
+      center: options.calibrationMode
+        ? resolveCenter(project, '26键中文前景偏移', { x: 0.5, y: 0.5 })
+        : keyboard26PreviewTextCenter(resolveCenter(project, '26键中文前景偏移', { x: 0.5, y: 0.54 })),
       fontSize: resolveFontSize(project, '按键前景文字大小', 18),
-      previewFontScale: resolveScale(project, '26键中文前景缩放', 1),
+      previewFontScale: options.calibrationMode ? 1 : resolveScale(project, '26键中文前景缩放', 1),
       normalColor: keyText,
+      className: options.calibrationMode ? 'is-calibration-main' : '',
     },
     functionForegroundStyle: {
       buttonStyleType: 'text',
@@ -470,32 +475,37 @@ function layerStyles(project, theme, options = {}) {
     },
     numericNumberForegroundStyle: {
       buttonStyleType: 'text',
-      center: resolveCenter(project, '数字键盘数字前景偏移', { x: 0.5, y: 0.5 }),
-      fontSize: resolveFontSize(project, '数字键盘数字前景字体大小', 20),
+      center: { x: 0.5, y: 0.53 },
+      fontSize: Math.max(21, resolveFontSize(project, '按键前景文字大小', 18) + 2),
+      previewFontScale: 0.9,
       normalColor: keyText,
     },
     numericTextForegroundStyle: {
       buttonStyleType: 'text',
-      center: { x: 0.5, y: 0.5 },
-      fontSize: 15,
+      center: { x: 0.5, y: 0.53 },
+      fontSize: Math.max(14, resolveFontSize(project, '按键前景sf符号大小', 18) - 3),
+      previewFontScale: 0.78,
       normalColor: keyText,
     },
     numericPeriodForegroundStyle: {
       buttonStyleType: 'text',
-      center: { x: 0.5, y: 0.5 },
-      fontSize: 20,
+      center: { x: 0.5, y: 0.53 },
+      fontSize: Math.max(18, resolveFontSize(project, '按键前景文字大小', 18)),
+      previewFontScale: 0.9,
       normalColor: keyText,
     },
     numericIconForegroundStyle: {
       buttonStyleType: 'systemImage',
       center: { x: 0.5, y: 0.53 },
-      fontSize: 17,
+      fontSize: Math.max(17, resolveFontSize(project, '按键前景sf符号大小', 18) - 1),
+      previewFontScale: 0.78,
       normalColor: keyText,
     },
     numericCollectionForegroundStyle: {
       buttonStyleType: 'text',
-      center: { x: 0.5, y: 0.5 },
-      fontSize: 18,
+      center: { x: 0.5, y: 0.53 },
+      fontSize: Math.max(14, resolveFontSize(project, '按键前景sf符号大小', 18) - 2),
+      previewFontScale: 0.78,
       normalColor: keyText,
     },
     symbolicCategoryCollectionBackgroundStyle: {
@@ -508,7 +518,7 @@ function layerStyles(project, theme, options = {}) {
         shadowOpacity: 0,
         shadowOffset: { x: 0, y: 0 },
       }),
-      normalColor: resolveColor(project, theme, '符号键盘左侧collection背景颜色', '#979faf80'),
+      normalColor: resolveColor(project, theme, '符号键盘左侧collection背景颜色', '#BDC1CC'),
       normalLowerEdgeColor: resolveColor(project, theme, '符号键盘左侧collection背景下边缘颜色', 'rgba(0,0,0,.18)'),
     },
     symbolicCategoryCellBackgroundStyle: {
@@ -547,7 +557,7 @@ function layerStyles(project, theme, options = {}) {
       buttonStyleType: 'geometry',
       insets: project.keyStyles?.buttonInsets?.symbolic?.functionKey || {},
       ...surfaceStyle('symbolic', 'functionKey', keySurfaceStyle('functionKey')),
-      normalColor: resolveColor(project, theme, '功能键背景颜色-普通', theme === 'dark' ? '#3A3A3C' : '#979faf80'),
+      normalColor: resolveColor(project, theme, '功能键背景颜色-普通', theme === 'dark' ? '#3A3A3C' : '#BDC1CC'),
       highlightColor: resolveColor(project, theme, '功能键背景颜色-高亮', '#ffffffE6'),
       normalLowerEdgeColor: resolveColor(project, theme, '底边缘颜色-普通', 'rgba(0,0,0,.18)'),
       borderColor: resolveColor(project, theme, '按键边缘颜色', 'transparent'),
@@ -1670,6 +1680,8 @@ function renderVariantCell(project, theme, key, label, {
       : functionStyle;
   const content = key === 'backspace'
     ? renderForeground({ ...foregroundOverride, buttonStyleType: 'systemImage' }, 'delete.left')
+    : key === 'shift' && orientation === 'landscape'
+      ? renderForeground({ ...foregroundOverride, buttonStyleType: 'systemImage' }, 'shift')
     : key === 'cnen' && displayLabelOverride === null
       ? [
           renderForeground({ ...foregroundOverride, center: { x: 0.44, y: 0.42 }, fontSize: Math.max(14, Number(foregroundOverride.fontSize || 15)) }, profileLabelForCnen(options)),
@@ -2123,6 +2135,7 @@ function renderPinyin14LandscapeKeyboard(project, theme, styles, frame, options 
     ],
   ];
   const middleNumbersHtml = middleNumberKeys.map((numberRow, rowIndex) => numberRow.map((key, columnIndex) => {
+    const label = String(key || '').replace('number', '');
     return renderVariantLayoutSlot(project, theme, key, {
       x: middleNumberX + columnIndex * middleNumberCellWidth,
       y: topInset + rowIndex * (rowHeight + rowGap),
@@ -2130,8 +2143,10 @@ function renderPinyin14LandscapeKeyboard(project, theme, styles, frame, options 
       height: rowHeight,
       options,
     }, styles, {
-      displayLabel: key.replace('number', ''),
-      foregroundStyleOverride: styles.keyForegroundStyle,
+      displayLabel: label,
+      foregroundStyleOverride: styles.numericNumberForegroundStyle,
+      backgroundStyleOverride: styles.alphabeticBackgroundStyle,
+      buttonStyleTypeOverride: 'text',
     });
   }).join('')).join('');
   const footerY = topInset + 3 * (rowHeight + rowGap);
@@ -2163,7 +2178,7 @@ function renderPinyin14LandscapeKeyboard(project, theme, styles, frame, options 
     isFunction: item.label ? true : undefined,
     displayLabel: item.label ?? (item.key === 'number0' ? '0' : undefined),
     previewKey: item.label ? null : undefined,
-    foregroundStyleOverride: item.key && !FUNCTION_KEYS.has(item.key) ? styles.keyForegroundStyle : null,
+    foregroundStyleOverride: item.key && !FUNCTION_KEYS.has(item.key) ? styles.numericNumberForegroundStyle : null,
     backgroundStyleOverride: item.label ? styles.systemButtonBackgroundStyle : (!item.key ? styles.alphabeticBackgroundStyle : null),
     buttonStyleTypeOverride: item.label ? 'text' : null,
   })).join('');
@@ -2446,6 +2461,29 @@ function renderKeyboard26LandscapeKeyboard(project, theme, styles, frame, option
 
 function keyboard26ProfileFromOptions(options = {}) {
   return options.keyboardProfile === 'alphabetic' ? 'alphabetic' : 'pinyin';
+}
+
+function keyboard26LandscapeLayoutFromGuide(project, options = {}) {
+  const profile = keyboard26ProfileFromOptions(options);
+  const preferences = project?.guide?.preferences || {};
+  const key = profile === 'alphabetic' ? 'alphabeticLandscapeLayout' : 'pinyinLandscapeLayout';
+  return preferences[key] === 'standard' ? 'standard' : 'split';
+}
+
+function renderKeyboard26StandardLandscapeKeyboard(project, theme, styles, frame, options = {}) {
+  const height = frame.keyboardHeight;
+  const rows = rowsForMode(project, 'keyboard26', 'portrait', options);
+  const rowHeight = height / Math.max(rows.length, 1);
+  const keyOptions = { ...options, pinyinVariant: '26' };
+  return `
+    <div class="calayer-keyboard is-keyboard26-standard-landscape-keyboard" style="${backgroundCssForStyle(project, theme, styles.keyboardBackgroundStyle)};height:${height}px;padding:${cssInsets(styles.keyboardStyle.insets)}">
+      ${rows.map((row) => `
+        <div class="calayer-row" style="height:${rowHeight}px">
+          ${row.map((key) => keyLayer(project, theme, 'keyboard26', key, rowHeight, styles, 'portrait', keyOptions)).join('')}
+        </div>
+      `).join('')}
+    </div>
+  `;
 }
 
 function keyboard26PreviewSourceVariant(options = {}) {
@@ -3346,7 +3384,7 @@ function numericLabel(project, key) {
   const labels = {
     symbol: text.symbol || '#+=',
     return: text.return || '返回',
-    space: text.space ?? '',
+    space: text.space || '空格',
     period: text.period || '.',
     equal: text.equal || '=',
     enter: text.enter || '换行',
@@ -3354,40 +3392,66 @@ function numericLabel(project, key) {
   return labels[key] || key;
 }
 
-function numericCell(project, key, height, styles, orientation = 'portrait', options = {}) {
-  const customLabel = project.keyboards?.numeric?.keyDisplays?.[key];
-  const metric = resolveKeyMetric(project, 'numeric', key, orientation);
-  const isPressed = options.activePressedKey === key;
-  if (/^\d$/.test(key)) {
-    const numberBackgroundStyle = {
-      ...styles.alphabeticBackgroundStyle,
-      insets: resolveInsets(project, 'keyboard26', key),
-    };
-    return renderLayerCell({
-      className: `is-numeric-number is-${key} ${isPressed ? 'is-pressed' : ''}`,
-      basis: metric.basis,
-      bounds: metric.bounds,
-      height,
-      backgroundStyle: numberBackgroundStyle,
-      foregrounds: [renderForeground(styles.numericNumberForegroundStyle, customLabel || key)],
-      attrs: `data-preview-key="${escapeHtml(key)}"`,
-    });
-  }
+function numericButtonNameForKey(key) {
+  if (/^\d$/.test(key)) return `number${key}Button`;
+  if (key === 'symbol') return 'symbolicButton';
+  if (key === 'period') return 'numperiodButton';
+  return `${key}Button`;
+}
 
+function fallbackNumericForeground(project, key, styles, customLabel = null) {
   const systemImage = key === 'backspace' && !customLabel ? 'delete.left' : null;
   const foregroundStyle = systemImage
     ? styles.numericIconForegroundStyle
     : key === 'period' || key === 'equal'
       ? styles.numericPeriodForegroundStyle
       : styles.numericTextForegroundStyle;
+  return renderForeground(foregroundStyle, systemImage || customLabel || numericLabel(project, key));
+}
+
+function numericCell(project, theme, key, height, styles, orientation = 'portrait', options = {}, payload = null) {
+  const customLabel = project.keyboards?.numeric?.keyDisplays?.[key];
+  const metric = resolveKeyMetric(project, 'numeric', key, orientation);
+  const isPressed = options.activePressedKey === key;
+  const buttonName = numericButtonNameForKey(key);
+  const nativeButton = payload?.[buttonName];
+  if (/^\d$/.test(key)) {
+    const numberBackgroundStyle = {
+      ...styles.alphabeticBackgroundStyle,
+      insets: resolveInsets(project, 'keyboard26', key),
+    };
+    const backgroundStyle = nativeButton
+      ? resolveNativeStyleObject(payload, nativeButton.backgroundStyle, options, numberBackgroundStyle)
+      : numberBackgroundStyle;
+    const foregrounds = nativeButton
+      ? nativeForegrounds(project, theme, payload, buttonName, options)
+      : renderForeground(styles.numericNumberForegroundStyle, customLabel || key);
+    return renderLayerCell({
+      className: `is-numeric-number is-${key} ${isPressed ? 'is-pressed' : ''}`,
+      basis: metric.basis,
+      bounds: metric.bounds,
+      height,
+      backgroundStyle,
+      foregrounds: [foregrounds],
+      attrs: `data-preview-key="${escapeHtml(key)}"`,
+    });
+  }
+
+  const fallbackBackgroundStyle = { ...styles.numericSystemButtonBackgroundStyle, insets: resolveInsets(project, 'numeric', key) };
+  const backgroundStyle = nativeButton
+    ? resolveNativeStyleObject(payload, nativeButton.backgroundStyle, options, fallbackBackgroundStyle)
+    : fallbackBackgroundStyle;
+  const foregrounds = nativeButton
+    ? nativeForegrounds(project, theme, payload, buttonName, options)
+    : fallbackNumericForeground(project, key, styles, customLabel);
 
   return renderLayerCell({
     className: `is-numeric-function is-${key} ${isPressed ? 'is-pressed' : ''}`,
     basis: metric.basis,
     bounds: metric.bounds,
     height,
-    backgroundStyle: { ...styles.numericSystemButtonBackgroundStyle, insets: resolveInsets(project, 'numeric', key) },
-    foregrounds: [renderForeground(foregroundStyle, systemImage || numericLabel(project, key))],
+    backgroundStyle,
+    foregrounds: [foregrounds],
     attrs: `data-preview-key="${escapeHtml(key)}"`,
   });
 }
@@ -3428,21 +3492,26 @@ function pinyin9PunctuationItems(project) {
   return items;
 }
 
-function renderNumericCollection(project, rowHeight, styles, orientation = 'portrait') {
+function renderNumericCollection(project, theme, rowHeight, styles, orientation = 'portrait', payload = null, options = {}) {
   const height = rowHeight * 3;
   const metric = resolveKeyMetric(project, 'numeric', 'collection', orientation);
+  const collection = payload?.collection || {};
+  const cellStyle = resolveNativeStyleObject(payload || {}, collection.cellStyle, options);
+  const foregroundStyle = resolveNativeStyleObject(payload || {}, cellStyle.foregroundStyle, options, styles.numericCollectionForegroundStyle);
+  const cellBackgroundStyle = resolveNativeStyleObject(payload || {}, cellStyle.backgroundStyle, options, styles.numericCollectionCellBackgroundStyle);
+  const collectionBackgroundStyle = resolveNativeStyleObject(payload || {}, collection.backgroundStyle, options, styles.numericCollectionBackgroundStyle);
   const symbols = numericCollectionSymbols(project);
   const collectionCells = symbols.slice(0, 5).map((symbol) => renderLayerCell({
     className: 'is-numeric-symbol',
-    backgroundStyle: styles.numericCollectionCellBackgroundStyle,
-    foregrounds: [renderForeground(styles.numericCollectionForegroundStyle, symbol)],
+    backgroundStyle: cellBackgroundStyle,
+    foregrounds: [renderForeground(foregroundStyle, symbol, { project, theme })],
   })).join('');
 
   return `
     <div class="calayer-cell is-numeric-collection" style="${[metric.basis ? `flex:0 0 ${metric.basis}` : '', `height:${height}px`].filter(Boolean).join(';')}">
       <div class="calayer-visible" style="${boundsCss(metric.bounds)}">
-        <div class="calayer-background is-layer-bg" style="${geometryCss(styles.numericCollectionBackgroundStyle)};${insetPositionCss(styles.numericCollectionBackgroundStyle.insets)}"></div>
-        <div class="numeric-symbol-grid" style="${insetPositionCss(styles.numericCollectionBackgroundStyle.insets)}">${collectionCells}</div>
+        <div class="calayer-background is-layer-bg" style="${geometryCss(collectionBackgroundStyle)};${insetPositionCss(collectionBackgroundStyle.insets)}"></div>
+        <div class="numeric-symbol-grid" style="${insetPositionCss(collectionBackgroundStyle.insets)}">${collectionCells}</div>
       </div>
     </div>
   `;
@@ -3565,24 +3634,29 @@ function renderSymbolicKeyboard(project, theme, styles, frame, options = {}) {
 
 function renderNumericKeyboard(project, theme, styles, frame, options = {}) {
   const orientation = options.orientation === 'landscape' ? 'landscape' : 'portrait';
+  const nativePreview = nativePayloadForPreview(project, theme, 'numeric', { ...options, orientation });
+  const payload = nativePreview?.payload || null;
   const height = frame.keyboardHeight;
   const columns = project.keyboards?.numeric?.layout?.portrait?.columns?.length
     ? project.keyboards.numeric.layout.portrait.columns
     : DEFAULT_NUMERIC_COLUMNS;
-  const keyboardInsets = styles.keyboardStyle.insets || {};
+  const keyboardInsets = payload?.keyboardStyle?.insets || styles.keyboardStyle.insets || {};
+  const keyboardBackgroundStyle = payload
+    ? resolveNativeStyleObject(payload, payload.keyboardStyle?.backgroundStyle || 'keyboardBackgroundStyle', options, styles.keyboardBackgroundStyle)
+    : styles.keyboardBackgroundStyle;
   const contentHeight = height - Number(keyboardInsets.top || 0) - Number(keyboardInsets.bottom || 0);
   const rowHeight = contentHeight / Math.max(...columns.map((column) => column.length), 1);
   const columnTemplate = orientation === 'landscape'
     ? '0.75fr 1fr 1fr 1fr 0.75fr'
     : '0.7fr 1fr 1fr 1fr 0.7fr';
   return `
-    <div class="calayer-keyboard is-numeric-keyboard" style="${backgroundCssForStyle(project, theme, styles.keyboardBackgroundStyle)};height:${height}px;padding:${cssInsets(keyboardInsets)}">
+    <div class="calayer-keyboard is-numeric-keyboard" style="${backgroundCssForStyle(project, theme, keyboardBackgroundStyle)};height:${height}px;padding:${cssInsets(keyboardInsets)}">
       <div class="numeric-column-layout" style="grid-template-columns:${columnTemplate};gap:0">
         ${columns.map((column, columnIndex) => `
           <div class="numeric-column is-column-${columnIndex + 1}">
             ${column.map((key) => key === 'collection'
-      ? renderNumericCollection(project, rowHeight, styles, orientation)
-      : numericCell(project, key, rowHeight, styles, orientation, options)).join('')}
+      ? renderNumericCollection(project, theme, rowHeight, styles, orientation, payload, options)
+      : numericCell(project, theme, key, rowHeight, styles, orientation, options, payload)).join('')}
           </div>
         `).join('')}
       </div>
@@ -3647,6 +3721,13 @@ function renderPanelKeyboard(project, theme, styles, frame, options = {}) {
 }
 
 function renderNativeTopArea(project, theme, mode, candidateState, styles, frame, options = {}) {
+  if (
+    mode === 'keyboard26'
+    && candidateState !== 'toolbar'
+    && activePinyinVariantForPreview(project, options) !== '26'
+  ) {
+    return null;
+  }
   const nativePreview = nativePayloadForPreview(project, theme, mode, options);
   if (!nativePreview) return null;
   const { payload } = nativePreview;
@@ -3737,6 +3818,9 @@ function renderKeyboard(project, theme, mode, styles, frame, options = {}) {
     return renderPinyinVariantKeyboard(project, theme, styles, frame, options);
   }
   if (mode === 'keyboard26' && orientation === 'landscape' && variant === '26') {
+    if (keyboard26LandscapeLayoutFromGuide(project, options) === 'standard') {
+      return renderKeyboard26StandardLandscapeKeyboard(project, theme, styles, frame, options);
+    }
     return renderKeyboard26LandscapeKeyboard(project, theme, styles, frame, options);
   }
   if (mode === 'numeric' && project.keyboardCombo?.slots?.numeric?.variant !== 'ios') {
