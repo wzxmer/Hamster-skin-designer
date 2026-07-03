@@ -27,6 +27,9 @@ jobs:
         with:
           enablement: true
 
+      - name: Update workbench version
+        run: node scripts/update-workbench-version.mjs
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

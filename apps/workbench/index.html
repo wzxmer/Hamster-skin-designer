@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="hamster-visitor-stats-endpoint" content="https://poultry.jiaqinyy.cn/hamster-stats/visit" />
+    <meta name="hamster-workbench-version" content="dev" />
     <title>元书输入法皮肤工作台</title>
-    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="app-shell">
@@ -149,6 +149,40 @@
       </main>
     </div>
 
-    <script type="module" src="./src/app.js"></script>
+    <script type="module">
+      const VERSION_URL = new URL('./version.json', import.meta.url);
+      const CACHE_BUCKET_MS = 60 * 1000;
+
+      async function loadWorkbenchVersion() {
+        try {
+          VERSION_URL.searchParams.set('ts', String(Date.now()));
+          const response = await fetch(VERSION_URL, { cache: 'no-store' });
+          if (!response.ok) throw new Error(`version request failed: ${response.status}`);
+          const payload = await response.json();
+          return payload.version || payload.commit || payload.generatedAt || 'dev';
+        } catch (error) {
+          return document.querySelector('meta[name="hamster-workbench-version"]')?.content || 'dev';
+        }
+      }
+
+      function assetUrl(path, cacheKey) {
+        const url = new URL(path, import.meta.url);
+        url.searchParams.set('v', cacheKey);
+        return url.href;
+      }
+
+      function loadStylesheet(path, cacheKey) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = assetUrl(path, cacheKey);
+        document.head.appendChild(link);
+      }
+
+      const version = await loadWorkbenchVersion();
+      const minuteBucket = Math.floor(Date.now() / CACHE_BUCKET_MS);
+      const cacheKey = `${version}-${minuteBucket}`;
+      loadStylesheet('./styles.css', cacheKey);
+      await import(assetUrl('./src/app.js', cacheKey));
+    </script>
   </body>
 </html>

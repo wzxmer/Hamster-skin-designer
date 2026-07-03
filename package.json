@@ -17,6 +17,8 @@
     "test:importer": "node packages/importer/test-importer.js",
     "test:preview": "node --check apps/workbench/src/ui/preview.js && node packages/preview-engine/test-preview-linkage.js",
     "build:import-test": "node scripts/generate-import-test-package.mjs",
+    "bump:workbench-version": "node scripts/bump-workbench-version.mjs",
+    "update:workbench-version": "node scripts/update-workbench-version.mjs",
     "build": "npm run validate:project-schema && npm run test:skin-effect && npm run test:exporter && npm run test:importer && npm run test:preview && node --check apps/workbench/src/app.js"
   },
   "devDependencies": {
