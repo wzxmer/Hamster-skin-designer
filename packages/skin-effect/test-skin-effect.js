@@ -78,6 +78,10 @@ numericSwipeProject.keyboardCombo.swipeBehavior.layouts = {
   showSwipeDown: true,
   },
 };
+numericSwipeProject.keyboardCombo.swipeBehavior.ui = {
+  ...(numericSwipeProject.keyboardCombo.swipeBehavior.ui || {}),
+  numeric: { mode: 'visible' },
+};
 const numericSwipeModel = buildSkinEffectModel(numericSwipeProject, { theme: 'light', keyboardName: 'numeric_9_portrait' });
 assert(numericSwipeModel.nativePayload.number1ButtonSwipeUpForegroundStyle?.center?.x === 0.5
   && numericSwipeModel.nativePayload.number1ButtonSwipeUpForegroundStyle?.center?.y === 0.24, '数字键盘上划提示应使用上方居中的默认偏移。');

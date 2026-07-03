@@ -359,6 +359,10 @@ const comboNumericProject = {
           showSwipeDown: true,
         },
       },
+      ui: {
+        ...(comboNumericBaseProject.keyboardCombo.swipeBehavior.ui || {}),
+        numeric: { mode: 'visible' },
+      },
     },
   },
   data: {
@@ -512,6 +516,7 @@ assert(pinyinKeyboard.includes('keyboardLayout:'), 'YAML 键盘应导出 Hamster
 assert(pinyinKeyboard.includes('HStackStyle:') && pinyinKeyboard.includes('height: "1/4"'), '26 键 YAML 行高应按 4 行键盘真实分配，避免竖屏预览被压扁。');
 assert(pinyinKeyboard.includes('qButton:') && pinyinKeyboard.includes('qButtonForegroundStyle:'), 'YAML 键盘应导出 Hamster 原生按键和前景样式。');
 assert(yamlBlock(pinyinKeyboard, 'qButtonForegroundStyle').includes('fontSize: 14'), '默认 26 键字母字号应使用实机校准后的默认预设。');
+assert(yamlBlock(pinyinKeyboard, 'qButtonForegroundStyle').includes('text: "q"'), '默认中文 26 键字母应导出小写文案，与使用引导默认一致。');
 assert(yamlBlock(alphabeticKeyboard, 'qButtonForegroundStyle').includes('text: "q"'), '默认英文 26 键字母应导出小写文案。');
 assert(yamlBlock(uppercasePinyinKeyboard, 'qButtonForegroundStyle').includes('text: "Q"'), '中文 26 键字母大写设置应联动到导出实际按键前景。');
 assert(yamlBlock(pinyinKeyboard, 'qButton').includes('- "qButtonUppercasedForegroundStyle"') && yamlBlock(pinyinKeyboard, 'qButton').includes('- "qButtonSwipeUpForegroundStyle"') && yamlBlock(pinyinKeyboard, 'qButton').includes('- "qButtonSwipeDownForegroundStyle"'), '锁定大写状态应继承 26 键默认上下划前景。');
@@ -677,6 +682,7 @@ assert(stablePinyin9Payload.number1ButtonForegroundStyle.center?.y === 0.54
   && stablePinyin9Payload.number1ButtonForegroundStyle.fontSize === 17, '中文9键主文字应居中显示，避免实机文字压到键帽底部。');
 assert(stablePinyin9Payload.enterButton.backgroundStyle === 'systemButtonBackgroundStyle'
   && stablePinyin9Payload.enterButton.foregroundStyle === 'enterButtonForegroundStyle', '中文9键发送/换行键不应依赖 App 可能不解析的 JS 样式引用。');
+assert(!stablePinyin9Payload.number1Button.swipeUpAction && !stablePinyin9Payload.number1Button.swipeDownAction, '中文9键预设滑动功能默认关闭时不应导出上下划动作。');
 const stablePinyin14Payload = buildEffectiveNativeKeyboardPayload(comboPinyin14Project, 'light', 'pinyin_14_portrait');
 assert(stablePinyin14Payload['字母竖屏'].size.height === '1/4'
   && stablePinyin14Payload['底栏竖屏'].size.height === '1/4', '中文14键竖屏每一行高度应统一，删除键行和空格行不得变矮。');

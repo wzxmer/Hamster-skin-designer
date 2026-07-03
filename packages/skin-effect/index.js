@@ -148,12 +148,22 @@ export function resolveKeyboardKind(name) {
   return 'pinyin';
 }
 
-export function swipesFor(project, kind) {
+function swipeUiKeyForKeyboard(kind, keyboardName = '') {
+  if (kind === 'pinyin' && keyboardName.startsWith('pinyin_9_')) return 'pinyin9';
+  if (kind === 'numeric') return 'numeric';
+  if (kind === 'alphabetic') return 'alphabetic';
+  if (kind === 'pinyin') return 'pinyin';
+  return kind;
+}
+
+export function swipesFor(project, kind, keyboardName = '') {
   if (project.data?.swipesEnabled === false || project.keyboardCombo?.swipeBehavior?.mode === 'disabled') {
     return emptySwipeData();
   }
   const layoutBehavior = project.keyboardCombo?.swipeBehavior?.layouts?.[kind];
   if (layoutBehavior?.mode === 'disabled') return emptySwipeData();
+  const uiBehavior = project.keyboardCombo?.swipeBehavior?.ui?.[swipeUiKeyForKeyboard(kind, keyboardName)];
+  if (uiBehavior?.mode === 'disabled') return emptySwipeData();
   const source = {
     pinyin: project.data?.swipes?.pinyin,
     alphabetic: project.data?.swipes?.alphabetic,
@@ -428,7 +438,7 @@ function buildFallbackKeyboardPayload(project, themeName, keyboardName) {
         },
       },
       data: {
-        swipes: kind === 'emoji' ? emptySwipeData() : swipesFor(project, kind),
+        swipes: kind === 'emoji' ? emptySwipeData() : swipesFor(project, kind, keyboardName),
         collections: kind === 'emoji'
           ? { emojiDataSource: project.data.collections?.emojiDataSource || {} }
           : project.data.collections,
@@ -985,7 +995,7 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   };
   const applySwipeActions = () => {
     const kind = resolveKeyboardKind(keyboardName);
-    const swipeData = swipesFor(project, kind);
+    const swipeData = swipesFor(project, kind, keyboardName);
     const buttonNameForSwipeKey = (keyId) => {
       if (kind === 'numeric' && /^[0-9]$/.test(keyId)) return `number${keyId}Button`;
       return `${keyId}Button`;
@@ -1051,7 +1061,7 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   };
   const stripSwipeActionsWhenDisabled = () => {
     const kind = resolveKeyboardKind(keyboardName);
-    const swipeData = swipesFor(project, kind);
+    const swipeData = swipesFor(project, kind, keyboardName);
     const hasSwipeUp = Object.keys(swipeData?.swipe_up || {}).length > 0;
     const hasSwipeDown = Object.keys(swipeData?.swipe_down || {}).length > 0;
     if (hasSwipeUp && hasSwipeDown) return;
@@ -1679,6 +1689,9 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
       });
       if (keyboardName.startsWith('alphabetic_') && /^[a-z]$/.test(keyId)) {
         style.text = keyDisplays[`alphabetic.${keyId}`] || keyDisplays[`english.${keyId}`] || keyId;
+      }
+      if (keyboardName.startsWith('pinyin_26_') && /^[a-z]$/.test(keyId)) {
+        style.text = keyDisplays[keyId] || keyId;
       }
       continue;
     }

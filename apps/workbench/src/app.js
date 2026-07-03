@@ -62,7 +62,6 @@ const state = {
   jsonSearch: '',
   jsonSearchIndex: 0,
   savedAt: null,
-  previewInitialRootWidth: null,
   configDevice: 'iPhone',
   sampleProject: null,
   templateLibrary: [],
@@ -1232,7 +1231,12 @@ function resetGuideGenerationForFreshBoot(project, sourceProject = project) {
   if (!project || typeof project !== 'object') return;
   const preferences = {
     ...(sourceProject?.guide?.preferences || project.guide?.preferences || {}),
+    keyboardPreset: DEFAULT_KEYBOARD_SKIN_PRESET,
+    chineseLayout: '26',
+    pinyin26LetterCase: 'lower',
+    alphabetic26LetterCase: 'lower',
     symbolLayout: 'system',
+    emojiLayout: 'system',
   };
   project.guide = normalizedGuide({
     preferences,
@@ -4269,6 +4273,7 @@ function normalizedKeyboardCombo(value = {}) {
       mode: value.swipeBehavior?.mode || 'visible',
       showSwipeUp: value.swipeBehavior?.showSwipeUp !== false,
       showSwipeDown: value.swipeBehavior?.showSwipeDown !== false,
+      ui: isPlainObject(value.swipeBehavior?.ui) ? structuredClone(value.swipeBehavior.ui) : {},
       layouts: {
         pinyin: {
           mode: value.swipeBehavior?.layouts?.pinyin?.mode || value.swipeBehavior?.mode || 'visible',
@@ -4807,7 +4812,10 @@ function syncGuideAndComboFromConfig(project, { preserveGuideStatus = true } = {
 function inferGuidePreferencesFromProject(project = {}) {
   const combo = normalizedKeyboardCombo(project.keyboardCombo || {});
   const chineseLayout = ['9', '14', '17', '18', '26'].includes(combo.slots.pinyin.variant) ? combo.slots.pinyin.variant : '26';
-  const preset = keyboardSkinPresetByValue(project.guide?.preferences?.keyboardPreset || `ios-${chineseLayout}`);
+  const previousPreset = keyboardSkinPresetByValue(project.guide?.preferences?.keyboardPreset || `ios-${chineseLayout}`);
+  const preset = previousPreset.layout === chineseLayout
+    ? previousPreset
+    : keyboardSkinPresetByValue(`ios-${chineseLayout}`);
   return {
     keyboardPreset: preset.value,
     chineseLayout,
@@ -5093,16 +5101,6 @@ function finalizeGuideGeneration() {
   markDirty();
   renderAll();
   renderCurrentPreview();
-}
-
-function rebuildReadyGuidePlanAfterPreferenceEdit() {
-  applyGuidePlanToProject(state.project);
-  if (!previewModeExists(state.previewMode)) {
-    state.previewMode = defaultPreviewMode();
-  }
-  state.editingKey = null;
-  markDirty();
-  renderAll();
 }
 
 function handleGuideAction(button) {
@@ -5565,6 +5563,10 @@ function emptySwipeData() {
 function swipesEnabled() {
   const comboMode = state.project?.keyboardCombo?.swipeBehavior?.mode;
   if (comboMode === 'disabled') return false;
+  const profile = currentKeyboardPreviewProfile();
+  const layoutKey = profile === 'pinyin9' ? 'pinyin' : profile;
+  const layoutMode = state.project?.keyboardCombo?.swipeBehavior?.layouts?.[layoutKey]?.mode;
+  if (layoutMode === 'disabled') return false;
   const uiMode = state.project?.keyboardCombo?.swipeBehavior?.ui?.[currentSwipeUiKey()]?.mode;
   if (uiMode === 'disabled') return false;
   return state.project?.data?.swipesEnabled !== false;
@@ -5583,11 +5585,19 @@ function setCurrentSwipeProfileEnabled(enabled) {
   state.project.keyboardCombo.swipeBehavior = state.project.keyboardCombo.swipeBehavior || {};
   const uiKey = currentSwipeUiKey();
   if (['pinyin', 'pinyin9', 'alphabetic', 'numeric'].includes(uiKey)) {
+    const layoutKey = uiKey === 'pinyin9' ? null : uiKey;
     state.project.keyboardCombo.swipeBehavior.ui = state.project.keyboardCombo.swipeBehavior.ui || {};
     state.project.keyboardCombo.swipeBehavior.ui[uiKey] = {
       ...(state.project.keyboardCombo.swipeBehavior.ui[uiKey] || {}),
       mode: enabled ? 'visible' : 'disabled',
     };
+    if (layoutKey) {
+      state.project.keyboardCombo.swipeBehavior.layouts = state.project.keyboardCombo.swipeBehavior.layouts || {};
+      state.project.keyboardCombo.swipeBehavior.layouts[layoutKey] = {
+        ...(state.project.keyboardCombo.swipeBehavior.layouts[layoutKey] || {}),
+        mode: enabled ? 'visible' : 'disabled',
+      };
+    }
     if (enabled) state.project.data.swipesEnabled = true;
     return;
   }
@@ -7228,12 +7238,9 @@ function renderCurrentPreview() {
     renderPreviewExpandDialog();
     return;
   }
-  if (!state.previewInitialRootWidth && el.previewRoot?.clientWidth) {
-    state.previewInitialRootWidth = el.previewRoot.clientWidth;
-  }
-  const previewRootWidth = state.previewInitialRootWidth || el.previewRoot?.clientWidth || 0;
+  const previewRootWidth = el.previewRoot?.clientWidth || 0;
   const previewOptions = currentPreviewRenderOptions({
-    maxDisplayWidth: Math.max(0, previewRootWidth - 24),
+    maxDisplayWidth: Math.max(0, (previewRootWidth - 24) * 0.96),
   });
   const orientation = previewOptions.orientation;
   state.previewOrientation = orientation;
@@ -8372,8 +8379,8 @@ function setFieldValue(path, value, type) {
     const preset = keyboardSkinPresetByValue(value || DEFAULT_KEYBOARD_SKIN_PRESET);
     applyKeyboardPresetPreferences(state.project, preset);
     if (state.project?.guide?.status === 'ready') {
-      rebuildReadyGuidePlanAfterPreferenceEdit();
-      return;
+      state.project.guide.status = 'pending';
+      state.project.guide.generatedPlan = null;
     }
     markDirty();
     renderAll();
@@ -8383,8 +8390,8 @@ function setFieldValue(path, value, type) {
     const preset = keyboardSkinPresetByValue(`ios-${value}`);
     applyKeyboardPresetPreferences(state.project, preset);
     if (state.project?.guide?.status === 'ready') {
-      rebuildReadyGuidePlanAfterPreferenceEdit();
-      return;
+      state.project.guide.status = 'pending';
+      state.project.guide.generatedPlan = null;
     }
     markDirty();
     renderAll();
