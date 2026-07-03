@@ -9,6 +9,18 @@ const project = createSampleProject();
 const model = buildSkinEffectModel(project, { theme: 'light', keyboardName: 'pinyin_26_portrait' });
 const effectProject = buildEffectiveProject(project);
 const effectFiles = buildSkinEffectFileEntries(effectProject);
+const enabledSwipeProject = createSampleProject();
+enabledSwipeProject.keyboardCombo.swipeBehavior = {
+  ...enabledSwipeProject.keyboardCombo.swipeBehavior,
+  mode: 'visible',
+  showSwipeUp: true,
+  showSwipeDown: true,
+  layouts: {
+    ...(enabledSwipeProject.keyboardCombo.swipeBehavior.layouts || {}),
+    pinyin: { mode: 'visible', showSwipeUp: true, showSwipeDown: true },
+  },
+};
+const enabledSwipeModel = buildSkinEffectModel(enabledSwipeProject, { theme: 'light', keyboardName: 'pinyin_26_portrait' });
 
 assert(model.version === 1, '效果模型应声明版本。');
 assert(model.nativePayload, '效果模型应包含 nativePayload。');
@@ -29,9 +41,12 @@ assert(normalizeActionObject({ action: 'dismissKeyboard' })?.action === 'dismiss
 assert(normalizeActionObject({ shortcutCommand: '#Phrase' })?.shortcut === '#showPhraseView', '旧 shortcutCommand 常用语应兼容归一为官方 shortcut。');
 assert(normalizeActionObject({ shortcut: '#Pasteboard' })?.shortcut === '#showPasteboardView', '旧剪贴板快捷指令应兼容归一为官方 shortcut。');
 assert(normalizeActionObject({ floatKeyboardType: 'panel' })?.keyboardType === 'panel', '旧项目 floatKeyboardType: panel 应兼容归一为 keyboardType: panel。');
-assert(model.nativePayload.qButton?.swipeUpAction, '效果模型应包含上划动作。');
-assert(model.nativePayload.qButton?.foregroundStyle?.includes('qButtonUpForegroundStyle'), '26 键导出应保留原始 Up 前景引用。');
-assert(model.nativePayload.qButton?.foregroundStyle?.includes('qButtonDownForegroundStyle'), '26 键导出应保留原始 Down 前景引用。');
+assert(!model.nativePayload.qButton?.swipeUpAction, '默认关闭划动时，效果模型不应包含上划动作。');
+assert(!model.nativePayload.qButton?.foregroundStyle?.includes('qButtonUpForegroundStyle'), '默认关闭划动时，26 键导出不应引用原始 Up 前景。');
+assert(!model.nativePayload.qButton?.foregroundStyle?.includes('qButtonDownForegroundStyle'), '默认关闭划动时，26 键导出不应引用原始 Down 前景。');
+assert(enabledSwipeModel.nativePayload.qButton?.swipeUpAction, '显式开启划动时，效果模型应包含上划动作。');
+assert(enabledSwipeModel.nativePayload.qButton?.foregroundStyle?.includes('qButtonUpForegroundStyle'), '显式开启划动时，26 键导出应保留原始 Up 前景引用。');
+assert(enabledSwipeModel.nativePayload.qButton?.foregroundStyle?.includes('qButtonDownForegroundStyle'), '显式开启划动时，26 键导出应保留原始 Down 前景引用。');
 assert(!model.nativePayload.qButton?.foregroundStyle?.includes('qButtonSwipeUpForegroundStyle'), '26 键导出不应把预览 SwipeUp 别名写入按钮引用。');
 assert(!model.nativePayload.qButton?.foregroundStyle?.includes('qButtonSwipeDownForegroundStyle'), '26 键导出不应把预览 SwipeDown 别名写入按钮引用。');
 assert(!model.nativePayload.qButtonSwipeUpForegroundStyle, '26 键导出不应生成预览 SwipeUp 别名样式。');
@@ -83,6 +98,9 @@ numericSwipeProject.keyboardCombo.swipeBehavior.layouts = {
   showSwipeDown: true,
   },
 };
+numericSwipeProject.keyboardCombo.swipeBehavior.mode = 'visible';
+numericSwipeProject.keyboardCombo.swipeBehavior.showSwipeUp = true;
+numericSwipeProject.keyboardCombo.swipeBehavior.showSwipeDown = true;
 numericSwipeProject.keyboardCombo.swipeBehavior.ui = {
   ...(numericSwipeProject.keyboardCombo.swipeBehavior.ui || {}),
   numeric: { mode: 'visible' },

@@ -947,6 +947,11 @@ function nativeForegrounds(project, theme, payload = {}, buttonName = '', option
 }
 
 function nativeCellKey(cellName = '') {
+  const aliases = {
+    alphabeticButton: 'cnen',
+    numericButton: '123',
+  };
+  if (aliases[cellName]) return aliases[cellName];
   if (/^toolbar[A-Z]/.test(cellName) && cellName.endsWith('Button')) {
     const raw = cellName.slice('toolbar'.length, -'Button'.length);
     return raw ? raw.charAt(0).toLowerCase() + raw.slice(1) : cellName;
@@ -1577,7 +1582,7 @@ function renderPinyin9Keyboard(project, theme, styles, frame, options = {}) {
     const width = item.width;
     const label = labelForMode(project, 'keyboard26', item.key, options);
     const html = `
-      <div class="calayer-cell is-${item.key} ${item.key === 'space' ? 'is-letter' : 'is-function'}" style="position:absolute;left:${footerX}px;top:${footerY}px;width:${width}px;height:${rowHeight}px">
+      <div class="calayer-cell is-${item.key} ${item.key === 'space' ? 'is-letter' : 'is-function'}" style="position:absolute;left:${footerX}px;top:${footerY}px;width:${width}px;height:${rowHeight}px" data-preview-key="${escapeHtml(item.key)}">
         <div class="calayer-visible" style="width:100%;height:100%">
           <div class="calayer-background is-layer-bg" style="${geometryCss(item.background)};${insetPositionCss(resolveInsets(project, 'keyboard26', item.key))}"></div>
           ${item.key === 'space'
@@ -1603,7 +1608,7 @@ function renderPinyin9Keyboard(project, theme, styles, frame, options = {}) {
   const enterX = leftInset + contentWidth - rightWidth;
   const enterY = topInset + 2 * (rowHeight + rowGap);
   const enterHtml = `
-    <div class="calayer-cell is-enter is-function" style="position:absolute;left:${enterX}px;top:${enterY}px;width:${rightWidth}px;height:${mergedEnterHeight}px">
+    <div class="calayer-cell is-enter is-function" style="position:absolute;left:${enterX}px;top:${enterY}px;width:${rightWidth}px;height:${mergedEnterHeight}px" data-preview-key="enter">
       <div class="calayer-visible" style="width:100%;height:100%">
         <div class="calayer-background is-layer-bg" style="${geometryCss(styles.enterButtonBackgroundStyle)};${insetPositionCss(resolveInsets(project, 'keyboard26', 'enter'))}"></div>
         ${renderForeground({
@@ -1710,7 +1715,10 @@ function subLabelForCnen(options = {}) {
 function renderPinyinVariantKeyboard(project, theme, styles, frame, options = {}) {
   const variant = activePinyinVariantForPreview(project, options);
   const height = frame.keyboardHeight;
-  const layout = previewKeyboardMetrics(styles, frame, options, { outerInsetX: 5, outerInsetY: 4, rowGap: 4, colGap: 5 });
+  const variantLayoutOptions = variant === '14'
+    ? { outerInsetX: 3, outerInsetY: 3, rowGap: 2, colGap: 4 }
+    : { outerInsetX: 5, outerInsetY: 4, rowGap: 4, colGap: 5 };
+  const layout = previewKeyboardMetrics(styles, frame, options, variantLayoutOptions);
   const { leftInset, topInset, contentWidth, rowGap, colGap, rowHeight } = layout;
   const cells = [];
   const layoutRowByWeights = (items, width = contentWidth, xStart = leftInset) => {
@@ -1758,7 +1766,15 @@ function renderPinyinVariantKeyboard(project, theme, styles, frame, options = {}
       { key: 'cnen', weight: 0.85, isFunction: true },
       { key: 'enter', weight: 1.15, isFunction: true, accent: true },
     ], contentWidth, leftInset, colGap).forEach((item) => {
-      cells.push(renderVariantCell(project, theme, item.key, item.key, { x: item.x, y: footerY, width: item.width, height: rowHeight, isFunction: item.isFunction, accent: item.accent, options }, styles));
+      cells.push(renderVariantCell(project, theme, item.key, item.key, {
+        x: item.x,
+        y: footerY,
+        width: item.width,
+        height: rowHeight,
+        isFunction: item.isFunction,
+        accent: item.accent,
+        options,
+      }, styles));
     });
   } else if (variant === '17') {
     [['h','s','z','b','x','m'],['l','d','y','w','j','n']].forEach((row, rowIndex) => {
@@ -1823,7 +1839,7 @@ function renderPinyinVariantKeyboard(project, theme, styles, frame, options = {}
     const footer = layoutWeightedPreviewRow([
       { key: '123', weight: 0.2, isFunction: true },
       { key: 'semicolon', weight: 0.12, isFunction: true },
-      { key: 'space', weight: 0.34 },
+      { key: 'space', weight: 0.4 },
       { key: 'cnen', weight: 0.12, isFunction: true },
       { key: 'enter', weight: 0.22, isFunction: true, accent: true },
     ], contentWidth, leftInset, colGap);
@@ -3343,12 +3359,16 @@ function numericCell(project, key, height, styles, orientation = 'portrait', opt
   const metric = resolveKeyMetric(project, 'numeric', key, orientation);
   const isPressed = options.activePressedKey === key;
   if (/^\d$/.test(key)) {
+    const numberBackgroundStyle = {
+      ...styles.alphabeticBackgroundStyle,
+      insets: resolveInsets(project, 'keyboard26', key),
+    };
     return renderLayerCell({
       className: `is-numeric-number is-${key} ${isPressed ? 'is-pressed' : ''}`,
       basis: metric.basis,
       bounds: metric.bounds,
       height,
-      backgroundStyle: { ...styles.numberButtonBackgroundStyle, insets: resolveInsets(project, 'numeric', key) },
+      backgroundStyle: numberBackgroundStyle,
       foregrounds: [renderForeground(styles.numericNumberForegroundStyle, customLabel || key)],
       attrs: `data-preview-key="${escapeHtml(key)}"`,
     });
@@ -3549,13 +3569,15 @@ function renderNumericKeyboard(project, theme, styles, frame, options = {}) {
   const columns = project.keyboards?.numeric?.layout?.portrait?.columns?.length
     ? project.keyboards.numeric.layout.portrait.columns
     : DEFAULT_NUMERIC_COLUMNS;
-  const rowHeight = height / Math.max(...columns.map((column) => column.length), 1);
+  const keyboardInsets = styles.keyboardStyle.insets || {};
+  const contentHeight = height - Number(keyboardInsets.top || 0) - Number(keyboardInsets.bottom || 0);
+  const rowHeight = contentHeight / Math.max(...columns.map((column) => column.length), 1);
   const columnTemplate = orientation === 'landscape'
     ? '0.75fr 1fr 1fr 1fr 0.75fr'
     : '0.7fr 1fr 1fr 1fr 0.7fr';
   return `
-    <div class="calayer-keyboard is-numeric-keyboard" style="${backgroundCssForStyle(project, theme, styles.keyboardBackgroundStyle)};height:${height}px;padding:${cssInsets(styles.keyboardStyle.insets)}">
-      <div class="numeric-column-layout" style="grid-template-columns:${columnTemplate}">
+    <div class="calayer-keyboard is-numeric-keyboard" style="${backgroundCssForStyle(project, theme, styles.keyboardBackgroundStyle)};height:${height}px;padding:${cssInsets(keyboardInsets)}">
+      <div class="numeric-column-layout" style="grid-template-columns:${columnTemplate};gap:0">
         ${columns.map((column, columnIndex) => `
           <div class="numeric-column is-column-${columnIndex + 1}">
             ${column.map((key) => key === 'collection'

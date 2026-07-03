@@ -16,14 +16,6 @@ const IOS_ENTER_SURFACE = {
   shadowOffset: { x: 0, y: 0.45 },
 };
 
-const IOS14_KEY_SURFACE = {
-  cornerRadius: 10,
-  borderSize: 0,
-  shadowRadius: 1,
-  shadowOpacity: 1,
-  shadowOffset: { x: 0, y: 0.7 },
-};
-
 const IOS18_KEY_SURFACE = {
   cornerRadius: 8.5,
   borderSize: 0,
@@ -35,11 +27,6 @@ const IOS18_KEY_SURFACE = {
 const IOS26_KEYBOARD_INSETS = {
   normal: { top: 4, left: 3, bottom: 5, right: 3 },
   functionKey: { top: 4, left: 3, bottom: 6, right: 3 },
-};
-
-const IOS14_KEYBOARD_INSETS = {
-  normal: { top: 5, left: 2.5, bottom: 2.5, right: 2.5 },
-  functionKey: { top: 6, left: 2.795, bottom: 6, right: 2.795 },
 };
 
 const IOS26_METRICS = {
@@ -674,26 +661,9 @@ export const KEYBOARD_SKIN_PRESETS = [
     patch: presetPatch({
       layout: '14',
       frame: {
-        portrait: { preeditHeight: 21, toolbarHeight: 47, keyboardHeight: 195 },
-        landscape: { preeditHeight: 19, toolbarHeight: 41, keyboardHeight: 151 },
+        portrait: { preeditHeight: 22, toolbarHeight: 41, keyboardHeight: 216 },
+        landscape: { preeditHeight: 14, toolbarHeight: 30, keyboardHeight: 160 },
       },
-      keyStyles: {
-        surfaceStyles: {
-          keyboard26: {
-            normal: IOS14_KEY_SURFACE,
-            functionKey: { ...IOS14_KEY_SURFACE, cornerRadius: 8 },
-            enterAccent: { ...IOS14_KEY_SURFACE, cornerRadius: 8 },
-          },
-        },
-        buttonInsets: {
-          keyboard26: IOS14_KEYBOARD_INSETS,
-          toolbar: {
-            menu: { top: 5, left: 0, bottom: 0, right: 0 },
-            horizontalCandidates: { top: 5, left: 5, bottom: 0, right: 0 },
-          },
-        },
-      },
-      toolbarStyleInsets: { left: 5, top: 5 },
       spacebarRow: ['123', 'semicolon', 'space', 'cnen', 'enter'],
       swipesEnabled: false,
     }),
@@ -706,10 +676,11 @@ export const KEYBOARD_SKIN_PRESETS = [
     patch: presetPatch({
       layout: '17',
       frame: {
-        portrait: { preeditHeight: 20, toolbarHeight: 40, keyboardHeight: 200 },
+        portrait: { preeditHeight: 22, toolbarHeight: 41, keyboardHeight: 216 },
         landscape: { preeditHeight: 14, toolbarHeight: 30, keyboardHeight: 160 },
       },
       spacebarRow: ['123', 'cnen', 'space', 'semicolon', 'enter'],
+      swipesEnabled: false,
     }),
   },
   {
@@ -720,8 +691,8 @@ export const KEYBOARD_SKIN_PRESETS = [
     patch: presetPatch({
       layout: '18',
       frame: {
-        portrait: { preeditHeight: 21, toolbarHeight: 45, keyboardHeight: 216 },
-        landscape: { preeditHeight: 21, toolbarHeight: 45, keyboardHeight: 160 },
+        portrait: { preeditHeight: 22, toolbarHeight: 41, keyboardHeight: 216 },
+        landscape: { preeditHeight: 14, toolbarHeight: 30, keyboardHeight: 160 },
       },
       keyStyles: {
         surfaceStyles: {
@@ -736,14 +707,10 @@ export const KEYBOARD_SKIN_PRESETS = [
             normal: { top: 5, left: 3, bottom: 5, right: 3 },
             functionKey: { top: 5, left: 3, bottom: 5, right: 3 },
           },
-          toolbar: {
-            menu: { top: 6, left: 3, bottom: 0, right: 3 },
-            horizontalCandidates: { top: 6, left: 3, bottom: 0, right: 0 },
-          },
         },
       },
-      toolbarStyleInsets: { top: 6 },
       spacebarRow: ['123', 'semicolon', 'space', 'cnen', 'enter'],
+      swipesEnabled: false,
     }),
   },
 ];

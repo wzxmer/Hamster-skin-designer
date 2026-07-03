@@ -34,6 +34,7 @@ const state = {
   sidebarCollapsed: false,
   theme: 'light',
   previewMode: 'keyboard26',
+  previewModeStack: [],
   previewOrientation: 'portrait',
   candidateState: 'toolbar',
   symbolicCategory: '常用',
@@ -973,15 +974,15 @@ function guideToggleState(project = state.project) {
   const swipesOn = project?.data?.swipesEnabled !== false && swipeMode !== 'disabled';
   const swipeMarksVisible = swipesOn && swipeMode !== 'hidden';
   const toolbarOn = guide.preferences.defaultToolbarEnabled !== false && project?.keyboardCombo?.toolbar?.enabled !== false;
-  const pinyinSwipeOn = guide.preferences.pinyinSwipeUpEnabled !== false || guide.preferences.pinyinSwipeDownEnabled === true;
-  const alphabeticSwipeOn = guide.preferences.alphabeticSwipeUpEnabled !== false || guide.preferences.alphabeticSwipeDownEnabled === true;
+  const pinyinSwipeOn = guide.preferences.pinyinSwipeUpEnabled === true || guide.preferences.pinyinSwipeDownEnabled === true;
+  const alphabeticSwipeOn = guide.preferences.alphabeticSwipeUpEnabled === true || guide.preferences.alphabeticSwipeDownEnabled === true;
   return {
     toolbarEnabled: toolbarOn,
-    swipeUpEnabled: swipesOn && (guide.preferences.pinyinSwipeUpEnabled !== false || guide.preferences.alphabeticSwipeUpEnabled !== false),
+    swipeUpEnabled: swipesOn && (guide.preferences.pinyinSwipeUpEnabled === true || guide.preferences.alphabeticSwipeUpEnabled === true),
     swipeDownEnabled: swipesOn && (guide.preferences.pinyinSwipeDownEnabled === true || guide.preferences.alphabeticSwipeDownEnabled === true),
     swipeUpVisible: swipeMarksVisible && (
-      (guide.preferences.pinyinSwipeUpEnabled !== false && guide.preferences.pinyinSwipeUpVisible !== false)
-      || (guide.preferences.alphabeticSwipeUpEnabled !== false && guide.preferences.alphabeticSwipeUpVisible !== false)
+      (guide.preferences.pinyinSwipeUpEnabled === true && guide.preferences.pinyinSwipeUpVisible !== false)
+      || (guide.preferences.alphabeticSwipeUpEnabled === true && guide.preferences.alphabeticSwipeUpVisible !== false)
     ),
     swipeDownVisible: swipeMarksVisible && (
       (guide.preferences.pinyinSwipeDownEnabled === true && guide.preferences.pinyinSwipeDownVisible !== false)
@@ -4278,13 +4279,19 @@ function spaceKeyEditFields(path, value) {
 
 function normalizedKeyboardCombo(value = {}) {
   const slots = value.slots || {};
+  const swipeRootMode = value.swipeBehavior?.mode || 'disabled';
+  const swipeFlag = (scope, key) => {
+    const mode = scope?.mode || swipeRootMode;
+    if (mode === 'disabled') return false;
+    return scope?.[key] !== false;
+  };
   return {
     inputStrategy: value.inputStrategy || 'separateAlphabetic',
     slots: {
       pinyin: { enabled: slots.pinyin?.enabled !== false, source: slots.pinyin?.source || 'custom', variant: slots.pinyin?.variant || '26' },
       alphabetic: { enabled: slots.alphabetic?.enabled !== false, source: slots.alphabetic?.source || 'custom', variant: slots.alphabetic?.variant || '26' },
       numeric: { enabled: slots.numeric?.enabled !== false, source: slots.numeric?.source || 'custom', variant: slots.numeric?.variant || '9' },
-      symbolic: { enabled: slots.symbolic?.enabled !== false, source: slots.symbolic?.source || 'custom', variant: slots.symbolic?.variant || 'custom' },
+      symbolic: { enabled: slots.symbolic?.enabled !== false, source: slots.symbolic?.source || 'system', variant: slots.symbolic?.variant || 'system' },
       emoji: { enabled: slots.emoji?.enabled !== false, source: slots.emoji?.source || 'system', variant: slots.emoji?.variant || 'system' },
       panel: { enabled: slots.panel?.enabled !== false, source: slots.panel?.source || 'custom', variant: slots.panel?.variant || 'panel' },
     },
@@ -4294,25 +4301,25 @@ function normalizedKeyboardCombo(value = {}) {
       allowCustomCount: value.toolbar?.allowCustomCount !== false,
     },
     swipeBehavior: {
-      mode: value.swipeBehavior?.mode || 'visible',
-      showSwipeUp: value.swipeBehavior?.showSwipeUp !== false,
-      showSwipeDown: value.swipeBehavior?.showSwipeDown !== false,
+      mode: swipeRootMode,
+      showSwipeUp: swipeFlag(value.swipeBehavior, 'showSwipeUp'),
+      showSwipeDown: swipeFlag(value.swipeBehavior, 'showSwipeDown'),
       ui: isPlainObject(value.swipeBehavior?.ui) ? structuredClone(value.swipeBehavior.ui) : {},
       layouts: {
         pinyin: {
-          mode: value.swipeBehavior?.layouts?.pinyin?.mode || value.swipeBehavior?.mode || 'visible',
-          showSwipeUp: value.swipeBehavior?.layouts?.pinyin?.showSwipeUp !== false,
-          showSwipeDown: value.swipeBehavior?.layouts?.pinyin?.showSwipeDown !== false,
+          mode: value.swipeBehavior?.layouts?.pinyin?.mode || swipeRootMode,
+          showSwipeUp: swipeFlag(value.swipeBehavior?.layouts?.pinyin, 'showSwipeUp'),
+          showSwipeDown: swipeFlag(value.swipeBehavior?.layouts?.pinyin, 'showSwipeDown'),
         },
         alphabetic: {
-          mode: value.swipeBehavior?.layouts?.alphabetic?.mode || value.swipeBehavior?.mode || 'visible',
-          showSwipeUp: value.swipeBehavior?.layouts?.alphabetic?.showSwipeUp !== false,
-          showSwipeDown: value.swipeBehavior?.layouts?.alphabetic?.showSwipeDown !== false,
+          mode: value.swipeBehavior?.layouts?.alphabetic?.mode || swipeRootMode,
+          showSwipeUp: swipeFlag(value.swipeBehavior?.layouts?.alphabetic, 'showSwipeUp'),
+          showSwipeDown: swipeFlag(value.swipeBehavior?.layouts?.alphabetic, 'showSwipeDown'),
         },
         numeric: {
-          mode: value.swipeBehavior?.layouts?.numeric?.mode || value.swipeBehavior?.mode || 'visible',
-          showSwipeUp: value.swipeBehavior?.layouts?.numeric?.showSwipeUp !== false,
-          showSwipeDown: value.swipeBehavior?.layouts?.numeric?.showSwipeDown !== false,
+          mode: value.swipeBehavior?.layouts?.numeric?.mode || swipeRootMode,
+          showSwipeUp: swipeFlag(value.swipeBehavior?.layouts?.numeric, 'showSwipeUp'),
+          showSwipeDown: swipeFlag(value.swipeBehavior?.layouts?.numeric, 'showSwipeDown'),
         },
       },
     },
@@ -4565,6 +4572,8 @@ function applyKeyboardPresetPreferences(project, preset) {
     : {};
   project.guide.preferences.keyboardPreset = preset.value;
   project.guide.preferences.chineseLayout = preset.layout;
+  project.guide.preferences.symbolLayout = preset.patch?.guide?.preferences?.symbolLayout || 'system';
+  project.guide.preferences.emojiLayout = preset.patch?.guide?.preferences?.emojiLayout || 'system';
   project.guide.preferences.spacebarRow = normalizeGuideSpacebarRow(
     project.guide.preferences.spacebarRow || preset.patch?.guide?.preferences?.spacebarRow,
   );
@@ -4626,9 +4635,9 @@ function buildGuidePlan(preferences = {}) {
   const symbolLayout = preferences.symbolLayout === 'custom' ? 'custom' : 'system';
   const emojiLayout = preferences.emojiLayout === 'custom' ? 'custom' : 'system';
   const toolbarEnabled = preferences.defaultToolbarEnabled !== false;
-  const pinyinSwipeUpEnabled = preferences.pinyinSwipeUpEnabled !== undefined ? preferences.pinyinSwipeUpEnabled !== false : preferences.swipeUpEnabled !== false;
+  const pinyinSwipeUpEnabled = preferences.pinyinSwipeUpEnabled !== undefined ? preferences.pinyinSwipeUpEnabled !== false : preferences.swipeUpEnabled === true;
   const pinyinSwipeDownEnabled = preferences.pinyinSwipeDownEnabled !== undefined ? preferences.pinyinSwipeDownEnabled === true : preferences.swipeDownEnabled === true;
-  const alphabeticSwipeUpEnabled = preferences.alphabeticSwipeUpEnabled !== undefined ? preferences.alphabeticSwipeUpEnabled !== false : preferences.swipeUpEnabled !== false;
+  const alphabeticSwipeUpEnabled = preferences.alphabeticSwipeUpEnabled !== undefined ? preferences.alphabeticSwipeUpEnabled !== false : preferences.swipeUpEnabled === true;
   const alphabeticSwipeDownEnabled = preferences.alphabeticSwipeDownEnabled !== undefined ? preferences.alphabeticSwipeDownEnabled === true : preferences.swipeDownEnabled === true;
   const previewModes = [
     `pinyin_${chineseLayout}_portrait`,
@@ -4680,10 +4689,10 @@ function buildGuidePlan(preferences = {}) {
 function normalizedGuide(value = {}, fallbackStatus = 'pending') {
   const preferences = value.preferences || {};
   const preset = keyboardSkinPresetByValue(preferences.keyboardPreset || DEFAULT_KEYBOARD_SKIN_PRESET);
-  const legacySwipeUpEnabled = preferences.swipeUpEnabled !== false;
+  const legacySwipeUpEnabled = preferences.swipeUpEnabled === true;
   const legacySwipeDownEnabled = preferences.swipeDownEnabled === true;
-  const legacySwipeUpVisible = preferences.swipeUpVisible !== false;
-  const legacySwipeDownVisible = preferences.swipeDownVisible !== false;
+  const legacySwipeUpVisible = preferences.swipeUpVisible === true;
+  const legacySwipeDownVisible = preferences.swipeDownVisible === true;
   const normalizedPreferences = {
     keyboardPreset: preset.value,
     chineseLayout: preset.layout || (['9', '14', '17', '18', '26'].includes(preferences.chineseLayout) ? preferences.chineseLayout : '26'),
@@ -6714,6 +6723,7 @@ function defaultPreviewMode() {
 }
 
 function previewModeExists(mode) {
+  if (['keyboard26', 'alphabetic', 'numeric', 'symbolic', 'emoji', 'panel'].includes(mode)) return true;
   return configPreviewKeyboards().some((name) => configPreviewValue(name) === mode)
     || previewKeyboards().some((item) => customPreviewValue(item.id) === mode);
 }
@@ -6758,10 +6768,16 @@ function togglePreviewModeMenu() {
 
 function setPreviewMode(mode) {
   state.previewMode = mode;
+  state.previewModeStack = [];
   state.editingKey = null;
   closePreviewModeMenu();
   if (isPreviewScopedModule()) renderEditor();
   renderCurrentPreview();
+}
+
+function setPreviewModeFromControl(mode) {
+  state.previewMode = mode;
+  state.previewModeStack = [];
 }
 
 function renderPreviewModeOptions() {
@@ -6780,8 +6796,16 @@ function renderPreviewModeOptions() {
     ${customOptions ? `<optgroup label="自定义键盘">${customOptions}</optgroup>` : ''}
   `;
   el.previewMode.value = state.previewMode || '';
+  const transientPreviewLabels = {
+    keyboard26: '中文键盘',
+    alphabetic: '英文键盘',
+    numeric: '数字键盘',
+    symbolic: 'App内符号键盘',
+    emoji: 'App内emoji键盘',
+    panel: '自定义面板',
+  };
   const selectedOption = groups.flatMap((group) => group.options).find((item) => item.value === state.previewMode);
-  el.previewModeButton.textContent = selectedOption?.label || '选择键盘';
+  el.previewModeButton.textContent = selectedOption?.label || transientPreviewLabels[state.previewMode] || '选择键盘';
   el.previewModeMenu.innerHTML = groups.map((group) => `
     <section class="preview-mode-group">
       <div class="preview-mode-group-label">${escapeHtml(group.label)}</div>
@@ -6803,6 +6827,10 @@ function previewSourceName(mode = state.previewMode) {
   if (mode?.startsWith?.('custom:')) {
     const keyboard = previewKeyboards().find((item) => customPreviewValue(item.id) === mode);
     return keyboard?.source || keyboard?.name || '';
+  }
+  if (mode === 'alphabetic') {
+    const orientation = state.previewOrientation === 'landscape' ? 'landscape' : 'portrait';
+    return `alphabetic_26_${orientation}`;
   }
   return mode || '';
 }
@@ -6870,6 +6898,7 @@ function previewValueForMode(mode, orientation = 'portrait') {
 
 function previewValueForModePreferred(mode, orientation = 'portrait') {
   const value = previewValueForMode(mode, orientation);
+  if (mode === 'alphabetic' && previewSourceName(value).startsWith('alphabetic_')) return value;
   if (previewRenderMode(value) === mode) return value;
   return mode;
 }
@@ -6886,14 +6915,35 @@ function previewModeForKeySwitch(renderMode, releasedKey, orientation) {
   }
   if (key === 'cnen' && renderMode === 'keyboard26') {
     const profile = currentKeyboardPreviewProfile();
-    return profile === 'alphabetic'
-      ? previewValueForModePreferred('keyboard26', orientation)
-      : previewValueForModePreferred('alphabetic', orientation);
+    if (profile === 'alphabetic') return previewValueForModePreferred('keyboard26', orientation);
+    const alphabeticMode = previewValueForModePreferred('alphabetic', orientation);
+    return previewRenderMode(alphabeticMode) === 'alphabetic' ? alphabeticMode : 'alphabetic';
   }
   return null;
 }
 
+function switchPreviewModeByKey(releasedKey, renderMode, orientation) {
+  const key = String(releasedKey || '');
+  if (key === 'return' && ['numeric', 'symbolic', 'emoji', 'panel'].includes(renderMode)) {
+    const previous = Array.isArray(state.previewModeStack) ? state.previewModeStack.pop() : null;
+    return previous && previewModeExists(previous)
+      ? previous
+      : previewValueForModePreferred('keyboard26', orientation);
+  }
+  const nextMode = previewModeForKeySwitch(renderMode, releasedKey, orientation);
+  if (!nextMode || nextMode === state.previewMode) return null;
+  const shouldPushReturnTarget = ['123', 'symbol', 'emoji', 'menu'].includes(key);
+  if (shouldPushReturnTarget) {
+    state.previewModeStack = Array.isArray(state.previewModeStack) ? state.previewModeStack : [];
+    if (state.previewModeStack[state.previewModeStack.length - 1] !== state.previewMode) {
+      state.previewModeStack.push(state.previewMode);
+    }
+  }
+  return nextMode;
+}
+
 function previewRenderMode(mode) {
+  if (mode === 'alphabetic') return 'keyboard26';
   if (mode?.startsWith?.('config:')) {
     return previewModeForKeyboardName(mode.slice('config:'.length));
   }
@@ -6910,7 +6960,7 @@ function previewRenderOrientation(mode) {
     const keyboard = previewKeyboards().find((item) => customPreviewValue(item.id) === mode);
     return keyboard?.orientation || previewOrientationForKeyboardName(keyboard?.source || keyboard?.name || '');
   }
-  return 'portrait';
+  return state.previewOrientation === 'landscape' ? 'landscape' : 'portrait';
 }
 
 function addPreviewKeyboard() {
@@ -7104,7 +7154,7 @@ function releasePreviewKeyboardCell() {
   const releasedKey = state.previewPressedKey;
   const renderMode = previewRenderMode(state.previewMode);
   const orientation = previewRenderOrientation(state.previewMode);
-  const switchTargetMode = previewModeForKeySwitch(renderMode, releasedKey, orientation);
+  const switchTargetMode = switchPreviewModeByKey(releasedKey, renderMode, orientation);
   if (switchTargetMode) {
     state.previewMode = switchTargetMode;
     state.previewShiftActive = false;
@@ -7568,7 +7618,7 @@ async function capturePreviewDemoPng(sourceProject = state.project) {
 function restoreChinesePreviewAfterCollections(previousModuleId, moduleId) {
   if (previousModuleId !== 'collections' || moduleId === 'collections') return false;
   const orientation = currentPreviewScope().orientation === 'landscape' ? 'landscape' : 'portrait';
-  state.previewMode = previewValueForMode('keyboard26', orientation);
+  setPreviewModeFromControl(previewValueForMode('keyboard26', orientation));
   if (!previewModeExists(state.previewMode)) state.previewMode = defaultPreviewMode();
   return true;
 }
@@ -7597,7 +7647,7 @@ function syncPreviewModeForModule(moduleId, previousModuleId = '') {
       || scope.mode === 'emoji'
       || scope.mode === 'numeric'
       || (scope.mode === 'keyboard26' && scope.pinyinVariant === '9');
-    if (!keepCurrent) state.previewMode = previewValueForMode('symbolic');
+    if (!keepCurrent) setPreviewModeFromControl(previewValueForModePreferred('symbolic', scope.orientation));
     return;
   }
   const nextMode = {
@@ -8474,7 +8524,10 @@ function setFieldValue(path, value, type) {
       panel: 'panel',
     }[slotKey];
     if (slotPreviewMode && currentMode === slotPreviewMode) {
-      state.previewMode = previewValueForMode(slotPreviewMode, orientation);
+      const nextMode = ['symbolic', 'emoji', 'panel'].includes(slotPreviewMode)
+        ? previewValueForModePreferred(slotPreviewMode, orientation)
+        : previewValueForMode(slotPreviewMode, orientation);
+      setPreviewModeFromControl(nextMode);
     }
     return;
   }
@@ -8482,14 +8535,14 @@ function setFieldValue(path, value, type) {
   if (path === 'keyboardCombo.slots.pinyin.variant') {
     setPath(state.project, path, value);
     const orientation = previewRenderOrientation(state.previewMode);
-    state.previewMode = previewValueForMode('keyboard26', orientation);
+    setPreviewModeFromControl(previewValueForMode('keyboard26', orientation));
     return;
   }
 
   if (path === 'keyboardCombo.slots.numeric.variant') {
     setPath(state.project, path, value);
     const orientation = previewRenderOrientation(state.previewMode);
-    state.previewMode = previewValueForMode('numeric', orientation);
+    setPreviewModeFromControl(previewValueForMode('numeric', orientation));
     return;
   }
 

@@ -7514,8 +7514,8 @@
       },
       "symbolic": {
         "enabled": true,
-        "source": "custom",
-        "variant": "custom"
+        "source": "system",
+        "variant": "system"
       },
       "emoji": {
         "enabled": true,
@@ -7534,9 +7534,9 @@
       "allowCustomCount": true
     },
     "swipeBehavior": {
-      "mode": "visible",
-      "showSwipeUp": true,
-      "showSwipeDown": true,
+      "mode": "disabled",
+      "showSwipeUp": false,
+      "showSwipeDown": false,
       "ui": {
         "pinyin9": {
           "mode": "disabled"

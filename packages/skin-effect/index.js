@@ -89,6 +89,34 @@ function mergePlainObjectPatch(target, patch) {
   return target;
 }
 
+function decimalFractionToIntegerFraction(value) {
+  if (typeof value !== 'string' || !/^\d+(?:\.\d+)?\/\d+(?:\.\d+)?$/.test(value)) return value;
+  const [leftText, rightText] = value.split('/');
+  if (!leftText.includes('.') && !rightText.includes('.')) return value;
+  const scaleFor = (text) => {
+    const digits = text.includes('.') ? text.split('.')[1].length : 0;
+    return 10 ** digits;
+  };
+  const scale = Math.max(scaleFor(leftText), scaleFor(rightText));
+  let left = Math.round(Number(leftText) * scale);
+  let right = Math.round(Number(rightText) * scale);
+  if (!Number.isFinite(left) || !Number.isFinite(right) || right === 0) return value;
+  const gcd = (a, b) => {
+    let x = Math.abs(a);
+    let y = Math.abs(b);
+    while (y) {
+      const next = x % y;
+      x = y;
+      y = next;
+    }
+    return x || 1;
+  };
+  const divisor = gcd(left, right);
+  left /= divisor;
+  right /= divisor;
+  return `${left}/${right}`;
+}
+
 export function normalizeActionObject(value) {
   if (typeof value === 'string') {
     const shortcutValue = normalizeShortcutValue(value);
@@ -971,6 +999,8 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
       };
       payload[buttonName].backgroundStyle = 'toolbarButtonBackgroundStyle';
       payload[buttonName].foregroundStyle = `${buttonName}ForegroundStyle`;
+      delete payload[buttonName].size;
+      delete payload[buttonName].bounds;
       const configuredAction = project.toolbar?.actions?.[toolbarKey];
       if (isPlainObject(configuredAction)) {
         payload[buttonName].action = structuredClone(configuredAction);
@@ -1006,17 +1036,32 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
       }
     }
   };
+  const normalizeToolbarContainerStyle = () => {
+    if (!/^(pinyin|alphabetic|numeric)_/.test(keyboardName)) return;
+    payload.toolbarStyle = payload.toolbarStyle && isPlainObject(payload.toolbarStyle) ? payload.toolbarStyle : {};
+    payload.toolbarStyle.backgroundStyle = payload.toolbarStyle.backgroundStyle || 'toolbarBackgroundStyle';
+    const toolbarInsets = project.keyStyles?.buttonInsets?.toolbar?.menu;
+    if (isPlainObject(toolbarInsets)) {
+      payload.toolbarStyle.insets = structuredClone(toolbarInsets);
+    }
+  };
   const stripSchemaNameOnSpaceWhenDisabled = () => {
     if (project.keyboardCombo?.spaceRow?.showSchemaNameOnSpace !== false) return;
     const spaceButton = payload.spaceButton;
     if (isPlainObject(spaceButton)) {
       if (Array.isArray(spaceButton.foregroundStyle)) {
-        spaceButton.foregroundStyle = spaceButton.foregroundStyle.filter((styleName) => styleName !== 'spaceButtonForegroundStyle2');
+        spaceButton.foregroundStyle = spaceButton.foregroundStyle.filter((styleName) => {
+          const style = typeof styleName === 'string' ? payload[styleName] : null;
+          return styleName !== 'spaceButtonForegroundStyle2'
+            && !/RimeSchema/i.test(String(styleName))
+            && String(style?.text || '') !== '$rimeSchemaName';
+        });
       } else if (spaceButton.foregroundStyle === 'spaceButtonForegroundStyle2') {
         delete spaceButton.foregroundStyle;
       }
     }
     delete payload.spaceButtonForegroundStyle2;
+    delete payload.spaceButtonRimeSchemaForegroundStyle;
   };
   const applySwipeActions = () => {
     const kind = resolveKeyboardKind(keyboardName);
@@ -1090,30 +1135,67 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
     const hasSwipeUp = Object.keys(swipeData?.swipe_up || {}).length > 0;
     const hasSwipeDown = Object.keys(swipeData?.swipe_down || {}).length > 0;
     if (hasSwipeUp && hasSwipeDown) return;
+    const isSwipeStyleRef = (item, direction) => {
+      const text = String(item);
+      if (direction === 'up') return /(?:SwipeUp|UpSwipe|UpSwipeFg|UpForegroundStyle)$/i.test(text);
+      return /(?:SwipeDown|DownSwipe|DownSwipeFg|DownForegroundStyle)$/i.test(text);
+    };
     for (const [key, value] of Object.entries(payload)) {
       if (!/Button$/.test(key) || !isPlainObject(value)) continue;
       if (!hasSwipeUp) delete value.swipeUpAction;
       if (!hasSwipeDown) delete value.swipeDownAction;
       if (Array.isArray(value.foregroundStyle)) {
         value.foregroundStyle = value.foregroundStyle.filter((item) => {
-          if (hasSwipeUp === false && (String(item).includes('SwipeUpForegroundStyle') || String(item).endsWith('UpForegroundStyle'))) return false;
-          if (hasSwipeDown === false && (String(item).includes('SwipeDownForegroundStyle') || String(item).endsWith('DownForegroundStyle'))) return false;
+          if (hasSwipeUp === false && isSwipeStyleRef(item, 'up')) return false;
+          if (hasSwipeDown === false && isSwipeStyleRef(item, 'down')) return false;
+          if (hasSwipeUp === false && key === 'spaceRightButton' && item === 'spaceRightButtonForegroundStyle2') return false;
           return true;
         });
       }
       if (Array.isArray(value.uppercasedStateForegroundStyle)) {
         value.uppercasedStateForegroundStyle = value.uppercasedStateForegroundStyle.filter((item) => {
-          if (hasSwipeUp === false && (String(item).includes('SwipeUpForegroundStyle') || String(item).endsWith('UpForegroundStyle'))) return false;
-          if (hasSwipeDown === false && (String(item).includes('SwipeDownForegroundStyle') || String(item).endsWith('DownForegroundStyle'))) return false;
+          if (hasSwipeUp === false && isSwipeStyleRef(item, 'up')) return false;
+          if (hasSwipeDown === false && isSwipeStyleRef(item, 'down')) return false;
           return true;
         });
       }
       if (Array.isArray(value.capsLockedStateForegroundStyle)) {
         value.capsLockedStateForegroundStyle = value.capsLockedStateForegroundStyle.filter((item) => {
-          if (hasSwipeUp === false && (String(item).includes('SwipeUpForegroundStyle') || String(item).endsWith('UpForegroundStyle'))) return false;
-          if (hasSwipeDown === false && (String(item).includes('SwipeDownForegroundStyle') || String(item).endsWith('DownForegroundStyle'))) return false;
+          if (hasSwipeUp === false && isSwipeStyleRef(item, 'up')) return false;
+          if (hasSwipeDown === false && isSwipeStyleRef(item, 'down')) return false;
           return true;
         });
+      }
+    }
+  };
+  const stripPinyinVariantInteractionDecorations = () => {
+    if (!/^pinyin_(14|17|18)_/.test(keyboardName)) return;
+    for (const key of Object.keys(payload)) {
+      if (/Notification$/i.test(key)) delete payload[key];
+      if (/Hint|KeyboardAction/i.test(key)) delete payload[key];
+      if (/(?:SwipeUp|SwipeDown|UpSwipe|DownSwipe|UpSwipeFg|DownSwipeFg|UpForegroundStyle|DownForegroundStyle)/i.test(key)) delete payload[key];
+    }
+    for (const [buttonName, button] of Object.entries(payload)) {
+      if (!/Button$/.test(buttonName) || !isPlainObject(button)) continue;
+      delete button.notification;
+      delete button.animation;
+      delete button.hintStyle;
+      delete button.hintSymbolsStyle;
+      delete button.uppercasedStateAction;
+      delete button.uppercasedStateForegroundStyle;
+      delete button.capsLockedStateForegroundStyle;
+      delete button.preeditStateAction;
+      delete button.preeditStateForegroundStyle;
+      if (Array.isArray(button.foregroundStyle)) {
+        const primaryRefs = button.foregroundStyle.filter((styleName) => {
+          if (typeof styleName !== 'string') return false;
+          if (/(?:SwipeUp|SwipeDown|UpSwipe|DownSwipe|UpSwipeFg|DownSwipeFg|UpForegroundStyle|DownForegroundStyle)$/i.test(styleName)) return false;
+          if (/ForegroundStyle[TF]$/i.test(styleName)) return false;
+          if (/RimeSchema/i.test(styleName)) return false;
+          return true;
+        });
+        if (primaryRefs.length) button.foregroundStyle = primaryRefs.slice(0, 1);
+        else delete button.foregroundStyle;
       }
     }
   };
@@ -1301,6 +1383,15 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
       return value;
     }
     for (const [key, item] of Object.entries(value)) value[key] = normalizeColorStrings(item, key);
+    return value;
+  };
+  const normalizeDecimalFractionStrings = (value) => {
+    if (Array.isArray(value)) {
+      for (let index = 0; index < value.length; index += 1) value[index] = normalizeDecimalFractionStrings(value[index]);
+      return value;
+    }
+    if (!isPlainObject(value)) return decimalFractionToIntegerFraction(value);
+    for (const [key, item] of Object.entries(value)) value[key] = normalizeDecimalFractionStrings(item);
     return value;
   };
   const normalizeLegacyStyleTypes = (value) => {
@@ -1516,6 +1607,36 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   };
   const normalizePinyin14Payload = () => {
     if (!keyboardName.startsWith('pinyin_14_')) return;
+    const letterBackgroundKeys = [
+      'qwBg', 'erBg', 'tyBg', 'uiBg', 'opBg',
+      'asBg', 'dfBg', 'ghBg', 'jkBg', 'lBg',
+      'zxBg', 'cvBg', 'bnBg', 'mBg',
+    ];
+    const functionBackgroundKeys = ['shiftBg', 'backspaceBg', '123Bg', 'commaBg', 'cnenBg', 'enterBgGray'];
+    const functionBackgroundStyle = structuredClone(payload.systemButtonBackgroundStyle || payload.alphabeticBackgroundStyle || fallbackBackgroundStyle('systemButtonBackgroundStyle'));
+    applySurfaceStyle(functionBackgroundStyle, project.keyStyles?.surfaceStyles?.keyboard26?.functionKey);
+    applyInsets(functionBackgroundStyle, project.keyStyles?.buttonInsets?.keyboard26?.functionKey);
+    functionBackgroundStyle.normalColor = themeColors['功能键背景颜色-普通'] || functionBackgroundStyle.normalColor;
+    functionBackgroundStyle.highlightColor = themeColors['功能键背景颜色-高亮'] || functionBackgroundStyle.highlightColor;
+    functionBackgroundStyle.normalLowerEdgeColor = themeColors['底边缘颜色-普通'] || functionBackgroundStyle.normalLowerEdgeColor;
+    functionBackgroundStyle.highlightLowerEdgeColor = themeColors['底边缘颜色-高亮'] || functionBackgroundStyle.highlightLowerEdgeColor;
+    functionBackgroundStyle.borderColor = themeColors['按键边缘颜色'] || functionBackgroundStyle.borderColor;
+    payload.systemButtonBackgroundStyle = structuredClone(functionBackgroundStyle);
+    const enterBackgroundStyle = structuredClone(payload.enterButtonBlueBackgroundStyle || functionBackgroundStyle);
+    applySurfaceStyle(enterBackgroundStyle, project.keyStyles?.surfaceStyles?.keyboard26?.enterAccent);
+    applyInsets(enterBackgroundStyle, project.keyStyles?.buttonInsets?.keyboard26?.enter || project.keyStyles?.buttonInsets?.keyboard26?.functionKey);
+    enterBackgroundStyle.normalColor = themeColors['enter键背景(蓝色)'] || enterBackgroundStyle.normalColor;
+    enterBackgroundStyle.highlightColor = themeColors['enter键背景(蓝色)'] || enterBackgroundStyle.highlightColor;
+    delete enterBackgroundStyle.normalLowerEdgeColor;
+    delete enterBackgroundStyle.highlightLowerEdgeColor;
+    payload.enterButtonBlueBackgroundStyle = structuredClone(enterBackgroundStyle);
+    for (const styleName of letterBackgroundKeys) {
+      payload[styleName] = structuredClone(payload.alphabeticBackgroundStyle || fallbackBackgroundStyle(styleName));
+    }
+    for (const styleName of functionBackgroundKeys) {
+      payload[styleName] = structuredClone(functionBackgroundStyle);
+    }
+    payload.enterBgCol = structuredClone(enterBackgroundStyle);
     if (keyboardName.includes('portrait')) {
       const footerWidths = {
         '123Button': 1.15 / 7,
@@ -1576,6 +1697,21 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
       }
     }
   };
+  const normalizeVariantEnterButton = () => {
+    if (!/^pinyin_(14|17|18)_/.test(keyboardName)) return;
+    const enterText = project.keyboards?.keyboard26?.text?.enter?.send
+      || project.keyboards?.keyboard26?.text?.enter?.default
+      || '发送';
+    if (isPlainObject(payload.enterButton)) {
+      payload.enterButton.foregroundStyle = 'enterButtonForegroundStyle';
+    }
+    setTextStyle('enterButtonForegroundStyle', enterText, {
+      center: sharedCenter['功能键前景文字偏移'] || { x: 0.5, y: 0.47 },
+      fontSize: sharedFontSize['功能键前景文字大小'] || 16,
+      normalColor: '#ffffff',
+      highlightColor: '#ffffff',
+    });
+  };
   const normalizePinyinVariantRowHeights = () => {
     if (!/^pinyin_(14|17)_/.test(keyboardName)) return;
     if (keyboardName.includes('portrait')) {
@@ -1593,23 +1729,59 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   };
   const normalizePinyin18Payload = () => {
     if (!keyboardName.startsWith('pinyin_18_')) return;
+    const orientation = keyboardName.includes('landscape') ? 'landscape' : 'portrait';
+    const metrics = project.keyboards?.keyboard26?.variants?.['18']?.metrics?.[orientation]
+      || project.keyboards?.keyboard26?.variants?.['18']?.metrics?.portrait
+      || {};
+    const metricKeyForButton = (buttonName) => ({
+      shiftButton: 'shift',
+      backspaceButton: 'backspace',
+      numericButton: '123',
+      commaButton: 'spaceRight',
+      alphabeticButton: 'cnen',
+      enterButton: 'enter',
+    }[buttonName] || buttonName.replace(/Button$/, ''));
+    payload.HStackStyle = payload.HStackStyle && isPlainObject(payload.HStackStyle) ? payload.HStackStyle : {};
+    payload.HStackStyle.size = { ...(payload.HStackStyle.size || {}), height: '1/4' };
+    for (const row of payload.keyboardLayout || []) {
+      if (isPlainObject(row?.HStack)) row.HStack.style = row.HStack.style || 'HStackStyle';
+    }
+    if (isPlainObject(payload.alphabeticButtonBackgroundStyle)) {
+      payload.alphabeticBackgroundStyle = structuredClone(payload.alphabeticButtonBackgroundStyle);
+    }
+    if (isPlainObject(payload.colorButtonBackgroundStyle)) {
+      payload.enterButtonBlueBackgroundStyle = structuredClone(payload.colorButtonBackgroundStyle);
+    }
     for (const [buttonName, button] of Object.entries(payload)) {
       if (!/Button$/.test(buttonName) || !isPlainObject(button)) continue;
-      delete button.animation;
-      delete button.notification;
-      delete button.hintStyle;
-      delete button.hintSymbolsStyle;
-      delete button.uppercasedStateAction;
-      delete button.uppercasedStateForegroundStyle;
-      delete button.capsLockedStateForegroundStyle;
-      delete button.preeditStateAction;
-      delete button.preeditStateForegroundStyle;
-      if (Array.isArray(button.foregroundStyle)) {
-        button.foregroundStyle = button.foregroundStyle.filter((styleName) => {
-          const style = payload[styleName];
-          return isPlainObject(style) && String(style.text || style.systemImageName || style.assetImageName || '').trim();
-        });
+      if (/^toolbar/.test(buttonName)) continue;
+      if (/^[a-z]Button$/.test(buttonName) || ['commaButton', 'spaceButton'].includes(buttonName)) {
+        button.backgroundStyle = 'alphabeticBackgroundStyle';
+      } else if (buttonName === 'enterButton') {
+        button.backgroundStyle = 'enterButtonBlueBackgroundStyle';
       }
+      const metricKey = metricKeyForButton(buttonName);
+      const width = metrics[metricKey]?.width || metrics.normal?.width;
+      if (width !== undefined) {
+        button.size = button.size || {};
+        button.size.width = structuredClone(width);
+      }
+      if (metrics[metricKey]?.bounds !== undefined) {
+        button.bounds = structuredClone(metrics[metricKey].bounds);
+      }
+    }
+    const variantText = {
+      wButtonForegroundStyle: 'we',
+      rButtonForegroundStyle: 'rt',
+      iButtonForegroundStyle: 'io',
+      sButtonForegroundStyle: 'sd',
+      fButtonForegroundStyle: 'fg',
+      jButtonForegroundStyle: 'jk',
+      xButtonForegroundStyle: 'xc',
+      bButtonForegroundStyle: 'bn',
+    };
+    for (const [styleName, text] of Object.entries(variantText)) {
+      if (isPlainObject(payload[styleName])) payload[styleName].text = applyPinyinProjectLetterCase(project, text);
     }
     setTextStyle('spaceButtonForegroundStyle', project.keyboards?.keyboard26?.text?.space || '空格', {
       center: sharedCenter['功能键前景文字偏移'] || { x: 0.5, y: 0.5 },
@@ -1931,12 +2103,14 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   syncChineseEnglishToggleButton('alphabeticButton');
   ensureBottomRowChineseEnglishToggle();
   ensureShiftHintSymbols();
+  normalizeToolbarContainerStyle();
   ensureToolbarButtons();
   applyKeyboard26Metrics();
   stripSchemaNameOnSpaceWhenDisabled();
   applySwipeActions();
   applySpaceRightProfile();
   stripSwipeActionsWhenDisabled();
+  stripPinyinVariantInteractionDecorations();
   preserveKeyboard26LegacySwipeReferences();
   if (!payload.alphabeticBackgroundStyle && isPlainObject(payload.cvBg)) {
     payload.alphabeticBackgroundStyle = structuredClone(payload.cvBg);
@@ -1948,6 +2122,7 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   normalizePinyin17Payload();
   normalizePinyinVariantRowHeights();
   normalizePinyin18Payload();
+  normalizeVariantEnterButton();
   applyPinyinVariantLetterCaseLabels();
   inferMissingButtonStyleTypes(payload);
   ensureCoreFallbackStyles();
@@ -1957,6 +2132,7 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   normalizeLegacyStyleTypes(payload);
   inferMissingButtonStyleTypes(payload);
   cleanImageStyleNodes(payload);
+  normalizeDecimalFractionStrings(payload);
   normalizeColorStrings(payload);
   return reorderTopLevelKeys(
     payload,

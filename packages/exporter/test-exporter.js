@@ -254,6 +254,15 @@ const comboSpaceProject = {
         swipeUp: '！',
       },
     },
+    swipeBehavior: {
+      ...comboSpaceBaseProject.keyboardCombo.swipeBehavior,
+      mode: 'visible',
+      showSwipeUp: true,
+      layouts: {
+        ...(comboSpaceBaseProject.keyboardCombo.swipeBehavior.layouts || {}),
+        pinyin: { mode: 'visible', showSwipeUp: true, showSwipeDown: false },
+      },
+    },
   },
 };
 const comboSpaceYamlFiles = buildYamlSkinFiles(comboSpaceProject);
@@ -318,6 +327,24 @@ const splitSwipeProject = {
 const splitSwipeYamlFiles = buildYamlSkinFiles(splitSwipeProject);
 const splitSwipePinyinKeyboard = findFile(splitSwipeYamlFiles, 'light/pinyin_26_portrait.yaml')?.content || '';
 const splitSwipeAlphabeticKeyboard = findFile(splitSwipeYamlFiles, 'light/alphabetic_26_portrait.yaml')?.content || '';
+const enabledSwipeBaseProject = createSampleProject();
+const enabledSwipeProject = {
+  ...enabledSwipeBaseProject,
+  keyboardCombo: {
+    ...enabledSwipeBaseProject.keyboardCombo,
+    swipeBehavior: {
+      ...enabledSwipeBaseProject.keyboardCombo.swipeBehavior,
+      mode: 'visible',
+      showSwipeUp: true,
+      showSwipeDown: true,
+      layouts: {
+        ...(enabledSwipeBaseProject.keyboardCombo.swipeBehavior.layouts || {}),
+        pinyin: { mode: 'visible', showSwipeUp: true, showSwipeDown: true },
+      },
+    },
+  },
+};
+const enabledSwipeKeyboard = findFile(buildYamlSkinFiles(enabledSwipeProject), 'light/pinyin_26_portrait.yaml')?.content || '';
 const comboPinyin14Project = {
   ...createSampleProject(),
   keyboardCombo: {
@@ -387,6 +414,8 @@ const comboSymbolicCustomProject = {
 const comboSymbolicCustomYamlFiles = buildYamlSkinFiles(comboSymbolicCustomProject);
 const comboSymbolicCustomConfig = findFile(comboSymbolicCustomYamlFiles, 'config.yaml')?.content || '';
 const symbolicCollectionProject = createSampleProject();
+symbolicCollectionProject.keyboardCombo.slots.symbolic.source = 'custom';
+symbolicCollectionProject.keyboardCombo.slots.symbolic.variant = 'custom';
 symbolicCollectionProject.data.collections.symbolicDataSource.category = ['测试分类'];
 symbolicCollectionProject.data.collections.symbolicDataSource['测试分类'] = ['甲', { label: '乙', value: 'B' }];
 const symbolicCollectionKeyboard = findFile(buildYamlSkinFiles(symbolicCollectionProject), 'light/symbolic_portrait.yaml')?.content || '';
@@ -397,6 +426,9 @@ const comboNumericProject = {
     ...comboNumericBaseProject.keyboardCombo,
     swipeBehavior: {
       ...comboNumericBaseProject.keyboardCombo.swipeBehavior,
+      mode: 'visible',
+      showSwipeUp: true,
+      showSwipeDown: true,
       layouts: {
         ...(comboNumericBaseProject.keyboardCombo.swipeBehavior.layouts || {}),
         numeric: {
@@ -542,6 +574,8 @@ for (const file of yamlFiles) {
 
 assert(findFile(yamlFiles, 'config.yaml'), '缺少 config.yaml。');
 assertConfigKeyboardFilesExist(yamlFiles, findFile(yamlFiles, 'config.yaml')?.content || '', '默认导出');
+assert(project.keyboardCombo.slots.symbolic.source === 'system' && project.keyboardCombo.slots.emoji.source === 'system', '默认 sample 应按使用引导选择 App 内符号键盘和 App 内 Emoji 键盘。');
+assert(!findFile(yamlFiles, 'light/symbolic_portrait.yaml') && !findFile(yamlFiles, 'light/emoji_portrait.yaml'), '默认导出不应生成自定义符号/Emoji YAML，除非使用引导明确选择自定义。');
 assertPackagedImageReferencesExist(packageFiles.map((file) => ({
   ...file,
   path: file.path.slice(packageRoot.length + 1),
@@ -576,7 +610,11 @@ assert(yamlBlock(pinyinKeyboard, 'qButtonForegroundStyle').includes('text: "q"')
 assert(yamlBlock(alphabeticKeyboard, 'qButtonForegroundStyle').includes('text: "q"'), '默认英文 26 键字母应导出小写文案。');
 assert(yamlBlock(uppercasePinyinKeyboard, 'qButtonForegroundStyle').includes('text: "Q"'), '中文 26 键字母大写设置应联动到导出实际按键前景。');
 assert(yamlBlock(uppercaseAlphabeticKeyboard, 'qButtonForegroundStyle').includes('text: "Q"'), '英文 26 键字母大写设置应联动到导出实际按键前景。');
-assert(yamlBlock(pinyinKeyboard, 'qButton').includes('- "qButtonUppercasedForegroundStyle"') && yamlBlock(pinyinKeyboard, 'qButton').includes('- "qButtonUpForegroundStyle"') && yamlBlock(pinyinKeyboard, 'qButton').includes('- "qButtonDownForegroundStyle"'), '锁定大写状态应继承 26 键原始上下划前景引用。');
+assert(yamlBlock(pinyinKeyboard, 'qButton').includes('- "qButtonUppercasedForegroundStyle"')
+  && !yamlBlock(pinyinKeyboard, 'qButton').includes('- "qButtonUpForegroundStyle"')
+  && !yamlBlock(pinyinKeyboard, 'qButton').includes('- "qButtonDownForegroundStyle"'), '默认关闭划动时，26 键锁定大写状态不应继续显示上下划前景。');
+assert(yamlBlock(enabledSwipeKeyboard, 'qButton').includes('- "qButtonUpForegroundStyle"')
+  && yamlBlock(enabledSwipeKeyboard, 'qButton').includes('- "qButtonDownForegroundStyle"'), '显式开启划动后，26 键锁定大写状态应继承原始上下划前景引用。');
 assert(!yamlBlock(pinyinKeyboard, 'qButton').includes('qButtonSwipeUpForegroundStyle') && !yamlBlock(pinyinKeyboard, 'qButton').includes('qButtonSwipeDownForegroundStyle'), '26 键按钮引用不应包含预览 SwipeUp/SwipeDown 别名。');
 assert(yamlBlock(pinyinKeyboard, 'cnenButtonForegroundStyle').includes('text: "中"'), '默认中英切换键应显示单字“中”。');
 assert(yamlBlock(pinyinKeyboard, 'cnenButtonForegroundStyle').includes('fontSize: 16'), '默认功能键文字字号应独立于 26 键字母字号，并与参考工具一致。');
@@ -613,7 +651,8 @@ assert(yamlBlock(pinyinKeyboard, 'toolbarPhraseButtonForegroundStyle').includes(
 assert(yamlBlock(pinyinKeyboard, 'toolbarPasteboardButtonForegroundStyle').includes('systemImageName: "doc.on.clipboard"'), '默认 26 键工具栏剪贴板按钮应使用参考皮肤图标。');
 assert(pinyinKeyboard.includes('qButtonUpForegroundStyle:') && pinyinKeyboard.includes('qButtonDownForegroundStyle:'), 'YAML 键盘应导出原始划动前景样式。');
 assert(!pinyinKeyboard.includes('qButtonSwipeUpForegroundStyle:') && !pinyinKeyboard.includes('qButtonSwipeDownForegroundStyle:'), '26 键 YAML 不应导出预览 SwipeUp/SwipeDown 别名样式。');
-assert(yamlBlock(pinyinKeyboard, 'qButton').includes('- "qButtonForegroundStyle"') && yamlBlock(pinyinKeyboard, 'qButton').includes('- "qButtonUpForegroundStyle"'), '26 键有划动显示的按键应引用基础前景和原始上划前景。');
+assert(!yamlBlock(pinyinKeyboard, 'qButton').includes('- "qButtonUpForegroundStyle"'), '默认关闭划动时，26 键按键不应引用上划显示前景。');
+assert(yamlBlock(enabledSwipeKeyboard, 'qButton').includes('- "qButtonForegroundStyle"') && yamlBlock(enabledSwipeKeyboard, 'qButton').includes('- "qButtonUpForegroundStyle"'), '26 键显式开启划动显示后，按键应引用基础前景和原始上划前景。');
 assert(pinyinKeyboard.includes('normalColor: "#838383ff"'), '划动前景颜色应使用预览中的划动字符颜色。');
 assert(yamlBlock(pinyinKeyboard, 'qButtonUpForegroundStyle').includes('x: 0.5') && yamlBlock(pinyinKeyboard, 'qButtonUpForegroundStyle').includes('y: 0.24'), '上划提示应导出为按键上方居中显示。');
 assert(yamlBlock(pinyinKeyboard, 'qButtonDownForegroundStyle').includes('x: 0.5') && yamlBlock(pinyinKeyboard, 'qButtonDownForegroundStyle').includes('y: 0.76'), '下划提示应导出为按键下方居中显示。');
@@ -640,9 +679,12 @@ assert(comboConfig.includes('numeric_ios_portrait') && comboConfig.includes('num
 assert(findFile(comboYamlFiles, 'light/numeric_ios_portrait.yaml'), 'iOS 数字键盘组合应生成竖屏 YAML。');
 assert(!comboSpaceKeyboard.includes('$rimeSchemaName'), '关闭空格方案名后不应继续导出方案名文本。');
 assert(comboSpaceKeyboard.includes('character: "！"'), '自定义逗号上划字符应导出到 spaceRight 划动动作。');
-assert(yamlBlock(pinyinKeyboard, 'spaceRightButtonForegroundStyle').includes('text: "，"') && yamlBlock(pinyinKeyboard, 'spaceRightButton').includes('character: "。"'), '中文逗号键默认点击应为逗号，上划应为句号。');
-assert(yamlBlock(alphabeticKeyboard, 'spaceRightButtonForegroundStyle').includes('text: "."') && yamlBlock(alphabeticKeyboard, 'spaceRightButton').includes('symbol: ","'), '英文逗号键默认点击应为句号，上划应为逗号。');
-assert(yamlBlock(alphabeticKeyboard, 'spaceRightButton').includes('symbol: ","'), '英文逗号键上划动作应导出英文逗号。');
+assert(yamlBlock(pinyinKeyboard, 'spaceRightButtonForegroundStyle').includes('text: "，"')
+  && yamlBlock(pinyinKeyboard, 'spaceRightButton').includes('character: "，"')
+  && !yamlBlock(pinyinKeyboard, 'spaceRightButton').includes('spaceRightButtonForegroundStyle2'), '默认关闭划动时，中文逗号键只显示并点击逗号。');
+assert(yamlBlock(alphabeticKeyboard, 'spaceRightButtonForegroundStyle').includes('text: "."')
+  && yamlBlock(alphabeticKeyboard, 'spaceRightButton').includes('character: "."')
+  && !yamlBlock(alphabeticKeyboard, 'spaceRightButton').includes('spaceRightButtonForegroundStyle2'), '默认关闭划动时，英文逗号键只显示并点击句号。');
 assert(!comboSwipeDisabledKeyboard.includes('swipeUpAction:') && !comboSwipeDisabledKeyboard.includes('swipeDownAction:'), '组合层关闭划动后 YAML 不应继续导出划动动作。');
 assert(!splitSwipePinyinKeyboard.includes('swipeUpAction:') && splitSwipeAlphabeticKeyboard.includes('swipeUpAction:'), '中文/英文划动开关应能独立影响各自导出。');
 assert(comboNumericKeyboard.includes('character: "一"'), '数字键盘 YAML 应导出 numeric 划动数据，而不是复用拼音划动。');
@@ -673,21 +715,20 @@ for (const { preset, project: presetProject, files, config, keyboardName, keyboa
   assert(alphabeticKeyboard.includes('keyboardLayout:') && !alphabeticKeyboard.includes('\nkeyboard:'), `${preset.label} 同包英文 26 键也应导出原生键盘 YAML。`);
   assert(payload.keyboardHeight > 0 && payload.toolbarHeight > 0, `${preset.label} 应写入有效 frame 高度。`);
   assert(rawPayload, `${preset.label} 应存在示例皮肤实际 raw payload。`);
-  if (preset.value === 'ios-26') {
-    assert(payload.keyboardHeight === 216 && payload.toolbarHeight === 41, '仿 iOS 26键应使用参考示例皮肤竖屏 toolbar/keyboard 高度。');
-  } else {
-    assert(payload.keyboardHeight === rawPayload.keyboardHeight, `${preset.label} 导出应使用示例皮肤实际 keyboardHeight。`);
-    assert(payload.toolbarHeight === rawPayload.toolbarHeight, `${preset.label} 导出应使用示例皮肤实际 toolbarHeight。`);
-  }
+  assert(payload.keyboardHeight === 216 && payload.toolbarHeight === 41, `${preset.label} 应使用统一竖屏 toolbar/keyboard 高度。`);
   if (preset.value === 'ios-26') {
     assert(JSON.stringify(payload.keyboardLayout) !== JSON.stringify(rawPayload.keyboardLayout) && !JSON.stringify(payload.keyboardLayout).includes('pinyin26RowInsetButton'), '仿 iOS 26键导出不应使用伪空白 Cell，避免 App 解析皮肤格式失败。');
+  } else if (preset.value === 'ios-18') {
+    assert(JSON.stringify(payload.keyboardLayout) !== JSON.stringify(rawPayload.keyboardLayout)
+      && payload.HStackStyle?.size?.height === '1/4'
+      && payload.keyboardLayout.every((row) => row?.HStack?.style === 'HStackStyle'), '示例18键预设应补齐行样式，避免 App 按 0 尺寸渲染为空白。');
   } else {
     assert(JSON.stringify(payload.keyboardLayout) === JSON.stringify(rawPayload.keyboardLayout), `${preset.label} 导出应使用示例皮肤实际 keyboardLayout。`);
   }
 }
 const preset14 = presetChecks.find((item) => item.preset.value === 'ios-14');
-assert(preset14.payload.toolbarHeight === 47 && preset14.payload.keyboardHeight === 195, '示例14键预设应使用参考皮肤竖屏 toolbar/keyboard 高度。');
-assert(preset14.payload.toolbarStyle.insets?.top === 5 && preset14.payload.toolbarStyle.insets?.left === 5, '示例14键预设应使用参考皮肤 toolbarStyle 顶部/左侧边距。');
+assert(preset14.payload.toolbarHeight === 41 && preset14.payload.keyboardHeight === 216, '示例14键预设应使用统一竖屏 toolbar/keyboard 高度。');
+assert(preset14.payload.toolbarStyle.insets?.top === 5 && preset14.payload.toolbarStyle.insets?.left === 3, '示例14键预设应使用统一 toolbarStyle 顶部/左侧边距。');
 assert(preset14.keyboard.includes('Cell: "qwButton"') && preset14.keyboard.includes('Cell: "cvButton"'), '示例14键预设应导出 14 键布局骨架。');
 assert(preset14.payload['123Button'].size.width.percentage === preset14.payload.enterButton.size.width.percentage
   && preset14.payload.commaButton.size.width.percentage === preset14.payload.cnenButton.size.width.percentage
@@ -707,9 +748,14 @@ assert(preset17.payload.hButton.size.width === '1/6' || preset17.payload.hButton
 assert(preset17.keyboard.includes('Cell: "hButton"') && preset17.keyboard.includes('Cell: "wButton"'), '示例17键预设应导出 17 键关键按键。');
 assert(preset17.payload.HStackStyle.size.height === '1/4', '示例17键竖屏只有四行，行高应统一为 1/4。');
 const preset18 = presetChecks.find((item) => item.preset.value === 'ios-18');
-assert(preset18.payload.toolbarStyle.insets?.top === 6, '示例18键预设应使用参考皮肤 toolbarStyle 顶部边距。');
+assert(preset18.payload.toolbarStyle.insets?.top === 5, '示例18键预设应使用统一 toolbarStyle 顶部边距。');
+assert(!preset18.payload.toolbarMenuButton?.size && !preset18.payload.toolbarCloseButton?.size, '示例18键工具栏不应保留 raw seed 的 1/7 按钮宽度，8 个槽位应由 App 均分排列。');
 assert(preset18.payload.aButton.bounds?.alignment === 'right' && preset18.payload.lButton.bounds?.alignment === 'left', '示例18键预设应保留 A/L 可见区域对齐。');
 assert(preset18.keyboard.includes('Cell: "wButton"') && preset18.keyboard.includes('Cell: "xButton"'), '示例18键预设应导出示例皮肤实际 18 键关键按键。');
+assert(!preset18.keyboard.includes('swipeUpAction:')
+  && !preset18.keyboard.includes('swipeDownAction:')
+  && !preset18.keyboard.includes('Notification:')
+  && !preset18.keyboard.includes('KeyboardAction:'), '示例18键预设默认不应导出旧 seed 的划动/通知/动作装饰，避免实机应用后空白。');
 const preset26 = presetChecks.find((item) => item.preset.value === 'ios-26');
 assert(preset26.payload.aButton.bounds?.alignment === 'right' && preset26.payload.lButton.bounds?.alignment === 'left', '仿 iOS 26键预设应保留参考皮肤 A/L 命中区裁切，让两侧空白点击仍归属 A/L。');
 assert(yamlBlock(preset26.keyboard, 'spaceButton').includes('percentage: 0.44'), '仿 iOS 26键预设底排空格比例应与当前 26 键参数源一致。');
@@ -767,6 +813,9 @@ assert(stablePinyin14Payload.shiftButton.action?.sendKeys === '`'
   && !stablePinyin14Payload.shiftButton.uppercasedStateForegroundStyle,
   '中文14键竖屏导出 shiftButton 应为实机分词键，不应保留 Shift 状态旧数据。');
 assert(stablePinyin14Payload.qwFg?.text === 'qw' && stablePinyin14UpperPayload.qwFg?.text === 'QW', '中文14键导出应随使用引导大小写联动。');
+assert(stablePinyin14Payload.enterButton.foregroundStyle === 'enterButtonForegroundStyle'
+  && stablePinyin14Payload.enterButtonForegroundStyle?.text === '发送', '中文14键发送键文案应使用共享预设，不应沿用 raw returnKeyType 条件文案。');
+assert(Array.isArray(stablePinyin14Payload.enterButton.backgroundStyle), '中文14键发送键背景应保留该预设自己的条件模板。');
 const stablePinyin17Project = createSampleProject();
 stablePinyin17Project.keyboardCombo.slots.pinyin.variant = '17';
 const stablePinyin17Payload = buildEffectiveNativeKeyboardPayload(stablePinyin17Project, 'light', 'pinyin_17_portrait');
@@ -781,6 +830,9 @@ assert(stablePinyin17Payload['123Button'].size.width.percentage === stablePinyin
 assert(stablePinyin17Payload.backspaceButton.size.width === '1/6', '中文17键竖屏第三行退格键宽度应与同排行字母键统一。');
 assert(stablePinyin17Payload.hButtonForegroundStyle.text === 'hp'
   && stablePinyin17UpperPayload.hButtonForegroundStyle.text === 'HP', '中文17键导出应随使用引导大小写联动。');
+assert(stablePinyin17Payload.enterButton.foregroundStyle === 'enterButtonForegroundStyle'
+  && stablePinyin17Payload.enterButtonForegroundStyle?.text === '发送', '中文17键发送键文案应使用共享预设。');
+assert(Array.isArray(stablePinyin17Payload.enterButton.backgroundStyle), '中文17键发送键背景应保留该预设自己的条件模板。');
 const stablePinyin18Payload = buildEffectiveNativeKeyboardPayload(preset18.project, 'light', 'pinyin_18_portrait');
 const stablePinyin18UpperProject = createSampleProject();
 stablePinyin18UpperProject.guide = { preferences: { pinyin26LetterCase: 'upper' } };
@@ -793,6 +845,11 @@ assert(stablePinyin18Payload.qButtonForegroundStyle.text === 'q'
   && stablePinyin18UpperPayload.qButtonForegroundStyle.text === 'Q', '中文18键导出应随使用引导大小写联动。');
 assert(stablePinyin18Payload.spaceButtonForegroundStyle.buttonStyleType === 'text'
   && stablePinyin18Payload.spaceButtonForegroundStyle.text === '空格', '中文18键空格键应使用保守文字前景，避免系统图标解析失败拖垮整盘。');
+assert(stablePinyin18Payload.enterButton.foregroundStyle === 'enterButtonForegroundStyle'
+  && stablePinyin18Payload.enterButtonForegroundStyle?.text === '发送', '中文18键发送键文案应使用共享预设。');
+assert(stablePinyin18Payload.enterButton.backgroundStyle === 'enterButtonBlueBackgroundStyle', '中文18键发送键背景应保留该预设自己的模板别名。');
+assert(!JSON.stringify(stablePinyin18Payload).match(/\d+\.\d+\/\d|\d+\/\d+\.\d/), '中文18键导出不应包含 App 可能不解析的小数分数字符串。');
+assert(!JSON.stringify(stablePinyin18Payload).match(/Notification|KeyboardAction|swipe(?:Up|Down)Action/), '中文18键默认导出不应保留通知对象或划动动作，避免 App 解析整盘失败。');
 assert(comboPinyin14Config.includes('pinyin_14_portrait') && comboPinyin14Config.includes('pinyin_14_landscape'), '中文14键组合应导出新的拼音键盘映射。');
 assert(comboPinyin14Keyboard.includes('Cell: "qwButton"') && comboPinyin14Keyboard.includes('Cell: "cvButton"'), '中文14键导出应使用 14 键布局骨架。');
 assert(!comboPinyin14Keyboard.includes('file: "T14yy"') && yamlBlock(comboPinyin14Keyboard, 'qwFg').includes('buttonStyleType: "text"') && yamlBlock(comboPinyin14Keyboard, 'qwFg').includes('text: "qw"'), '中文14键纯色导出不应依赖缺资源图片前景，应与预览同源使用文字。');
