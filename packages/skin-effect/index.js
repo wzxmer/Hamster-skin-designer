@@ -1,5 +1,5 @@
 import { NATIVE_KEYBOARD_PRESET_PAYLOADS } from '../../apps/workbench/src/data/native-keyboard-presets.generated.js';
-import TEMPLATE_PACKAGE_ASSETS from '../../apps/web/data/templates/hamster-ios/package-assets.json' with { type: 'json' };
+import TEMPLATE_PACKAGE_ASSETS from '../../templates/hamster-ios/package-assets.json' with { type: 'json' };
 
 const DEFAULT_NATIVE_PAYLOAD_PRESET = 'ios-26';
 const AVAILABLE_TEMPLATE_RESOURCE_FILES = new Set(
@@ -1674,6 +1674,31 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
     payload.spaceBg = structuredClone(normalBackgroundStyle);
     payload.symbolsCollectionBg = structuredClone(collectionBackgroundStyle);
     payload.collectionBackgroundStyle = structuredClone(collectionBackgroundStyle);
+    if (isPlainObject(payload.numperiodButton)) {
+      payload.numperiodButton.backgroundStyle = 'number0Bg';
+      payload.numperiodButton.foregroundStyle = ['numperiodFg'];
+    }
+    for (const styleName of [
+      'returnFgGray',
+      'returnFgCol',
+      'enterFgGray',
+      'enterFgCol1',
+      'enterFgCol3',
+      'enterFgCol6',
+      'enterFgCol7',
+      'enterFgCol9',
+    ]) {
+      if (isPlainObject(payload[styleName])) {
+        payload[styleName].normalColor = keyTextColor;
+        payload[styleName].highlightColor = keyTextColor;
+      }
+    }
+    setTextStyle('numperiodFg', project.keyboards?.numeric?.text?.period || '.', {
+      center: { ...(sharedCenter['数字键盘数字前景偏移'] || sharedCenter['26键中文前景偏移'] || {}), x: 0.5, y: 0.54 },
+      fontSize: sharedFontSize['数字键盘数字前景字体大小'] || sharedFontSize['按键前景文字大小'] || 15,
+      normalColor: keyTextColor,
+      highlightColor: keyTextColor,
+    });
     if (!isPlainObject(payload.collection) && isPlainObject(payload.Numeric)) {
       const source = isPlainObject(payload.Numeric.system) ? payload.Numeric.system : payload.Numeric.custom;
       if (isPlainObject(source)) payload.collection = structuredClone(source);

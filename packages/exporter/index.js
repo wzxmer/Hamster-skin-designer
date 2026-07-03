@@ -6,7 +6,7 @@ import {
   cleanPerItemFontSize,
   swipesFor,
 } from '../skin-effect/index.js';
-import TEMPLATE_PACKAGE_ASSETS from '../../apps/web/data/templates/hamster-ios/package-assets.json' with { type: 'json' };
+import TEMPLATE_PACKAGE_ASSETS from '../../templates/hamster-ios/package-assets.json' with { type: 'json' };
 
 export { buildEffectiveNativeKeyboardPayload } from '../skin-effect/index.js';
 

@@ -777,8 +777,14 @@ assert(preset14NumericPayload.spaceButton?.backgroundStyle === 'clearBg'
   && preset14NumericPayload.clearBg?.normalColor === preset14Pinyin9Payload.systemButtonBackgroundStyle?.normalColor
   && preset14NumericPayload.numspaceFg?.text === '空格'
   && preset14NumericPayload.numspaceFg?.normalColor !== '#FFFFFF', '示例14键切数字9键时空格键应显示深色“空格”，并使用功能键背景。');
-assert(preset14NumericPayload.returnFgCol?.normalColor === '#FFFFFF'
-  && preset14NumericPayload.enterFgCol9?.normalColor === '#FFFFFF', '示例14键切数字9键时返回/搜索类条件按钮应保持白色文字。');
+assert(preset14NumericPayload.numperiodFg?.buttonStyleType === 'text'
+  && preset14NumericPayload.numperiodFg?.text === '.'
+  && !preset14NumericPayload.numperiodFg?.normalImage
+  && preset14NumericPayload.numperiodFg?.normalColor !== '#FFFFFF', '示例14键切数字9键时句点键应导出文字前景，不能依赖缺失图片导致实机空白。');
+assert(preset14NumericPayload.returnFgCol?.normalColor === preset14NumericPayload.returnFgGray?.normalColor
+  && preset14NumericPayload.enterFgCol9?.normalColor === preset14NumericPayload.enterFgGray?.normalColor
+  && preset14NumericPayload.returnFgCol?.normalColor !== '#FFFFFF'
+  && preset14NumericPayload.enterFgCol9?.normalColor !== '#FFFFFF', '示例14键切数字9键时返回/搜索类条件按钮文字应统一到功能键文字色，不能残留 raw seed 白字。');
 const preset17 = presetChecks.find((item) => item.preset.value === 'ios-17');
 assert(preset17.payload.hButton.size.width === '1/6' || preset17.payload.hButton.size.width.percentage > 0.16, '示例17键预设普通键应接近六等分。');
 assert(preset17.keyboard.includes('Cell: "hButton"') && preset17.keyboard.includes('Cell: "wButton"'), '示例17键预设应导出 17 键关键按键。');

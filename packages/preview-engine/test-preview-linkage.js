@@ -390,6 +390,7 @@ assert(Math.abs((cellHeight(numericHtml, '1') || 0) - (cellHeight(pinyin9Html, '
 assert(backgroundStyle(previewKeyCellHtml(numericSeedHtml, '1')).includes(`background:${numericPayload.number1Bg.normalColor}`), '数字 9 键数字键背景应来自 resolved native payload。');
 assert(backgroundStyle(previewClassCellHtml(numericSeedHtml, 'numeric-collection')).includes(`background:${numericPayload.symbolsCollectionBg.normalColor}`), '数字 9 键左侧符号栏背景应来自 resolved native payload。');
 assert(previewKeyCellHtml(numericSeedHtml, 'space').includes(`>${numericPayload.numspaceFg.text}</span>`), '数字 9 键空格应显示 resolved native payload 的文字，不能空白。');
+assert(previewKeyCellHtml(numericSeedHtml, 'period').includes(`>${numericPayload.numperiodFg.text}</span>`), '数字 9 键句点应显示 resolved native payload 的文字，不能空白。');
 assert(backgroundStyle(previewKeyCellHtml(numericSeedHtml, 'space')).includes(`background:${numericPayload.clearBg.normalColor}`)
   && backgroundStyle(previewKeyCellHtml(numericSeedHtml, 'equal')).includes(`background:${numericPayload.equalBg.normalColor}`)
   && backgroundStyle(previewKeyCellHtml(numericSeedHtml, 'backspace')).includes(`background:${numericPayload.backspaceBg.normalColor}`), '数字 9 键空格、等号、退格背景应来自各自 resolved native payload。');
