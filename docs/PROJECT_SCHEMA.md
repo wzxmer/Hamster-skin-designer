@@ -399,9 +399,9 @@
 - `emoji.source = system` 时，直接应用包的 `config.yaml` 不写入 `emoji` 映射，也不生成 `emoji_system`；工具栏按钮保留 `keyboardType: emojis` 指令，由 App 调用内置 Emoji 键盘。
 - 默认“导出皮肤”生成完整皮肤目录包，包含 `config.yaml`、`light/`、`dark/`、`jsonnet/` 和 `demo.png`。
 - Jsonnet 不再作为单独导出入口，而是随皮肤包一起导出。
-- `jsonnet/generated/effect-files.libsonnet` 保存 SkinEffectModel 生成的对象数据，供源码审查。
-- `jsonnet/generated/effect-yaml.libsonnet` 保存与直接 YAML 导出字节同源的 YAML 字符串。
-- `jsonnet/main.jsonnet` 读取 `effect-yaml.libsonnet` 输出多文件 YAML；用 `jsonnet -S -m <out> jsonnet/main.jsonnet` 编译时，应与包内 `config.yaml`、`light/`、`dark/` 关键文件一致。
+- 默认应用包不包含 `jsonnet/generated/`。
+- `jsonnet/main.jsonnet` 固定为 `import 'core/build.libsonnet'`。
+- `jsonnet/core/build.libsonnet` 输出与直接 YAML 导出字节同源的 YAML 字符串映射；用 `jsonnet -S -m <out> jsonnet/main.jsonnet` 编译时，应与包内 `config.yaml`、`light/`、`dark/` 关键文件一致。
 
 ## previewKeyboards
 
@@ -421,7 +421,7 @@
 
 这些项目用于工作台预览列表，不是 `config.yaml` 的内置键盘映射。删除手动添加项时会从该列表移除，不删除 `config` 中的真实键盘文件名。
 
-`hiddenPreviewKeyboards` 保存用户从预览下拉列表中隐藏的内置键盘文件名。它不删除工作台内的原始 `config` 映射，但导出最终皮肤文件时会排除这些键盘：导出的 `config.yaml` 不包含隐藏键盘名，`light/` 和 `dark/` 下也不会生成对应键盘 YAML；预览列表最低保留一个项目。
+`hiddenPreviewKeyboards` 保存用户从预览下拉列表中隐藏的内置键盘文件名。它只影响工作台预览列表，不删除工作台内的原始 `config` 映射，也不影响 `config.yaml`、`light/` 或 `dark/` 的导出文件。需要改变最终皮肤包含哪些键盘时，应修改 `config` 或 `keyboardCombo`，不能用预览隐藏状态作为导出真源。
 
 ## export
 

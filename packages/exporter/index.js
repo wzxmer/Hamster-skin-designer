@@ -23,39 +23,79 @@ function projectWithoutPerItemFontSize(project) {
   return next;
 }
 
+function buildJsonnetFontSizeLib(project) {
+  const fontSize = project.theme.shared.fontSize || {};
+  return {
+    ...fontSize,
+    '英文键盘小写字母大小': fontSize['英文键盘小写字母大小']
+      ?? fontSize['按键前景文字大小'],
+  };
+}
+
+function buildJsonnetThemeLib(project) {
+  const center = project.theme.shared.center || {};
+  const scale = project.theme.shared.scale || {};
+  return {
+    center: {
+      ...center,
+      'toolbar按键文字偏移': center['toolbar按键文字偏移']
+        ?? center['toolbar按键偏移'],
+      'toolbar按键sf符号偏移': center['toolbar按键sf符号偏移']
+        ?? center['toolbar按键偏移'],
+      '26键中文前景缩放': scale['26键中文前景缩放'],
+      '26键英文小写前景缩放': scale['26键英文小写前景缩放'],
+      '数字键盘前景缩放': scale['数字键盘前景缩放'],
+    },
+    animation: project.theme.shared.animation,
+  };
+}
+
+function buildJsonnetOthersLib(project) {
+  const schema = project.config?.rimeSchema || 'rime_ice';
+  const portrait = project.keyboardFrame.portrait || {};
+  const landscape = project.keyboardFrame.landscape || {};
+  const panel = project.keyboardFrame.panel || {};
+  return ensureTrailingNewline([
+    'local sumHeights(arr) =',
+    '  if std.length(arr) == 0 then null else std.sum(arr);',
+    '',
+    '{',
+    `  '中文键盘方案': ${JSON.stringify(schema)},`,
+    "  '竖屏': {",
+    `    'preedit高度': ${JSON.stringify(portrait.preeditHeight ?? 22)},`,
+    `    'toolbar高度': ${JSON.stringify(portrait.toolbarHeight ?? 41)},`,
+    `    'keyboard高度': ${JSON.stringify(portrait.keyboardHeight ?? 205)},`,
+    "    '键盘总高度': sumHeights([",
+    "      self['preedit高度'],",
+    "      self['toolbar高度'],",
+    "      self['keyboard高度'],",
+    '    ]),',
+    '  },',
+    "  '横屏': {",
+    `    'preedit高度': ${JSON.stringify(landscape.preeditHeight ?? 14)},`,
+    `    'toolbar高度': ${JSON.stringify(landscape.toolbarHeight ?? 30)},`,
+    `    'keyboard高度': ${JSON.stringify(landscape.keyboardHeight ?? 160)},`,
+    "    '键盘总高度': sumHeights([",
+    "      self['preedit高度'],",
+    "      self['toolbar高度'],",
+    "      self['keyboard高度'],",
+    '    ]),',
+    '  },',
+    `  'panel': ${JSON.stringify(panel, null, 2).replace(/\n/g, '\n  ')},`,
+    '}',
+  ].join('\n'));
+}
+
 const JSONNET_LIB_BUILDERS = {
   'color.libsonnet': (project) => ({
     light: project.theme.light.colors,
     dark: project.theme.dark.colors,
   }),
-  'fontSize.libsonnet': (project) => project.theme.shared.fontSize,
+  'fontSize.libsonnet': buildJsonnetFontSizeLib,
   'center.libsonnet': (project) => project.theme.shared.center,
   'animation.libsonnet': (project) => project.theme.shared.animation,
-  'others.libsonnet': (project) => ({
-    '中文键盘方案': project.config?.rimeSchema || 'rime_ice',
-    '竖屏': {
-      'preedit高度': project.keyboardFrame.portrait.preeditHeight,
-      'toolbar高度': project.keyboardFrame.portrait.toolbarHeight,
-      'keyboard高度': project.keyboardFrame.portrait.keyboardHeight,
-    },
-    '横屏': {
-      'preedit高度': project.keyboardFrame.landscape.preeditHeight,
-      'toolbar高度': project.keyboardFrame.landscape.toolbarHeight,
-      'keyboard高度': project.keyboardFrame.landscape.keyboardHeight,
-    },
-    'panel': project.keyboardFrame.panel,
-  }),
-  'layout.libsonnet': (project) => ({
-    keyboard26: project.keyboards.keyboard26.layout,
-    numeric: project.keyboards.numeric?.layout || {},
-    symbolic: project.keyboards.symbolic?.layout || {},
-    buttonInsets: project.keyStyles.buttonInsets,
-  }),
-  'keyboard26.libsonnet': (project) => project.keyboards.keyboard26,
-  'numeric.libsonnet': (project) => project.keyboards.numeric || {},
-  'symbolic.libsonnet': (project) => project.keyboards.symbolic || {},
-  'panel.libsonnet': (project) => project.keyboards.panel || {},
-  'toolbar.libsonnet': (project) => project.toolbar,
+  'theme.libsonnet': buildJsonnetThemeLib,
+  'others.libsonnet': buildJsonnetOthersLib,
   'hintSymbolsData.libsonnet': (project) => cleanPerItemFontSize(project.data.hints || {}),
   'swipeData.libsonnet': (project) => swipesFor(project, 'pinyin') || {},
   'swipeData-en.libsonnet': (project) => swipesFor(project, 'alphabetic') || {},
@@ -147,15 +187,17 @@ function toLibsonnet(value) {
   return ensureTrailingNewline(JSON.stringify(value ?? {}, null, 2));
 }
 
-function buildJsonnetMainFile() {
-  return ensureTrailingNewline([
-    "local files = import 'generated/effect-yaml.libsonnet';",
-    '',
-    '{',
-    '  [path]: files[path]',
-    '  for path in std.sort(std.objectFields(files))',
-    '}',
-  ].join('\n'));
+function renderJsonnetLibValue(value) {
+  return typeof value === 'string' ? ensureTrailingNewline(value) : toLibsonnet(value);
+}
+
+function buildJsonnetTemplateSourceFiles() {
+  const files = [];
+  for (const [path, content] of Object.entries(TEMPLATE_PACKAGE_ASSETS?.textFiles || {})) {
+    if (!path.startsWith('jsonnet/')) continue;
+    files.push({ path, content: ensureTrailingNewline(String(content || '')) });
+  }
+  return files;
 }
 
 function buildJsonnetEffectEntries(project) {
@@ -174,28 +216,50 @@ function buildJsonnetEffectYamlFiles(entries) {
   return files;
 }
 
+function buildJsonnetBuildLib(entries) {
+  return toLibsonnet(buildJsonnetEffectYamlFiles(entries));
+}
+
 export function buildJsonnetSourceFiles(project) {
+  assertValidProject(project);
+  const exportProject = buildEffectiveProject(project);
+  const effectEntries = buildJsonnetEffectEntries(exportProject);
+  const configEntry = effectEntries.find((entry) => entry.path === 'config.yaml');
+  const files = new Map(buildJsonnetTemplateSourceFiles().map((file) => [file.path, file]));
+  files.set('config.yaml', {
+    path: 'config.yaml',
+    content: ensureTrailingNewline(toYaml(configEntry?.value || {})),
+  });
+  files.set('jsonnet/core/build.libsonnet', {
+    path: 'jsonnet/core/build.libsonnet',
+    content: buildJsonnetBuildLib(effectEntries),
+  });
+
+  for (const [fileName, buildValue] of Object.entries(JSONNET_LIB_BUILDERS)) {
+    const path = `${JSONNET_LIB_PATH}/${fileName}`;
+    if (!files.has(path)) continue;
+    files.set(path, {
+      path,
+      content: renderJsonnetLibValue(buildValue(exportProject)),
+    });
+  }
+
+  return [...files.values()].sort((left, right) => left.path.localeCompare(right.path));
+}
+
+export function buildJsonnetEffectSnapshotFiles(project) {
   assertValidProject(project);
   const exportProject = buildEffectiveProject(project);
   const sourceProject = projectWithoutPerItemFontSize(exportProject);
   const effectEntries = buildJsonnetEffectEntries(exportProject);
   const configEntry = effectEntries.find((entry) => entry.path === 'config.yaml');
-  const files = [
+  return [
     { path: 'config.yaml', content: ensureTrailingNewline(toYaml(configEntry?.value || {})) },
     { path: 'project.json', content: ensureTrailingNewline(JSON.stringify(sourceProject, null, 2)) },
-    { path: 'jsonnet/main.jsonnet', content: buildJsonnetMainFile() },
+    { path: 'jsonnet/main.jsonnet', content: ensureTrailingNewline("local files = import 'generated/effect-yaml.libsonnet';\n\n{\n  [path]: files[path]\n  for path in std.sort(std.objectFields(files))\n}\n") },
     { path: 'jsonnet/generated/effect-files.libsonnet', content: toLibsonnet(buildJsonnetEffectFiles(effectEntries)) },
     { path: 'jsonnet/generated/effect-yaml.libsonnet', content: toLibsonnet(buildJsonnetEffectYamlFiles(effectEntries)) },
   ];
-
-  for (const [fileName, buildValue] of Object.entries(JSONNET_LIB_BUILDERS)) {
-    files.push({
-      path: `${JSONNET_LIB_PATH}/${fileName}`,
-      content: toLibsonnet(buildValue(exportProject)),
-    });
-  }
-
-  return files;
 }
 
 export function buildYamlSkinFiles(project) {
@@ -217,8 +281,7 @@ function buildExportReadme(project) {
     '',
     '- `config.yaml`：皮肤键盘文件映射。',
     '- `light/` 与 `dark/`：按当前 project.json 生成的 YAML 皮肤文件。',
-    '- `jsonnet/lib/`：可继续复用的 Jsonnet 数据源。',
-    '- `project.json`：工作台可回读的项目源配置。',
+    '- `jsonnet/main.jsonnet`：Jsonnet 源码入口。',
     '',
   ].join('\n');
 }
@@ -266,6 +329,11 @@ export function buildSkinPackageFiles(project, options = {}) {
   }
   for (const file of buildJsonnetSourceFiles(project)) {
     files.set(`${packageRoot}/${file.path}`, { ...file, path: `${packageRoot}/${file.path}` });
+  }
+  if (options.includeEffectSnapshot === true) {
+    for (const file of buildJsonnetEffectSnapshotFiles(project)) {
+      files.set(`${packageRoot}/${file.path}`, { ...file, path: `${packageRoot}/${file.path}` });
+    }
   }
   for (const file of buildTemplateResourceFiles(options)) {
     files.set(`${packageRoot}/${file.path}`, { ...file, path: `${packageRoot}/${file.path}` });

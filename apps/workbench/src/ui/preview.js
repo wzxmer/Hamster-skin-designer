@@ -1,6 +1,9 @@
 import { renderSystemImageSvg } from '../../../../packages/preview-engine/index.js';
-import { buildSkinEffectModel } from '../../../../packages/skin-effect/index.js';
 import { escapeHtml } from '../utils.js';
+import {
+  buildPreviewNativeKeyboardPayload,
+  keyboard26PreviewTextCenter,
+} from './preview-adapter.js';
 
 const FUNCTION_KEYS = new Set(['shift', 'backspace', '123', 'cnen', 'enter', 'return', 'symbol', 'spaceRight', 'semicolon', 'word', 'mnemonic', 'reinput', 'punctuationColumn']);
 const LETTER_KEYS = new Set('abcdefghijklmnopqrstuvwxyz'.split(''));
@@ -60,7 +63,7 @@ const PINYIN_VARIANT_ROWS = {
   '14': [
     ['qw', 'er', 'ty', 'ui', 'op'],
     ['as', 'df', 'gh', 'jk', 'l'],
-    ['word', 'zx', 'cv', 'bn', 'm', 'backspace'],
+    ['shift', 'zx', 'cv', 'bn', 'm', 'backspace'],
     ['123', 'spaceRight', 'space', 'cnen', 'enter'],
   ],
   '17': [
@@ -131,6 +134,20 @@ const PINYIN_VARIANT_LABELS = {
   number9: '9',
   number0: '0',
 };
+
+function pinyinLetterCase(project = {}) {
+  return project.guide?.preferences?.pinyin26LetterCase === 'upper' ? 'upper' : 'lower';
+}
+
+function applyPinyinLetterCase(label = '', project = {}) {
+  const text = String(label);
+  return pinyinLetterCase(project) === 'upper' ? text.toUpperCase() : text.toLowerCase();
+}
+
+function pinyinVariantLettersLabel(key = '', project = {}) {
+  return /^[a-z]{1,3}$/.test(key) ? applyPinyinLetterCase(key, project) : '';
+}
+
 const HINT_PREVIEW_CELL_HEIGHT = 52;
 const HINT_PREVIEW_MIN_CELL_WIDTH = 46;
 const HINT_PREVIEW_TEXT_CELL_WIDTH = 58;
@@ -213,7 +230,7 @@ function buildEffectiveNativeKeyboardPayloadSafe(project, themeName, keyboardNam
     const cachedPayload = cache.get(cacheKey);
     return cachedPayload ? structuredClone(cachedPayload) : null;
   }
-  const effectPayload = buildSkinEffectModel(project, { theme: themeName, keyboardName })?.nativePayload;
+  const effectPayload = buildPreviewNativeKeyboardPayload(project, themeName, keyboardName);
   if (effectPayload && typeof effectPayload === 'object' && !Array.isArray(effectPayload)) {
     if (cache instanceof Map) cache.set(cacheKey, structuredClone(effectPayload));
     return structuredClone(effectPayload);
@@ -299,6 +316,14 @@ function layerStyles(project, theme, options = {}) {
     ...fallback,
     ...(project.keyStyles?.surfaceStyles?.[group]?.[key] || {}),
   });
+  const keySurfaceStyle = (key, fallback = {}) => surfaceStyle('keyboard26', key, {
+    cornerRadius: 8.5,
+    borderSize: 0,
+    shadowRadius: 0,
+    shadowOpacity: 0,
+    shadowOffset: { x: 0, y: 0 },
+    ...fallback,
+  });
 
   return {
     keyboardStyle: {
@@ -310,13 +335,7 @@ function layerStyles(project, theme, options = {}) {
     alphabeticBackgroundStyle: {
       buttonStyleType: 'geometry',
       insets: project.keyStyles?.buttonInsets?.keyboard26?.normal || {},
-      ...surfaceStyle('keyboard26', 'normal', {
-        cornerRadius: 8.5,
-        borderSize: 0,
-        shadowRadius: 0,
-        shadowOpacity: 0,
-        shadowOffset: { x: 0, y: 0 },
-      }),
+      ...keySurfaceStyle('normal'),
       normalColor: resolveColor(project, theme, '字母键背景颜色-普通', theme === 'dark' ? '#3A3A3C' : '#ffffff'),
       highlightColor: resolveColor(project, theme, '字母键背景颜色-高亮', '#abb0ba'),
       normalLowerEdgeColor: resolveColor(project, theme, '底边缘颜色-普通', 'rgba(0,0,0,.18)'),
@@ -326,13 +345,7 @@ function layerStyles(project, theme, options = {}) {
     systemButtonBackgroundStyle: {
       buttonStyleType: 'geometry',
       insets: project.keyStyles?.buttonInsets?.keyboard26?.functionKey || {},
-      ...surfaceStyle('keyboard26', 'functionKey', {
-        cornerRadius: 8.5,
-        borderSize: 0,
-        shadowRadius: 0,
-        shadowOpacity: 0,
-        shadowOffset: { x: 0, y: 0 },
-      }),
+      ...keySurfaceStyle('functionKey'),
       normalColor: resolveColor(project, theme, '功能键背景颜色-普通', theme === 'dark' ? '#3A3A3C' : '#979faf80'),
       highlightColor: resolveColor(project, theme, '功能键背景颜色-高亮', '#ffffffE6'),
       normalLowerEdgeColor: resolveColor(project, theme, '底边缘颜色-普通', 'rgba(0,0,0,.18)'),
@@ -342,7 +355,7 @@ function layerStyles(project, theme, options = {}) {
     numberButtonBackgroundStyle: {
       buttonStyleType: 'geometry',
       insets: resolveInsets(project, 'numeric', '1'),
-      cornerRadius: 7,
+      ...keySurfaceStyle('normal'),
       normalColor: resolveColor(project, theme, '字母键背景颜色-普通', theme === 'dark' ? '#3A3A3C' : '#ffffff'),
       highlightColor: resolveColor(project, theme, '字母键背景颜色-高亮', '#abb0ba'),
       normalLowerEdgeColor: resolveColor(project, theme, '底边缘颜色-普通', 'rgba(0,0,0,.18)'),
@@ -351,7 +364,7 @@ function layerStyles(project, theme, options = {}) {
     numericSystemButtonBackgroundStyle: {
       buttonStyleType: 'geometry',
       insets: project.keyStyles?.buttonInsets?.numeric?.functionKey || {},
-      cornerRadius: 7,
+      ...keySurfaceStyle('functionKey'),
       normalColor: resolveColor(project, theme, '功能键背景颜色-普通', theme === 'dark' ? '#3A3A3C' : '#979faf80'),
       highlightColor: resolveColor(project, theme, '功能键背景颜色-高亮', '#ffffffE6'),
       normalLowerEdgeColor: resolveColor(project, theme, '底边缘颜色-普通', 'rgba(0,0,0,.18)'),
@@ -360,7 +373,7 @@ function layerStyles(project, theme, options = {}) {
     numericCollectionBackgroundStyle: {
       buttonStyleType: 'geometry',
       insets: resolveInsets(project, 'numeric', 'collection'),
-      cornerRadius: 7,
+      ...keySurfaceStyle('functionKey'),
       normalColor: resolveColor(project, theme, '功能键背景颜色-普通', theme === 'dark' ? '#3A3A3C' : '#979faf80'),
       normalLowerEdgeColor: resolveColor(project, theme, '底边缘颜色-普通', 'rgba(0,0,0,.18)'),
     },
@@ -374,13 +387,7 @@ function layerStyles(project, theme, options = {}) {
     enterButtonBackgroundStyle: {
       buttonStyleType: 'geometry',
       insets: resolveInsets(project, 'keyboard26', 'enter'),
-      ...surfaceStyle('keyboard26', 'enterAccent', {
-        cornerRadius: 8.5,
-        borderSize: 0,
-        shadowRadius: 0,
-        shadowOpacity: 0,
-        shadowOffset: { x: 0, y: 0 },
-      }),
+      ...keySurfaceStyle('enterAccent'),
       normalColor: resolveColor(project, theme, 'enter键背景(蓝色)', '#1162ff'),
       highlightColor: resolveColor(project, theme, 'enter键背景(蓝色)', '#1162ff'),
       borderColor: 'rgba(0,0,0,0.08)',
@@ -428,7 +435,7 @@ function layerStyles(project, theme, options = {}) {
     },
     keyForegroundStyle: {
       buttonStyleType: 'text',
-      center: resolveCenter(project, '26键中文前景偏移', { x: 0.5, y: 0.54 }),
+      center: keyboard26PreviewTextCenter(resolveCenter(project, '26键中文前景偏移', { x: 0.5, y: 0.54 })),
       fontSize: resolveFontSize(project, '按键前景文字大小', 18),
       previewFontScale: resolveScale(project, '26键中文前景缩放', 1),
       normalColor: keyText,
@@ -539,13 +546,7 @@ function layerStyles(project, theme, options = {}) {
     symbolicFunctionButtonBackgroundStyle: {
       buttonStyleType: 'geometry',
       insets: project.keyStyles?.buttonInsets?.symbolic?.functionKey || {},
-      ...surfaceStyle('symbolic', 'functionKey', {
-        cornerRadius: 7,
-        borderSize: 0,
-        shadowRadius: 0,
-        shadowOpacity: 0,
-        shadowOffset: { x: 0, y: 0 },
-      }),
+      ...surfaceStyle('symbolic', 'functionKey', keySurfaceStyle('functionKey')),
       normalColor: resolveColor(project, theme, '功能键背景颜色-普通', theme === 'dark' ? '#3A3A3C' : '#979faf80'),
       highlightColor: resolveColor(project, theme, '功能键背景颜色-高亮', '#ffffffE6'),
       normalLowerEdgeColor: resolveColor(project, theme, '底边缘颜色-普通', 'rgba(0,0,0,.18)'),
@@ -884,10 +885,13 @@ function resolveNativeStyleObject(payload = {}, ref, options = {}, fallback = {}
 }
 
 function nativeForegroundRefs(button = {}, key = '', options = {}) {
-  if (options.shiftActive && key !== 'shift' && button.uppercasedStateForegroundStyle && button.foregroundStyle) {
-    return normalizeNativeStyleRefs(button.uppercasedStateForegroundStyle);
-  }
   return normalizeNativeStyleRefs(button.foregroundStyle);
+}
+
+function nativeShiftedForegroundContent(key = '', styleName = '', content = '') {
+  if (!/^[a-z]$/.test(key)) return content;
+  if (!new RegExp(`^${key}ButtonForegroundStyle$`, 'i').test(styleName)) return content;
+  return typeof content === 'string' && content.length === 1 ? content.toUpperCase() : content;
 }
 
 function schemaNameForeground(project, theme) {
@@ -924,17 +928,13 @@ function nativeForegrounds(project, theme, payload = {}, buttonName = '', option
     const shouldShowSchemaName = project.keyboardCombo?.spaceRow?.showSchemaNameOnSpace === true;
     if (isSchemaNamePlaceholder && !shouldShowSchemaName) return '';
     const styleName = typeof resolvedRef === 'string' ? resolvedRef : '';
-    const swipeClass = styleName.includes('SwipeUp')
-      ? 'is-swipe is-swipe-up'
-      : styleName.includes('SwipeDown')
-        ? 'is-swipe is-swipe-down'
-        : '';
     const previewStyle = buttonName.startsWith('toolbar') && styleDisplayType(style) === 'systemImage'
       ? { ...style, previewFontScale: TOOLBAR_PREVIEW_ICON_SCALE }
-      : swipeClass
-        ? { ...style, className: [style.className, swipeClass].filter(Boolean).join(' ') }
-        : style;
-    return renderForeground(previewStyle, content, { project, theme, active: options.activePressedKey === key });
+      : style;
+    const displayContent = options.shiftActive
+      ? nativeShiftedForegroundContent(key, styleName, content)
+      : content;
+    return renderForeground(previewStyle, displayContent, { project, theme, active: options.activePressedKey === key });
   });
   if (
     key === 'space'
@@ -1310,26 +1310,56 @@ function previewLogicalWidth(options = {}) {
   return PREVIEW_LOGICAL_SIZE[previewOrientation(options)]?.width || PREVIEW_LOGICAL_WIDTH;
 }
 
-function pinyinVariantKeyLabel(variant, key) {
-  if (variant === '17' && PINYIN_VARIANT_LABELS[key]) return PINYIN_VARIANT_LABELS[key];
-  if (['14', '18'].includes(variant) && /^[a-z]{2}$/.test(key)) return key.toUpperCase();
+function previewKeyboardMetrics(styles, frame, options = {}, overrides = {}) {
+  const keyboardInsets = overrides.keyboardInsets || styles.keyboardStyle.insets || {};
+  const width = overrides.width || previewLogicalWidth(options);
+  const outerInsetX = Number(overrides.outerInsetX || 0);
+  const outerInsetY = Number(overrides.outerInsetY || 0);
+  const leftInset = Number(keyboardInsets.left || 0) + Number(overrides.leftInsetExtra ?? outerInsetX);
+  const rightInset = Number(keyboardInsets.right || 0) + Number(overrides.rightInsetExtra ?? outerInsetX);
+  const topInset = Number(keyboardInsets.top || 0) + Number(overrides.topInsetExtra ?? outerInsetY);
+  const bottomInset = Number(keyboardInsets.bottom || 0) + Number(overrides.bottomInsetExtra ?? outerInsetY);
+  const rowGap = Number(overrides.rowGap ?? 4);
+  const colGap = Number(overrides.colGap ?? 5);
+  const rows = Math.max(1, Number(overrides.rows || 4));
+  const contentWidth = width - leftInset - rightInset;
+  const contentHeight = frame.keyboardHeight - topInset - bottomInset;
+  const rowHeight = (contentHeight - rowGap * Math.max(rows - 1, 0)) / rows;
+  return {
+    keyboardInsets,
+    width,
+    leftInset,
+    rightInset,
+    topInset,
+    bottomInset,
+    contentWidth,
+    contentHeight,
+    rowGap,
+    colGap,
+    rowHeight,
+  };
+}
+
+function pinyinVariantKeyLabel(project, variant, key) {
+  if (variant === '17' && PINYIN_VARIANT_LABELS[key]) return applyPinyinLetterCase(PINYIN_VARIANT_LABELS[key], project);
+  if (['14', '18'].includes(variant) && /^[a-z]{2}$/.test(key)) return pinyinVariantLettersLabel(key, project);
   if (variant === '9') {
     const labels = {
       number1: '@/.',
-      number2: 'ABC',
-      number3: 'DEF',
-      number4: 'GHI',
-      number5: 'JKL',
-      number6: 'MNO',
-      number7: 'PQRS',
-      number8: 'TUV',
-      number9: 'WXYZ',
+      number2: applyPinyinLetterCase('ABC', project),
+      number3: applyPinyinLetterCase('DEF', project),
+      number4: applyPinyinLetterCase('GHI', project),
+      number5: applyPinyinLetterCase('JKL', project),
+      number6: applyPinyinLetterCase('MNO', project),
+      number7: applyPinyinLetterCase('PQRS', project),
+      number8: applyPinyinLetterCase('TUV', project),
+      number9: applyPinyinLetterCase('WXYZ', project),
       number0: '0',
       symbol: '#+=',
     };
     if (labels[key]) return labels[key];
   }
-  if (variant === '14' && key === 'word') return "'词";
+  if (variant === '14' && key === 'shift') return "'词";
   if (variant === '18' && key === 'word') return "'词";
   if (variant === '9' && key === 'reinput') return '重输';
   if (variant === '18' && key === 'space') return '天行键';
@@ -1400,7 +1430,7 @@ function labelForMode(project, mode, key, options = {}) {
     : keyboard.keyDisplays?.[key];
   if (customLabel) return customLabel;
   if (['14', '17', '18'].includes(variant) && key === 'space') return '';
-  const variantLabel = pinyinVariantKeyLabel(variant, key);
+  const variantLabel = pinyinVariantKeyLabel(project, variant, key);
   if (variantLabel) return variantLabel;
   const labels = {
     '123': text.numericSwitch || '123',
@@ -1412,21 +1442,16 @@ function labelForMode(project, mode, key, options = {}) {
     enter: variant === '26' ? (text.enter?.default || '回车') : '发送',
   };
   if (profile === 'alphabetic' && /^[a-z]$/.test(key)) return key;
-  return labels[key] || key.toUpperCase();
+  return labels[key] || pinyinVariantLettersLabel(key, project) || key;
 }
 
 function renderPinyin9Keyboard(project, theme, styles, frame, options = {}) {
   const height = frame.keyboardHeight;
-  const keyboardInsets = styles.keyboardStyle.insets || {};
-  const rowGap = 0;
   const sideColGap = 0;
   const mainColGap = 0;
   const footerColGap = 0;
-  const leftInset = Number(keyboardInsets.left || 0);
-  const topInset = Number(keyboardInsets.top || 0);
-  const contentWidth = previewLogicalWidth(options) - leftInset - Number(keyboardInsets.right || 0);
-  const contentHeight = height - topInset - Number(keyboardInsets.bottom || 0);
-  const rowHeight = contentHeight / 4;
+  const layout = previewKeyboardMetrics(styles, frame, options, { rowGap: 0, colGap: 0 });
+  const { leftInset, topInset, contentWidth, rowGap, rowHeight } = layout;
   const mergedEnterHeight = rowHeight * 2 + rowGap;
   const pinyin9Metrics = project.keyboards?.keyboard26?.variants?.['9']?.metrics?.portrait || {};
   const metricWidth = (key, fallbackRatio) => {
@@ -1675,26 +1700,18 @@ function renderVariantCell(project, theme, key, label, {
 }
 
 function profileLabelForCnen(options = {}) {
-  return '中';
+  return keyboard26ProfileFromOptions(options) === 'alphabetic' ? '英' : '中';
 }
 
 function subLabelForCnen(options = {}) {
-  return '/En';
+  return keyboard26ProfileFromOptions(options) === 'alphabetic' ? '/中' : '/En';
 }
 
 function renderPinyinVariantKeyboard(project, theme, styles, frame, options = {}) {
   const variant = activePinyinVariantForPreview(project, options);
   const height = frame.keyboardHeight;
-  const keyboardInsets = styles.keyboardStyle.insets || {};
-  const outerInsetX = 5;
-  const outerInsetY = 4;
-  const leftInset = Number(keyboardInsets.left || 0) + outerInsetX;
-  const topInset = Number(keyboardInsets.top || 0) + outerInsetY;
-  const contentWidth = previewLogicalWidth(options) - leftInset - Number(keyboardInsets.right || 0) - outerInsetX;
-  const contentHeight = height - topInset - Number(keyboardInsets.bottom || 0) - outerInsetY;
-  const rowGap = 4;
-  const colGap = 5;
-  const rowHeight = (contentHeight - rowGap * 3) / 4;
+  const layout = previewKeyboardMetrics(styles, frame, options, { outerInsetX: 5, outerInsetY: 4, rowGap: 4, colGap: 5 });
+  const { leftInset, topInset, contentWidth, rowGap, colGap, rowHeight } = layout;
   const cells = [];
   const layoutRowByWeights = (items, width = contentWidth, xStart = leftInset) => {
     return layoutPreviewMetricRow(project, 'keyboard26', items, width, xStart, colGap, 'portrait', options);
@@ -1705,7 +1722,7 @@ function renderPinyinVariantKeyboard(project, theme, styles, frame, options = {}
       const width = rowIndex === 1 ? contentWidth * 0.94 : contentWidth;
       const xStart = rowIndex === 1 ? leftInset + contentWidth * 0.03 : leftInset;
       layoutRowByWeights(row.map((key) => ({ key, weight: key === 'l' ? 0.82 : 1 })), width, xStart).forEach((item) => {
-        cells.push(renderVariantCell(project, theme, item.key, item.key.toUpperCase(), {
+        cells.push(renderVariantCell(project, theme, item.key, pinyinVariantLettersLabel(item.key, project), {
           x: item.x,
           y: topInset + rowIndex * (rowHeight + rowGap),
           width: item.width,
@@ -1717,29 +1734,35 @@ function renderPinyinVariantKeyboard(project, theme, styles, frame, options = {}
     const thirdY = topInset + 2 * (rowHeight + rowGap);
     const footerY = topInset + 3 * (rowHeight + rowGap);
     layoutRowByWeights([
-      { key: 'word', weight: 1.12, isFunction: true },
+      { key: 'shift', weight: 1.12, isFunction: true },
       { key: 'zx', weight: 1.62 },
       { key: 'cv', weight: 1.46 },
       { key: 'bn', weight: 1.46 },
       { key: 'm', weight: 0.95 },
       { key: 'backspace', weight: 0.82, isFunction: true },
     ]).forEach((item) => {
-      cells.push(renderVariantCell(project, theme, item.key, item.key, { x: item.x, y: thirdY, width: item.width, height: rowHeight, isFunction: item.isFunction, options }, styles));
+      cells.push(renderVariantCell(project, theme, item.key, item.key, {
+        x: item.x,
+        y: thirdY,
+        width: item.width,
+        height: rowHeight,
+        isFunction: item.isFunction,
+        options,
+        buttonStyleTypeOverride: item.key === 'shift' ? 'text' : null,
+      }, styles));
     });
-    layoutRowByWeights([
-      { key: '123', weight: 1.18, isFunction: true },
-      { key: 'semicolon', weight: 1.02, isFunction: true },
-      { key: 'space', weight: 2.92 },
-      { key: 'cnen', weight: 1.02, isFunction: true },
-      { key: 'enter', weight: 1.7, isFunction: true, accent: true },
-    ]).forEach((item) => {
+    layoutWeightedPreviewRow([
+      { key: '123', weight: 1.15, isFunction: true },
+      { key: 'semicolon', weight: 0.85, isFunction: true },
+      { key: 'space', weight: 3 },
+      { key: 'cnen', weight: 0.85, isFunction: true },
+      { key: 'enter', weight: 1.15, isFunction: true, accent: true },
+    ], contentWidth, leftInset, colGap).forEach((item) => {
       cells.push(renderVariantCell(project, theme, item.key, item.key, { x: item.x, y: footerY, width: item.width, height: rowHeight, isFunction: item.isFunction, accent: item.accent, options }, styles));
     });
   } else if (variant === '17') {
     [['h','s','z','b','x','m'],['l','d','y','w','j','n']].forEach((row, rowIndex) => {
-      const width = rowIndex === 1 ? contentWidth * 0.95 : contentWidth;
-      const xStart = rowIndex === 1 ? leftInset + contentWidth * 0.025 : leftInset;
-      layoutRowByWeights(row.map((key) => ({ key, weight: 1 })), width, xStart).forEach((item) => {
+      layoutWeightedPreviewRow(row.map((key) => ({ key, weight: 1 })), contentWidth, leftInset, colGap).forEach((item) => {
         cells.push(renderVariantCell(project, theme, item.key, item.key, {
           x: item.x,
           y: topInset + rowIndex * (rowHeight + rowGap),
@@ -1751,23 +1774,23 @@ function renderPinyinVariantKeyboard(project, theme, styles, frame, options = {}
     });
     const thirdY = topInset + 2 * (rowHeight + rowGap);
     const footerY = topInset + 3 * (rowHeight + rowGap);
-    layoutRowByWeights([
-      { key: 'c', weight: 1.2 },
-      { key: 'q', weight: 1.2 },
-      { key: 'g', weight: 1.1 },
-      { key: 'f', weight: 1.1 },
-      { key: 't', weight: 0.95 },
-      { key: 'backspace', weight: 0.9, isFunction: true },
-    ]).forEach((item) => {
+    layoutWeightedPreviewRow([
+      { key: 'c', weight: 1 },
+      { key: 'q', weight: 1 },
+      { key: 'g', weight: 1 },
+      { key: 'f', weight: 1 },
+      { key: 't', weight: 1 },
+      { key: 'backspace', weight: 1, isFunction: true },
+    ], contentWidth, leftInset, colGap).forEach((item) => {
       cells.push(renderVariantCell(project, theme, item.key, item.key, { x: item.x, y: thirdY, width: item.width, height: rowHeight, isFunction: item.isFunction, options }, styles));
     });
-    layoutRowByWeights([
-      { key: '123', weight: 1.18, isFunction: true },
-      { key: 'cnen', weight: 0.98, isFunction: true },
-      { key: 'space', weight: 2.95 },
-      { key: 'semicolon', weight: 1.02, isFunction: true },
-      { key: 'enter', weight: 1.66, isFunction: true, accent: true },
-    ]).forEach((item) => {
+    layoutWeightedPreviewRow([
+      { key: '123', weight: 1.15, isFunction: true },
+      { key: 'cnen', weight: 0.85, isFunction: true },
+      { key: 'space', weight: 3 },
+      { key: 'semicolon', weight: 0.85, isFunction: true },
+      { key: 'enter', weight: 1.15, isFunction: true, accent: true },
+    ], contentWidth, leftInset, colGap).forEach((item) => {
       cells.push(renderVariantCell(project, theme, item.key, item.key, { x: item.x, y: footerY, width: item.width, height: rowHeight, isFunction: item.isFunction, accent: item.accent, options }, styles));
     });
   } else if (variant === '18') {
@@ -1797,13 +1820,13 @@ function renderPinyinVariantKeyboard(project, theme, styles, frame, options = {}
       { key: 'm', weight: 0.94 },
       { key: 'backspace', weight: 0.82, isFunction: true },
     ]);
-    const footer = layoutRowByWeights([
-      { key: '123', weight: 1.15, isFunction: true },
-      { key: 'semicolon', weight: 0.95, isFunction: true },
-      { key: 'space', weight: 3.0 },
-      { key: 'cnen', weight: 1.0, isFunction: true },
-      { key: 'enter', weight: 1.7, isFunction: true, accent: true },
-    ]);
+    const footer = layoutWeightedPreviewRow([
+      { key: '123', weight: 0.2, isFunction: true },
+      { key: 'semicolon', weight: 0.12, isFunction: true },
+      { key: 'space', weight: 0.34 },
+      { key: 'cnen', weight: 0.12, isFunction: true },
+      { key: 'enter', weight: 0.22, isFunction: true, accent: true },
+    ], contentWidth, leftInset, colGap);
     [top, second, third, footer].forEach((row, rowIndex) => {
       row.forEach((item) => {
         cells.push(renderVariantCell(project, theme, item.key, item.key, {
@@ -1871,16 +1894,14 @@ function layoutVariantLandscapeMetricRow(project, items, width, xStart, gap, opt
 function renderPinyin9LandscapeKeyboard(project, theme, styles, frame, options = {}) {
   const rows = keyboard26VariantRowsForOrientation(project, 'landscape', options);
   const height = frame.keyboardHeight;
-  const width = previewLogicalWidth({ ...options, orientation: 'landscape' });
-  const keyboardInsets = styles.keyboardStyle.insets || {};
-  const leftInset = Number(keyboardInsets.left || 0) + 6;
-  const rightInset = Number(keyboardInsets.right || 0) + 6;
-  const topInset = Number(keyboardInsets.top || 0) + 4;
-  const bottomInset = Number(keyboardInsets.bottom || 0) + 4;
-  const contentWidth = width - leftInset - rightInset;
-  const contentHeight = height - topInset - bottomInset;
-  const rowGap = 4;
-  const rowHeight = (contentHeight - rowGap * 3) / 4;
+  const layout = previewKeyboardMetrics(styles, frame, { ...options, orientation: 'landscape' }, {
+    leftInsetExtra: 6,
+    rightInsetExtra: 6,
+    topInsetExtra: 4,
+    bottomInsetExtra: 4,
+    rowGap: 4,
+  });
+  const { leftInset, topInset, contentWidth, rowGap, rowHeight } = layout;
   const sectionGap = 8;
   const leftPanelWidth = contentWidth * 0.56;
   const rightPanelWidth = contentWidth - leftPanelWidth - sectionGap;
@@ -1989,16 +2010,14 @@ function renderPinyin9LandscapeKeyboard(project, theme, styles, frame, options =
 function renderPinyin14LandscapeKeyboard(project, theme, styles, frame, options = {}) {
   const rows = keyboard26VariantRowsForOrientation(project, 'landscape', options);
   const height = frame.keyboardHeight;
-  const width = previewLogicalWidth({ ...options, orientation: 'landscape' });
-  const keyboardInsets = styles.keyboardStyle.insets || {};
-  const leftInset = Number(keyboardInsets.left || 0) + 6;
-  const rightInset = Number(keyboardInsets.right || 0) + 6;
-  const topInset = Number(keyboardInsets.top || 0) + 4;
-  const bottomInset = Number(keyboardInsets.bottom || 0) + 4;
-  const contentWidth = width - leftInset - rightInset;
-  const contentHeight = height - topInset - bottomInset;
-  const rowGap = 4;
-  const rowHeight = (contentHeight - rowGap * 3) / 4;
+  const layout = previewKeyboardMetrics(styles, frame, { ...options, orientation: 'landscape' }, {
+    leftInsetExtra: 6,
+    rightInsetExtra: 6,
+    topInsetExtra: 4,
+    bottomInsetExtra: 4,
+    rowGap: 4,
+  });
+  const { leftInset, topInset, contentWidth, rowGap, rowHeight } = layout;
   const sectionGap = 7;
   const middleWidth = contentWidth * 0.245;
   const sideWidth = (contentWidth - middleWidth - sectionGap * 2) / 2;
@@ -2162,26 +2181,23 @@ function renderPinyin14LandscapeKeyboard(project, theme, styles, frame, options 
 function renderPinyin17LandscapeKeyboard(project, theme, styles, frame, options = {}) {
   const rows = keyboard26VariantRowsForOrientation(project, 'landscape', options);
   const height = frame.keyboardHeight;
-  const width = previewLogicalWidth({ ...options, orientation: 'landscape' });
-  const keyboardInsets = styles.keyboardStyle.insets || {};
-  const leftInset = Number(keyboardInsets.left || 0) + 6;
-  const rightInset = Number(keyboardInsets.right || 0) + 6;
-  const topInset = Number(keyboardInsets.top || 0) + 4;
-  const bottomInset = Number(keyboardInsets.bottom || 0) + 4;
-  const contentWidth = width - leftInset - rightInset;
-  const contentHeight = height - topInset - bottomInset;
-  const rowGap = 4;
-  const rowHeight = (contentHeight - rowGap * 3) / 4;
+  const layout = previewKeyboardMetrics(styles, frame, { ...options, orientation: 'landscape' }, {
+    leftInsetExtra: 6,
+    rightInsetExtra: 6,
+    topInsetExtra: 4,
+    bottomInsetExtra: 4,
+    rowGap: 4,
+  });
+  const { leftInset, topInset, contentWidth, rowGap, rowHeight } = layout;
   const middleGap = contentWidth * 0.115;
   const sideWidth = (contentWidth - middleGap) / 2;
   const leftX = leftInset;
   const rightX = leftX + sideWidth + middleGap;
-  const leftHtml = [0, 1, 2].map((rowIndex) => layoutVariantLandscapeMetricRow(project,
+  const leftHtml = [0, 1, 2].map((rowIndex) => layoutWeightedPreviewRow(
     [0, 1, 2].map((slotIndex) => ({ key: variantLandscapeKeyAt(rows, rowIndex, slotIndex), weight: 1 })),
     sideWidth,
     leftX,
     5,
-    options,
   ).map((item) => renderVariantLayoutSlot(project, theme, item.key, {
     x: item.x,
     y: topInset + rowIndex * (rowHeight + rowGap),
@@ -2192,15 +2208,14 @@ function renderPinyin17LandscapeKeyboard(project, theme, styles, frame, options 
     isFunction: item.key ? undefined : false,
     backgroundStyleOverride: item.key ? null : styles.alphabeticBackgroundStyle,
   })).join('')).join('');
-  const rightHtml = [0, 1, 2].map((rowIndex) => layoutVariantLandscapeMetricRow(project,
+  const rightHtml = [0, 1, 2].map((rowIndex) => layoutWeightedPreviewRow(
     [0, 1, 2].map((slotIndex) => ({
       key: variantLandscapeKeyAt(rows, rowIndex, slotIndex + 3),
-      weight: rowIndex === 2 && slotIndex === 2 ? 1.08 : 1,
+      weight: 1,
     })),
     sideWidth,
     rightX,
     5,
-    options,
   ).map((item) => renderVariantLayoutSlot(project, theme, item.key, {
     x: item.x,
     y: topInset + rowIndex * (rowHeight + rowGap),
@@ -2212,11 +2227,11 @@ function renderPinyin17LandscapeKeyboard(project, theme, styles, frame, options 
     backgroundStyleOverride: item.key ? null : styles.alphabeticBackgroundStyle,
   })).join('')).join('');
   const footerY = topInset + 3 * (rowHeight + rowGap);
-  const leftFooter = layoutVariantLandscapeMetricRow(project, [
+  const leftFooter = layoutWeightedPreviewRow([
     { key: variantLandscapeKeyAt(rows, 3, 0), weight: 1.15 },
-    { key: variantLandscapeKeyAt(rows, 3, 1), weight: 1.05 },
-    { key: variantLandscapeKeyAt(rows, 3, 2), weight: 2.7 },
-  ], sideWidth, leftX, 5, options).map((item) => renderVariantLayoutSlot(project, theme, item.key, {
+    { key: variantLandscapeKeyAt(rows, 3, 1), weight: 0.85 },
+    { key: variantLandscapeKeyAt(rows, 3, 2), weight: 3 },
+  ], sideWidth, leftX, 5).map((item) => renderVariantLayoutSlot(project, theme, item.key, {
     x: item.x,
     y: footerY,
     width: item.width,
@@ -2225,11 +2240,11 @@ function renderPinyin17LandscapeKeyboard(project, theme, styles, frame, options 
   }, styles, {
     displayLabel: item.key === 'space' ? '' : undefined,
   })).join('');
-  const rightFooter = layoutVariantLandscapeMetricRow(project, [
-    { key: variantLandscapeKeyAt(rows, 3, 3), weight: 2.55 },
-    { key: variantLandscapeKeyAt(rows, 3, 4), weight: 1.0 },
-    { key: variantLandscapeKeyAt(rows, 3, 5), weight: 1.35 },
-  ], sideWidth, rightX, 5, options).map((item) => renderVariantLayoutSlot(project, theme, item.key, {
+  const rightFooter = layoutWeightedPreviewRow([
+    { key: variantLandscapeKeyAt(rows, 3, 3), weight: 3 },
+    { key: variantLandscapeKeyAt(rows, 3, 4), weight: 0.85 },
+    { key: variantLandscapeKeyAt(rows, 3, 5), weight: 1.15 },
+  ], sideWidth, rightX, 5).map((item) => renderVariantLayoutSlot(project, theme, item.key, {
     x: item.x,
     y: footerY,
     width: item.width,
@@ -2252,15 +2267,15 @@ function renderPinyin17LandscapeKeyboard(project, theme, styles, frame, options 
 function renderPinyin18LandscapeKeyboard(project, theme, styles, frame, options = {}) {
   const rows = keyboard26VariantRowsForOrientation(project, 'landscape', options);
   const height = frame.keyboardHeight;
-  const width = previewLogicalWidth({ ...options, orientation: 'landscape' });
-  const keyboardInsets = styles.keyboardStyle.insets || {};
-  const leftInset = Number(keyboardInsets.left || 0) + 5;
-  const topInset = Number(keyboardInsets.top || 0) + 4;
-  const contentWidth = width - leftInset - Number(keyboardInsets.right || 0) - 5;
-  const contentHeight = height - topInset - Number(keyboardInsets.bottom || 0) - 4;
-  const rowGap = 4;
-  const colGap = 5;
-  const rowHeight = (contentHeight - rowGap * 3) / 4;
+  const layout = previewKeyboardMetrics(styles, frame, { ...options, orientation: 'landscape' }, {
+    leftInsetExtra: 5,
+    rightInsetExtra: 5,
+    topInsetExtra: 4,
+    bottomInsetExtra: 4,
+    rowGap: 4,
+    colGap: 5,
+  });
+  const { leftInset, topInset, contentWidth, rowGap, colGap, rowHeight } = layout;
   const splitGap = contentWidth * 0.075;
   const splitLayoutRows = [
     { left: [0, 1, 2], right: [3, 4, 5, 6], leftWeights: [0.9, 1.14, 1.14], rightWeights: [0.9, 0.9, 1.14, 0.92] },
@@ -2369,14 +2384,13 @@ function renderKeyboard26LandscapeSection(project, theme, styles, rows, geometry
 
 function renderKeyboard26LandscapeKeyboard(project, theme, styles, frame, options = {}) {
   const height = frame.keyboardHeight;
-  const width = previewLogicalWidth({ ...options, orientation: 'landscape' });
-  const keyboardInsets = styles.keyboardStyle.insets || {};
-  const leftInset = Number(keyboardInsets.left || 0) + 6;
-  const rightInset = Number(keyboardInsets.right || 0) + 6;
-  const topInset = Number(keyboardInsets.top || 0) + 4;
-  const bottomInset = Number(keyboardInsets.bottom || 0) + 4;
-  const contentWidth = width - leftInset - rightInset;
-  const contentHeight = height - topInset - bottomInset;
+  const layout = previewKeyboardMetrics(styles, frame, { ...options, orientation: 'landscape' }, {
+    leftInsetExtra: 6,
+    rightInsetExtra: 6,
+    topInsetExtra: 4,
+    bottomInsetExtra: 4,
+  });
+  const { leftInset, topInset, contentWidth, contentHeight } = layout;
   const sectionGap = 8;
   const sections = [
     { id: 'left', rows: landscapeSectionFallbackRows(project, 'left'), weight: 1 },
@@ -3518,6 +3532,7 @@ function renderSymbolicKeyboard(project, theme, styles, frame, options = {}) {
       height: symbolicFunctionRowHeight,
       backgroundStyle: { ...styles.symbolicFunctionButtonBackgroundStyle, insets: resolveInsets(project, 'symbolic', key) },
       foregrounds: [renderForeground(isIcon ? styles.symbolicIconForegroundStyle : styles.symbolicTextForegroundStyle, content)],
+      attrs: `data-preview-key="${escapeHtml(key)}"`,
     });
   }).join('')}
           </div>
@@ -3536,8 +3551,8 @@ function renderNumericKeyboard(project, theme, styles, frame, options = {}) {
     : DEFAULT_NUMERIC_COLUMNS;
   const rowHeight = height / Math.max(...columns.map((column) => column.length), 1);
   const columnTemplate = orientation === 'landscape'
-    ? '0.72fr 1fr 1fr 1fr 0.78fr'
-    : '0.68fr 1fr 1fr 1fr 0.72fr';
+    ? '0.75fr 1fr 1fr 1fr 0.75fr'
+    : '0.7fr 1fr 1fr 1fr 0.7fr';
   return `
     <div class="calayer-keyboard is-numeric-keyboard" style="${backgroundCssForStyle(project, theme, styles.keyboardBackgroundStyle)};height:${height}px;padding:${cssInsets(styles.keyboardStyle.insets)}">
       <div class="numeric-column-layout" style="grid-template-columns:${columnTemplate}">
@@ -3690,10 +3705,6 @@ function renderKeyboard(project, theme, mode, styles, frame, options = {}) {
     return orientation === 'landscape'
       ? renderPinyin9LandscapeKeyboard(project, theme, styles, frame, options)
       : renderPinyin9Keyboard(project, theme, styles, frame, options);
-  }
-  if (mode === 'keyboard26' && ['14', '17'].includes(variant)) {
-    const nativeKeyboard = renderNativeKeyboard(project, theme, mode, styles, frame, options);
-    if (nativeKeyboard) return nativeKeyboard;
   }
   if (mode === 'keyboard26' && ['14', '17', '18'].includes(variant)) {
     if (orientation === 'landscape') {

@@ -184,6 +184,20 @@ const PINYIN_VARIANT_LABELS = {
   number9: '9',
   number0: '0',
 };
+
+function pinyinGuideLetterCase() {
+  return guideState().preferences.pinyin26LetterCase === 'upper' ? 'upper' : 'lower';
+}
+
+function applyPinyinGuideLetterCase(label = '') {
+  const text = String(label);
+  return pinyinGuideLetterCase() === 'upper' ? text.toUpperCase() : text.toLowerCase();
+}
+
+function pinyinVariantLettersLabel(key = '') {
+  return /^[a-z]{1,3}$/.test(key) ? applyPinyinGuideLetterCase(key) : '';
+}
+
 const FUNCTION_KEY_LABELS = {
   '123': '数字切换键',
   cnen: '中英切换键',
@@ -1034,6 +1048,8 @@ function currentPreviewScope() {
   const source = previewSourceName(state.previewMode);
   const pinyinVariant = source.startsWith('pinyin_')
     ? source.split('_')[1]
+    : source.startsWith('alphabetic_')
+      ? '26'
     : null;
   return {
     mode,
@@ -3123,19 +3139,19 @@ function activePinyinVariant() {
 }
 
 function pinyinVariantKeyLabel(variant, key) {
-  if (variant === '17' && PINYIN_VARIANT_LABELS[key]) return PINYIN_VARIANT_LABELS[key];
-  if (['14', '18'].includes(variant) && /^[a-z]{2}$/.test(key)) return key.toUpperCase();
+  if (variant === '17' && PINYIN_VARIANT_LABELS[key]) return applyPinyinGuideLetterCase(PINYIN_VARIANT_LABELS[key]);
+  if (['14', '18'].includes(variant) && /^[a-z]{2}$/.test(key)) return pinyinVariantLettersLabel(key);
   if (variant === '9') {
     const labels = {
       number1: '@/.',
-      number2: 'ABC',
-      number3: 'DEF',
-      number4: 'GHI',
-      number5: 'JKL',
-      number6: 'MNO',
-      number7: 'PQRS',
-      number8: 'TUV',
-      number9: 'WXYZ',
+      number2: applyPinyinGuideLetterCase('ABC'),
+      number3: applyPinyinGuideLetterCase('DEF'),
+      number4: applyPinyinGuideLetterCase('GHI'),
+      number5: applyPinyinGuideLetterCase('JKL'),
+      number6: applyPinyinGuideLetterCase('MNO'),
+      number7: applyPinyinGuideLetterCase('PQRS'),
+      number8: applyPinyinGuideLetterCase('TUV'),
+      number9: applyPinyinGuideLetterCase('WXYZ'),
       number0: '0',
       symbol: '#+=',
     };
@@ -3293,7 +3309,14 @@ function keyDisplayValue(value, key) {
   const profile = keyboard26PreviewProfile();
   const variantLabel = pinyinVariantKeyLabel(activePinyinVariant(), key);
   if (variantLabel) return variantLabel;
-  if (/^[a-z]$/.test(key)) return value.keyDisplays?.[key] || key.toUpperCase();
+  if (/^[a-z]$/.test(key)) {
+    if (profile === 'alphabetic') {
+      return value.keyDisplays?.[`alphabetic.${key}`]
+        || value.keyDisplays?.[`english.${key}`]
+        || (guideState().preferences.alphabetic26LetterCase === 'upper' ? key.toUpperCase() : key);
+    }
+    return value.keyDisplays?.[key] || (guideState().preferences.pinyin26LetterCase === 'upper' ? key.toUpperCase() : key);
+  }
   if (key === '123') return text.numericSwitch || '123';
   if (key === 'symbol') return text.symbol || '#+=';
   if (key === 'space') return text.space || '空格';
@@ -3310,6 +3333,7 @@ function keyboard26DisplayPath(key) {
   if (key === 'spaceRight') return `keyboards.keyboard26.spaceRight.${keyboard26PreviewProfile()}.primary.text`;
   if (key === 'cnen') return 'keyboards.keyboard26.keyDisplays.cnen';
   if (['backspace', 'punctuationColumn'].includes(key)) return '';
+  if (/^[a-z]$/.test(key) && keyboard26PreviewProfile() === 'alphabetic') return '';
   return `keyboards.keyboard26.keyDisplays.${key}`;
 }
 
@@ -6844,6 +6868,31 @@ function previewValueForMode(mode, orientation = 'portrait') {
   return found ? configPreviewValue(found) : defaultPreviewMode();
 }
 
+function previewValueForModePreferred(mode, orientation = 'portrait') {
+  const value = previewValueForMode(mode, orientation);
+  if (previewRenderMode(value) === mode) return value;
+  return mode;
+}
+
+function previewModeForKeySwitch(renderMode, releasedKey, orientation) {
+  if (!releasedKey) return null;
+  const key = String(releasedKey);
+  if (key === '123') return previewValueForModePreferred('numeric', orientation);
+  if (key === 'symbol') return previewValueForModePreferred('symbolic', orientation);
+  if (key === 'emoji') return previewValueForModePreferred('emoji', orientation);
+  if (key === 'menu') return previewValueForModePreferred('panel', orientation);
+  if (key === 'return' && ['numeric', 'symbolic', 'emoji', 'panel'].includes(renderMode)) {
+    return previewValueForModePreferred('keyboard26', orientation);
+  }
+  if (key === 'cnen' && renderMode === 'keyboard26') {
+    const profile = currentKeyboardPreviewProfile();
+    return profile === 'alphabetic'
+      ? previewValueForModePreferred('keyboard26', orientation)
+      : previewValueForModePreferred('alphabetic', orientation);
+  }
+  return null;
+}
+
 function previewRenderMode(mode) {
   if (mode?.startsWith?.('config:')) {
     return previewModeForKeyboardName(mode.slice('config:'.length));
@@ -7054,12 +7103,10 @@ function releasePreviewKeyboardCell() {
   }
   const releasedKey = state.previewPressedKey;
   const renderMode = previewRenderMode(state.previewMode);
-  if (renderMode === 'keyboard26' && releasedKey === 'cnen' && isChineseEnglishToggleAction(getPath(state.project, 'keyboards.keyboard26.keyActions.cnen') || DEFAULT_KEYBOARD26_FUNCTION_ACTIONS.cnen)) {
-    const orientation = previewRenderOrientation(state.previewMode);
-    const profile = currentKeyboardPreviewProfile();
-    state.previewMode = profile === 'alphabetic'
-      ? previewValueForMode('keyboard26', orientation)
-      : previewValueForMode('alphabetic', orientation);
+  const orientation = previewRenderOrientation(state.previewMode);
+  const switchTargetMode = previewModeForKeySwitch(renderMode, releasedKey, orientation);
+  if (switchTargetMode) {
+    state.previewMode = switchTargetMode;
     state.previewShiftActive = false;
     state.previewCapsLocked = false;
     clearPressedPreviewCell();
@@ -9285,6 +9332,36 @@ function migrateSwipeMarkerDefaults(project, sampleProject) {
   }
 }
 
+function migrateKeyboard26FontSizeDefaults(project, sampleProject) {
+  if (!isDefaultGeneratedSkin(project) && !isLegacyDefaultSkinMeta(project)) return;
+  const fontSizes = project.theme?.shared?.fontSize;
+  const sampleFontSizes = sampleProject.theme?.shared?.fontSize;
+  const scales = project.theme?.shared?.scale;
+  const sampleScales = sampleProject.theme?.shared?.scale;
+  if (fontSizes && sampleFontSizes) {
+    const legacyKeyFontSize = 21;
+    if (
+      fontSizes['按键前景文字大小'] === legacyKeyFontSize
+      && sampleFontSizes['按键前景文字大小'] !== undefined
+      && sampleFontSizes['按键前景文字大小'] !== legacyKeyFontSize
+    ) {
+      fontSizes['按键前景文字大小'] = sampleFontSizes['按键前景文字大小'];
+    }
+  }
+  if (scales && sampleScales && scales['26键中文前景缩放'] === undefined && sampleScales['26键中文前景缩放'] !== undefined) {
+    scales['26键中文前景缩放'] = sampleScales['26键中文前景缩放'];
+  }
+  if (
+    scales
+    && sampleScales
+    && scales['26键中文前景缩放'] === 1.42
+    && sampleScales['26键中文前景缩放'] !== undefined
+    && sampleScales['26键中文前景缩放'] !== 1.42
+  ) {
+    scales['26键中文前景缩放'] = sampleScales['26键中文前景缩放'];
+  }
+}
+
 function handleJsonSearchAction(button) {
   const source = jsonSourceForMode(currentValue());
   const matches = jsonSearchMatches(jsonSourceText(source.value), state.jsonSearch);
@@ -9333,6 +9410,7 @@ function migrateDefaultPresetValues(project, sampleProject) {
   migrateSchemaNameFontSize(project, sampleProject);
   migrateCandidateFontSizeDefaults(project, sampleProject);
   migrateSwipeMarkerDefaults(project, sampleProject);
+  migrateKeyboard26FontSizeDefaults(project, sampleProject);
   migratePinyin9MetricDefaults(project, sampleProject);
   migrateEnterAccentSurfaceDefaults(project, sampleProject);
   normalizeLegacyTransparentKeyboardBackgrounds(project);

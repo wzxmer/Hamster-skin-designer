@@ -27,8 +27,9 @@ assert(importedJson.project.templateId === sampleProject.templateId, '单独导�
 
 const packageBytes = createZipArchive(buildSkinPackageFiles(sampleProject));
 const importedPackage = await importSkinProjectFromFile(fileLike('sample.cskin', packageBytes), sampleProject);
-assert(importedPackage.source === 'project.json', '本工具导出的 cskin 应优先回读 project.json。');
-assert(importedPackage.project.templateId === sampleProject.templateId, '回读 project.json 应保留模板 id。');
+assert(importedPackage.source === 'yaml', '本工具导出的 cskin 应按规范 YAML/Jsonnet 包回读，不再依赖 project.json。');
+assert(importedPackage.project.templateId === sampleProject.templateId, '回读规范皮肤包应保留模板 id。');
+assert(importedPackage.project.config?.pinyin?.iPhone?.portrait === sampleProject.config.pinyin.iPhone.portrait, '回读规范皮肤包应同步 config.yaml 映射。');
 
 const yamlPayload = {
   preeditHeight: 11,
