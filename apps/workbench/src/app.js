@@ -8974,17 +8974,9 @@ async function exportProjectPackage() {
   }
 }
 
-function confirmImportProject() {
-  openConfirmDialog({
-    title: '导入皮肤',
-    message: '支持导入本工具导出的 .cskin/.zip，也会尝试读取普通 Hamster 皮肤包里的 Jsonnet/YAML 固定属性；Jsonnet 优先于 YAML。',
-    confirmLabel: '确认',
-    confirmClass: '',
-    onConfirm: () => {
-      el.importProjectInput.value = '';
-      el.importProjectInput.click();
-    },
-  });
+function openImportProjectPicker() {
+  el.importProjectInput.value = '';
+  el.importProjectInput.click();
 }
 
 function closeShortcutReference() {
@@ -9344,7 +9336,7 @@ function bindEvents() {
   el.undoButton.addEventListener('click', undoLastChange);
 
   el.exportProjectButton.addEventListener('click', exportProjectPackage);
-  el.importProjectButton.addEventListener('click', confirmImportProject);
+  el.importProjectButton.addEventListener('click', openImportProjectPicker);
 
   el.importProjectInput.addEventListener('change', async () => {
     const file = el.importProjectInput.files?.[0];

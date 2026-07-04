@@ -88,6 +88,57 @@ assert(importedThirdParty.project.theme.light.colors['字母键背景颜色-普�
 assert(importedThirdParty.project.theme.shared.fontSize['按键前景文字大小'] === 24, 'Jsonnet 应覆盖 YAML 的字母字号。');
 assert(importedThirdParty.project.nativeKeyboardPayloads.light.pinyin_26_portrait.keyboardHeight === 444, '导入 raw payload 应只作为 nativeKeyboardPayloads 兼容输入保存。');
 
+const rootZipBytes = createZipArchive([
+  { path: 'config.yaml', content: toYaml({ name: '根目录 zip 皮肤', author: '作者B', pinyin: { iPhone: { portrait: 'pinyin_26_portrait' } } }) },
+  { path: 'light/pinyin_26_portrait.yaml', content: toYaml(yamlPayload) },
+  { path: 'light/resources/root.png', content: new Uint8Array([0x89, 0x50, 0x4e, 0x47]) },
+  { path: 'light/resources/root.yaml', content: toYaml({ IMG1: { rect: { x: 12, y: 0, width: 20, height: 20 } } }) },
+]);
+const importedRootZip = await importSkinProjectFromFile(fileLike('root.zip', rootZipBytes), sampleProject);
+assert(importedRootZip.source === 'yaml', '无父级文件夹的 zip 应按 YAML 皮肤包读取。');
+assert(importedRootZip.importedFiles.includes('config.yaml'), '无父级文件夹的 zip 应读取根目录 config.yaml。');
+assert(importedRootZip.importedFiles.includes('light/pinyin_26_portrait.yaml'), '无父级文件夹的 zip 应读取根目录 light 键盘文件。');
+assert(importedRootZip.project.meta.name === '根目录 zip 皮肤', '无父级文件夹的 zip 应同步 config.yaml 皮肤名称。');
+assert(importedRootZip.project.meta.author === '作者B', '无父级文件夹的 zip 应同步 config.yaml 作者。');
+assert(importedRootZip.project.keyboardFrame.portrait.keyboardHeight === 333, '无父级文件夹的 zip 应应用根目录 light YAML。');
+assert(importedRootZip.project.assets.resources.light.root.sprites.IMG1.rect.x === 12, '无父级文件夹的 zip 应读取根目录 resources yaml。');
+
+const externalMappedZipBytes = createZipArchive([
+  {
+    path: 'T14/config.yaml',
+    content: toYaml({
+      name: '外部T14',
+      pinyin: { iPhone: { portrait: 'pinyin_Sp', landscape: 'pinyin_Hp' }, iPad: { portrait: 'pinyin_Hp', landscape: 'pinyin_Hp', floating: 'pinyin_Sp' } },
+      alphabetic: { iPhone: { portrait: 'alphabetic_Sp', landscape: 'alphabetic_Hp' } },
+      numeric: { iPhone: { portrait: 'numeric_Sp', landscape: 'alphabetic_Hp' } },
+      symbolic: { iPhone: { portrait: 'symbolic_Sp', landscape: 'symbolic_Hp' } },
+      emoji: { iPhone: { portrait: 'emoji_Sp', landscape: 'emoji_Hp' } },
+      panel: { iPhone: { portrait: 'panel_Sp', landscape: 'panel_Hp' } },
+    }),
+  },
+  { path: 'T14/light/pinyin_Sp.yaml', content: toYaml({ ...yamlPayload, keyboardHeight: 231 }) },
+  { path: 'T14/light/pinyin_Hp.yaml', content: toYaml({ ...yamlPayload, keyboardHeight: 151 }) },
+  { path: 'T14/light/alphabetic_Sp.yaml', content: toYaml({ ...yamlPayload, keyboardHeight: 232 }) },
+  { path: 'T14/light/alphabetic_Hp.yaml', content: toYaml({ ...yamlPayload, keyboardHeight: 152 }) },
+  { path: 'T14/light/numeric_Sp.yaml', content: toYaml({ ...yamlPayload, keyboardHeight: 233 }) },
+  { path: 'T14/light/symbolic_Sp.yaml', content: toYaml({ ...yamlPayload, keyboardHeight: 234 }) },
+  { path: 'T14/light/symbolic_Hp.yaml', content: toYaml({ ...yamlPayload, keyboardHeight: 154 }) },
+  { path: 'T14/light/emoji_Sp.yaml', content: toYaml({ ...yamlPayload, keyboardHeight: 235 }) },
+  { path: 'T14/light/emoji_Hp.yaml', content: toYaml({ ...yamlPayload, keyboardHeight: 155 }) },
+  { path: 'T14/light/panel_Sp.yaml', content: toYaml({ ...yamlPayload, keyboardHeight: 236 }) },
+  { path: 'T14/light/panel_Hp.yaml', content: toYaml({ ...yamlPayload, keyboardHeight: 156 }) },
+  { path: '__MACOSX/T14/._pinyin_Sp.yaml', content: textBytes('mac metadata') },
+]);
+const importedExternalMapped = await importSkinProjectFromFile(fileLike('14键.zip', externalMappedZipBytes), sampleProject);
+assert(importedExternalMapped.project.keyboardCombo.slots.pinyin.variant === '14', '外部 T14 命名包应推断为中文 14 键。');
+assert(importedExternalMapped.project.config.pinyin.iPhone.portrait === 'pinyin_14_portrait', '外部命名 pinyin_Sp 应映射到标准竖屏 14 键。');
+assert(importedExternalMapped.project.config.pinyin.iPhone.landscape === 'pinyin_14_landscape', '外部命名 pinyin_Hp 应映射到标准横屏 14 键。');
+assert(importedExternalMapped.project.importCompatibility.originalConfig.pinyin.iPhone.portrait === 'pinyin_Sp', '导入兼容层应保留原始 config 映射。');
+assert(importedExternalMapped.project.nativeKeyboardPayloads.light.pinyin_14_portrait.keyboardHeight === 231, '外部命名竖屏 payload 应复制到标准 14 键名。');
+assert(importedExternalMapped.project.nativeKeyboardPayloads.light.pinyin_14_landscape.keyboardHeight === 151, '外部命名横屏 payload 应复制到标准 14 键名。');
+assert(importedExternalMapped.project.nativeKeyboardPayloads.light.numeric_9_landscape.keyboardHeight === 152, '外部 config 中复用英文横屏作为数字横屏时应复制到数字标准名。');
+assert(!importedExternalMapped.importedFiles.some((path) => path.includes('__MACOSX') || path.includes('/._')), '导入包应忽略 macOS zip 元数据文件。');
+
 const resourcePayload = {
   keyboardHeight: 216,
   keyboardBackgroundStyle: {
@@ -164,8 +215,65 @@ function createDeflatedZipFile(path, contentText) {
   return output;
 }
 
+function createDataDescriptorZipFile(path, contentText) {
+  const encoder = new TextEncoder();
+  const nameBytes = encoder.encode(path);
+  const raw = encoder.encode(contentText);
+  const compressed = new Uint8Array(deflateRawSync(raw));
+  const local = new Uint8Array(30 + nameBytes.length + compressed.length + 16);
+  const central = new Uint8Array(46 + nameBytes.length);
+  const end = new Uint8Array(22);
+  const checksum = 0;
+  const write16 = (target, offset, value) => {
+    target[offset] = value & 0xff;
+    target[offset + 1] = (value >>> 8) & 0xff;
+  };
+  const write32 = (target, offset, value) => {
+    target[offset] = value & 0xff;
+    target[offset + 1] = (value >>> 8) & 0xff;
+    target[offset + 2] = (value >>> 16) & 0xff;
+    target[offset + 3] = (value >>> 24) & 0xff;
+  };
+  write32(local, 0, 0x04034b50);
+  write16(local, 4, 20);
+  write16(local, 6, 0x08);
+  write16(local, 8, 8);
+  write16(local, 26, nameBytes.length);
+  local.set(nameBytes, 30);
+  local.set(compressed, 30 + nameBytes.length);
+  const descriptorOffset = 30 + nameBytes.length + compressed.length;
+  write32(local, descriptorOffset, 0x08074b50);
+  write32(local, descriptorOffset + 4, checksum);
+  write32(local, descriptorOffset + 8, compressed.length);
+  write32(local, descriptorOffset + 12, raw.length);
+  write32(central, 0, 0x02014b50);
+  write16(central, 4, 20);
+  write16(central, 6, 20);
+  write16(central, 8, 0x08);
+  write16(central, 10, 8);
+  write32(central, 16, checksum);
+  write32(central, 20, compressed.length);
+  write32(central, 24, raw.length);
+  write16(central, 28, nameBytes.length);
+  central.set(nameBytes, 46);
+  write32(end, 0, 0x06054b50);
+  write16(end, 8, 1);
+  write16(end, 10, 1);
+  write32(end, 12, central.length);
+  write32(end, 16, local.length);
+  const output = new Uint8Array(local.length + central.length + end.length);
+  output.set(local, 0);
+  output.set(central, local.length);
+  output.set(end, local.length + central.length);
+  return output;
+}
+
 const deflatedPackage = createDeflatedZipFile('Skin/project.json', JSON.stringify(sampleProject));
 const importedDeflated = await importSkinProjectFromFile(fileLike('deflated.zip', deflatedPackage), sampleProject);
 assert(importedDeflated.project.templateId === sampleProject.templateId, '导入器应支持常见 deflate zip。');
+
+const descriptorPackage = createDataDescriptorZipFile('project.json', JSON.stringify(sampleProject));
+const importedDescriptor = await importSkinProjectFromFile(fileLike('descriptor.zip', descriptorPackage), sampleProject);
+assert(importedDescriptor.project.templateId === sampleProject.templateId, '导入器应支持带 data descriptor 的常见 zip。');
 
 console.log('importer ok');

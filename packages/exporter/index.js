@@ -503,6 +503,8 @@ export async function extractZipArchive(input) {
     : input instanceof ArrayBuffer
       ? new Uint8Array(input)
       : normalizeZipContent(input);
+  const centralEntries = parseZipCentralDirectory(bytes);
+  if (centralEntries.length) return extractZipEntriesFromCentralDirectory(bytes, centralEntries);
   const files = [];
   let offset = 0;
   const decoder = new TextDecoder();
@@ -532,6 +534,66 @@ export async function extractZipArchive(input) {
     offset = dataEnd;
   }
   return files;
+}
+
+async function extractZipEntriesFromCentralDirectory(bytes, entries) {
+  const files = [];
+  for (const entry of entries) {
+    if (entry.path.endsWith('/')) continue;
+    const localOffset = entry.localHeaderOffset;
+    if (readUint32(bytes, localOffset) !== 0x04034b50) throw new Error(`zip 本地文件头异常：${entry.path}`);
+    const fileNameLength = readUint16(bytes, localOffset + 26);
+    const extraLength = readUint16(bytes, localOffset + 28);
+    const dataStart = localOffset + 30 + fileNameLength + extraLength;
+    const dataEnd = dataStart + entry.compressedSize;
+    if (dataEnd > bytes.length) throw new Error(`zip 文件结构不完整：${entry.path}`);
+    if (![0, 8].includes(entry.method)) throw new Error(`暂不支持压缩方式 ${entry.method}。`);
+    const compressed = bytes.slice(dataStart, dataEnd);
+    const content = entry.method === 8 ? await inflateRawZipEntry(compressed) : compressed;
+    if (entry.uncompressedSize !== content.length) throw new Error(`zip 条目大小异常：${entry.path}`);
+    files.push({ path: entry.path, content });
+  }
+  return files;
+}
+
+function parseZipCentralDirectory(bytes) {
+  const endOffset = findZipEndRecordOffset(bytes);
+  if (endOffset < 0) return [];
+  const entryCount = readUint16(bytes, endOffset + 10);
+  const directorySize = readUint32(bytes, endOffset + 12);
+  const directoryOffset = readUint32(bytes, endOffset + 16);
+  const directoryEnd = directoryOffset + directorySize;
+  if (directoryOffset < 0 || directoryEnd > bytes.length) return [];
+  const entries = [];
+  const decoder = new TextDecoder();
+  let offset = directoryOffset;
+  while (offset + 46 <= directoryEnd && entries.length < entryCount) {
+    if (readUint32(bytes, offset) !== 0x02014b50) break;
+    const flags = readUint16(bytes, offset + 8);
+    const method = readUint16(bytes, offset + 10);
+    const compressedSize = readUint32(bytes, offset + 20);
+    const uncompressedSize = readUint32(bytes, offset + 24);
+    const fileNameLength = readUint16(bytes, offset + 28);
+    const extraLength = readUint16(bytes, offset + 30);
+    const commentLength = readUint16(bytes, offset + 32);
+    const localHeaderOffset = readUint32(bytes, offset + 42);
+    const nameStart = offset + 46;
+    const nameEnd = nameStart + fileNameLength;
+    const nextOffset = nameEnd + extraLength + commentLength;
+    if (nextOffset > directoryEnd) break;
+    const path = decoder.decode(bytes.slice(nameStart, nameEnd)).replaceAll('\\', '/');
+    entries.push({ path, flags, method, compressedSize, uncompressedSize, localHeaderOffset });
+    offset = nextOffset;
+  }
+  return entries;
+}
+
+function findZipEndRecordOffset(bytes) {
+  const minOffset = Math.max(0, bytes.length - 0xffff - 22);
+  for (let offset = bytes.length - 22; offset >= minOffset; offset -= 1) {
+    if (readUint32(bytes, offset) === 0x06054b50) return offset;
+  }
+  return -1;
 }
 
 async function inflateRawZipEntry(content) {

@@ -66,6 +66,7 @@ function normalizeEntryPath(path = '') {
 function stripPackageRoot(path) {
   const normalized = normalizeEntryPath(path);
   const parts = normalized.split('/').filter(Boolean);
+  if (parts[0] === '__MACOSX' || parts.at(-1)?.startsWith('._')) return '';
   const jsonnetIndex = parts.indexOf('jsonnet');
   if (jsonnetIndex > 0) return parts.slice(jsonnetIndex).join('/');
   const themeIndex = parts.findIndex((part) => THEME_NAMES.has(part));
@@ -341,6 +342,82 @@ function collectConfigKeyboardNames(config = {}) {
   return [...names];
 }
 
+const STANDARD_KEYBOARD_NAME_PATTERN = /^(pinyin_(?:9|14|17|18|26)|alphabetic_26|numeric_(?:9|ios)|symbolic|emoji|panel)_(portrait|landscape)$/;
+
+function configKeyboardName(config = {}, group, orientation, device = 'iPhone') {
+  const value = config?.[group]?.[device]?.[orientation];
+  return typeof value === 'string' && value ? value : '';
+}
+
+function inferImportedPinyinVariant(project, sourceName = '') {
+  const text = [
+    sourceName,
+    project?.meta?.name,
+    project?.config?.name,
+    project?.config?.description,
+  ].filter(Boolean).join(' ');
+  const variantMatch = text.match(/(?:pinyin[_-]?)?(9|14|17|18|26)\s*键|T(9|14|17|18|26)|pinyin_(9|14|17|18|26)/i);
+  return variantMatch?.[1] || variantMatch?.[2] || variantMatch?.[3] || '26';
+}
+
+function standardKeyboardNameForImportedPayload(project, group, orientation, sourceName) {
+  if (!sourceName || STANDARD_KEYBOARD_NAME_PATTERN.test(sourceName)) return sourceName;
+  if (group === 'pinyin') return `pinyin_${inferImportedPinyinVariant(project, sourceName)}_${orientation}`;
+  if (group === 'alphabetic') return `alphabetic_26_${orientation}`;
+  if (group === 'numeric') return `numeric_9_${orientation}`;
+  if (group === 'symbolic') return `symbolic_${orientation}`;
+  if (group === 'emoji') return `emoji_${orientation}`;
+  if (group === 'panel') return `panel_${orientation}`;
+  return '';
+}
+
+function syncImportedMappedPayloadsToWorkbenchNames(project) {
+  const aliases = [];
+  for (const group of ['pinyin', 'alphabetic', 'numeric', 'symbolic', 'emoji', 'panel']) {
+    for (const orientation of ['portrait', 'landscape']) {
+      const sourceName = configKeyboardName(project.config, group, orientation);
+      const targetName = standardKeyboardNameForImportedPayload(project, group, orientation, sourceName);
+      if (!sourceName || !targetName || sourceName === targetName) continue;
+      aliases.push({ group, orientation, sourceName, targetName });
+    }
+  }
+  if (!aliases.length) return;
+  project.importCompatibility = {
+    ...(project.importCompatibility || {}),
+    originalConfig: deepClone(project.config || {}),
+    keyboardNameAliases: aliases,
+  };
+  for (const themeName of ['light', 'dark']) {
+    const payloads = project.nativeKeyboardPayloads?.[themeName];
+    if (!isPlainObject(payloads)) continue;
+    for (const alias of aliases) {
+      if (!isPlainObject(payloads[alias.sourceName]) || isPlainObject(payloads[alias.targetName])) continue;
+      payloads[alias.targetName] = deepClone(payloads[alias.sourceName]);
+    }
+  }
+  for (const alias of aliases) {
+    for (const device of ['iPhone', 'iPad']) {
+      if (project.config?.[alias.group]?.[device]?.[alias.orientation] === alias.sourceName) {
+        project.config[alias.group][device][alias.orientation] = alias.targetName;
+      }
+      if (alias.orientation === 'portrait' && project.config?.[alias.group]?.[device]?.floating === alias.sourceName) {
+        project.config[alias.group][device].floating = alias.targetName;
+      }
+    }
+  }
+  const pinyinVariant = inferImportedPinyinVariant(project, aliases.find((item) => item.group === 'pinyin')?.sourceName || '');
+  if (['9', '14', '17', '18', '26'].includes(pinyinVariant)) {
+    project.keyboardCombo = project.keyboardCombo || {};
+    project.keyboardCombo.slots = project.keyboardCombo.slots || {};
+    project.keyboardCombo.slots.pinyin = {
+      ...(project.keyboardCombo.slots.pinyin || {}),
+      enabled: true,
+      source: 'custom',
+      variant: pinyinVariant,
+    };
+  }
+}
+
 function hasResourceImage(resources, themeName, file, image = 'IMG1') {
   return !!resources?.[themeName]?.[file]?.sprites?.[image];
 }
@@ -416,6 +493,7 @@ function buildProjectFromSkinPayloads(sampleProject, payloads, sourceName = '', 
   for (const [path, payload] of Object.entries(payloads)) {
     applyNativePayload(project, path, payload);
   }
+  syncImportedMappedPayloadsToWorkbenchNames(project);
   applyResourcePreviewFallbacks(project, resources);
   return project;
 }
