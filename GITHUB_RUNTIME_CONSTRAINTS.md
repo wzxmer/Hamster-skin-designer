@@ -29,7 +29,7 @@
 
 ### 不能作为用户主路径依赖的部分
 
-- `apps/builder/server.js` 本地服务
+- 本地开发服务器
 - Node 进程参与的在线功能
 - 命令行 `jsonnet` 编译
 - 临时目录 `.work/*` 作为用户运行前提
@@ -38,9 +38,8 @@
 
 ### 只能保留为开发辅助的部分
 
-- `apps/builder/*`
 - 命令行构建和调试脚本
-- 本地模板抽取、比对、校验脚本
+- 本地比对、校验脚本
 - 面向仓库维护者的批处理工具
 
 ## 功能分级
@@ -78,39 +77,37 @@
 
 ### C 类：开发态可用，生产静态站可降级
 
-- 本地 builder 服务
+- 本地开发服务
 - 本地命令行编译
 - 差异比对脚本
 - 模板资产同步脚本
 
 要求：
 
-- 可以继续保留
+- 可以作为维护辅助保留
 - 但必须与用户主流程解耦
 
 ## 对当前项目的直接影响
 
 ### 当前可继续保留
 
-- `apps/web/template-runtime.js`
-  这是前端静态运行核心，优先级最高
-- `project-data.json`
-- `package-assets.json`
-- 浏览器侧 `jsonnet wasm`
+- `apps/workbench/`
+  这是当前前端静态运行核心，优先级最高
+- `templates/hamster-ios/package-assets.json`
 - 浏览器侧 `JSZip` 打包
 
-### 当前不能再作为长期核心链路的部分
+### 已移除的旧本地链路
 
 - `apps/builder/server.js`
 - `apps/builder/template-service.js`
 
-它们可以保留为开发链，但后续架构不能再围绕它们设计。
+后续架构不能再围绕旧本地 builder 设计。
 
 ## 后续重构原则
 
 ### 原则 1
 
-优先把所有用户可见能力收敛到 `apps/web/` 静态运行链。
+优先把所有用户可见能力收敛到 `apps/workbench/` 静态运行链。
 
 ### 原则 2
 
@@ -126,7 +123,7 @@
 
 ## 当前建议优先级
 
-1. 继续拆 `apps/web/app.js`
+1. 继续拆 `apps/workbench/src/app.js`
 2. 巩固浏览器端模板运行链
-3. 把导出与校验都收敛到前端 runtime
-4. 再逐步弱化 `apps/builder`
+3. 把导出与校验都收敛到纯前端 runtime
+4. 保持 GitHub Pages 静态约束

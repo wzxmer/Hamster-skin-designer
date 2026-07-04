@@ -23,6 +23,7 @@
   "export": {},
   "config": {},
   "keyboardCombo": {},
+  "guide": {},
   "nativeKeyboardPayloads": {},
   "previewKeyboards": [],
   "hiddenPreviewKeyboards": []
@@ -360,6 +361,8 @@
   - 数字键盘可取 `9` / `ios`
   - `symbolic` / `emoji` / `panel` 先用 `system` / `custom` / `panel` 等枚举表达来源
 
+`keyboardCombo` 表达当前项目选择了哪些键盘槽位和布局形态。它不表示这些布局只能使用预设默认值；每个槽位的内容、样式、动作和导出字段应由对应受控模块继续覆盖。
+
 ## nativeKeyboardPayloads
 
 `nativeKeyboardPayloads` 是可选的高级原生键盘 seed / 兼容输入，用于保存从示例皮肤 YAML 读取到的实际键盘 payload。
@@ -381,10 +384,12 @@
 当前约定：
 
 - 示例键盘预设可把对应示例皮肤的真实 YAML payload 写入这里，作为 `packages/skin-effect` 生成效果模型的 seed。
+- 预设 seed 只提供默认起点。用户通过左侧模块修改后，受控字段优先于 seed。
 - 右侧预览不直接读取这里；预览通过 `SkinEffectModel` 获取 resolved native payload。
 - YAML 导出不直接读取这里；导出通过 `buildSkinEffectFileEntries()` 获取文件级效果模型。
 - 左侧模块不应写 raw payload。左侧只写 `project.json` 的受控字段，例如 `theme`、`keyStyles`、`toolbar`、`keyboardCombo`、`keyboards.*.metrics`。
 - `nativeKeyboardPayloads` 只保留示例皮肤原始结构和导入兼容价值，不再作为长期运行真源。
+- 当发现 seed 中存在尚未 UI 化但需要用户调整的字段时，应补受控 schema 字段和左侧模块，不能把该字段长期留作不可编辑 raw payload。
 - `swipeBehavior.mode`
   - `disabled`：无上下划动功能
   - `hidden`：有上下划动功能但不显示
@@ -393,8 +398,40 @@
   - `icon`：优先使用系统图标
   - `text`：使用纯文字按键名
 
+## guide
+
+`guide` 保存工作台引导模块的用户偏好和生成计划。它用于生成或更新 `keyboardCombo`、`config`、`toolbar`、`data.swipes` 等受控字段，不是独立导出真源。
+
+```json
+{
+  "preferences": {
+    "keyboardPreset": "pinyin-26",
+    "pinyin26LetterCase": "lower",
+    "alphabetic26LetterCase": "lower",
+    "pinyinLandscapeLayout": "split",
+    "alphabeticLandscapeLayout": "split"
+  },
+  "generatedPlan": {
+    "pinyinLandscapeLayout": "split",
+    "alphabeticLandscapeLayout": "split"
+  }
+}
+```
+
+当前约定：
+
+- `pinyinLandscapeLayout`
+  - `split`：使用默认分割横屏 26 键。
+  - `standard`：使用常规 26 键横屏布局。
+- `alphabeticLandscapeLayout`
+  - `split`：使用默认分割横屏 26 键。
+  - `standard`：使用常规 26 键横屏布局。
+- 横屏布局偏好只影响 26 键横屏。中文 14 / 17 / 18 等变体横屏继续使用专用布局。
+- 引导模块切换中文预设或数字键盘类型后，生成有效 config 时必须清理上一轮残留映射。例如中文切回 26 后应输出 `pinyin_26_portrait` / `pinyin_26_landscape`，数字切回 9 后应输出 `numeric_9_portrait` / `numeric_9_landscape`。
+
 当前导出约定：
 
+- 工具路线以 Jsonnet 模式应用和复用为主；`export.targets.jsonnet` 不应被当成可随意关闭的次要能力。
 - `symbolic.source = system` 时，直接应用包的 `config.yaml` 不写入 `symbolic` 映射，也不生成 `symbolic_system`；工具栏按钮保留 `keyboardType: symbolic` 指令，由 App 调用内置符号键盘。
 - `emoji.source = system` 时，直接应用包的 `config.yaml` 不写入 `emoji` 映射，也不生成 `emoji_system`；工具栏按钮保留 `keyboardType: emojis` 指令，由 App 调用内置 Emoji 键盘。
 - 默认“导出皮肤”生成完整皮肤目录包，包含 `config.yaml`、`light/`、`dark/`、`jsonnet/` 和 `demo.png`。

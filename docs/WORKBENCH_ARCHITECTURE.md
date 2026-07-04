@@ -19,9 +19,11 @@ project.json
 - `project.json` 是工作台唯一内部数据模型。
 - `SkinEffectModel` 是预览和导出的 resolved effect 层，负责消化 preset seed、组合层、主题 token、metrics 和动作归一化。
 - `Preview Adapter` 是预览专用映射层，只接收 `SkinEffectModel.nativePayload` 的副本并输出预览模型；字号放大、视觉中心偏移、行高压缩、引用别名兼容等只能在这里发生，不能回写 `project.json`、`SkinEffectModel`、YAML、Jsonnet 或 cskin。
-- 默认导出完整皮肤包，用于实际安装，也包含 Jsonnet 模板工程源码供高级修改和复用。
+- 预设键盘只是默认 seed，用来提供初始布局、配色、字号、偏移、动作和 toolbar；预设不是可编辑能力的边界。
+- 左侧模块是完整自定义入口，目标是把所有可导出皮肤能力逐步表达为 `project.json` 的受控字段。
+- 工具路线以 Jsonnet 模式应用和复用为主；默认导出完整皮肤包，用于实际安装，也必须包含可用 Jsonnet 模板工程源码供应用、复用和高级修改。
 - 用户只编辑工作台暴露的受控参数，不直接面对完整 YAML 或完整 Jsonnet。
-- 旧 `apps/web` 运行代码已移除，仅保留 `apps/web/data/templates/` 作为导出资源数据来源。
+- 旧 `apps/web` 运行代码和旧数据壳已移除；当前只保留 `templates/hamster-ios/` 作为导出与预览的模板源码、资源和资源清单来源。
 
 ## 产品形态
 
@@ -73,7 +75,7 @@ packages/preview-engine/
 ## 数据流
 
 ```text
-默认模板
+默认模板 / 预设 seed
   -> project.json
   -> 编辑器变更
   -> 内存状态
@@ -86,20 +88,20 @@ packages/preview-engine/
 
 导出器不读取 DOM，不依赖 UI 状态，只接收 `project.json` 和素材文件。导出器通过 `packages/skin-effect` 生成文件级效果模型，再输出 `config.yaml`、`light/`、`dark/` 和 `jsonnet/` 源码树；默认应用包不包含 `jsonnet/generated/`，`jsonnet/core/build.libsonnet` 负责输出与直接 YAML 同源的文件映射。
 
-`nativeKeyboardPayloads` 只作为示例皮肤 preset seed 和导入兼容输入存在。预览不直接读 raw payload，导出也不直接读 raw payload；两边都走 `SkinEffectModel`。
+`nativeKeyboardPayloads` 只作为示例皮肤 preset seed 和导入兼容输入存在。预览不直接读 raw payload，导出也不直接读 raw payload；两边都走 `SkinEffectModel`。如果 raw seed 中的字段需要长期可编辑，应迁移或映射为 `theme`、`keyStyles`、`toolbar`、`keyboardCombo`、`keyboards.*`、`data.*` 等受控字段。
 
 ## 本地保存
 
 本地保存分两层：
 
 - `localStorage`：保存最后打开项目 id、轻量 UI 状态。
-- `IndexedDB`：保存用户模板、项目快照、图片素材、编辑记录。
+- `IndexedDB`：保存用户模板、项目快照和编辑记录；图片素材 Blob 管理待后续完整开放。
 
 用户应能手动保存模板，不必每次下载。
 
 ## 旧代码策略
 
-旧实现暂不删除。
+旧 `apps/web` 运行代码和旧数据壳已移除。
 
 可参考内容：
 

@@ -36,7 +36,7 @@
 
 - 旧 `apps/web` 运行代码已移除。
 - 旧编辑模型围绕 Jsonnet/lib 直接编辑，和新版 `project.json` 路线不一致。
-- 当前只保留 `apps/web/data/templates/`，作为导出复用的历史模板资源数据。
+- 当前只保留 `templates/hamster-ios/`，作为导出和预览复用的模板源码、资源和资源清单。
 
 默认模板状态：
 
@@ -45,7 +45,7 @@
 - `collectionData.libsonnet` 已进入 `data.collections`。
 - `swipeData.libsonnet` / `swipeData-en.libsonnet` 已进入 `data.swipes`。
 - 旧 Jsonnet 配置入口已作为字段来源归档，当前公开仓库以 `project.sample.json`、schema、工作台 UI 和导出映射为准。
-- 已迁入按键 insets、图片素材引用、键盘高度、面板参数、按键文案、部分 text 样式和偏移。
+- 已迁入按键 insets、键盘高度、面板参数、按键文案、部分 text 样式和偏移；图片素材引用保留在底层模型，左侧编辑暂时禁用。
 - `color.libsonnet`、`fontSize.libsonnet`、`center.libsonnet`、`keyboardLayout.libsonnet` 继续作为主题和布局配置入口。
 - `swipeData`、`hintSymbolsData`、`collectionData` 是数据型配置，暂不强行拆碎。
 
@@ -97,13 +97,11 @@ packages/preview-engine/
   index.js
 ```
 
-现有旧目录暂不删除：
+当前保留目录：
 
 - `apps/workbench/`：新版纯前端工作台，当前根入口会跳转到这里。
-- `apps/web/data/templates/`：导出复用的历史模板资源数据。
-- `apps/builder/`：旧本地构建服务，只读参考。
-- `packages/shared-schema/`、`packages/template-adapters/`、`packages/preview-engine/`：按需迁移或重建。
-- `templates/hamster-ios/`：旧模板副本，仅作参考。
+- `packages/preview-engine/`：预览联动测试入口。
+- `templates/hamster-ios/`：预览资源图片、Jsonnet 源码模板和导出资源清单来源，当前仍需保留。
 
 ## 开发顺序
 
@@ -141,7 +139,7 @@ packages/skin-effect/
 首版字段：
 
 - `meta`：名称、作者、描述、版本。
-- `assets.images`：图片素材引用。
+- `assets.images`：图片素材引用，当前作为底层兼容字段保留，UI 暂不开放编辑。
 - `theme.light/dark`：颜色、字号、偏移、动画等 token。
 - `keyboardFrame`：竖屏、横屏高度和面板参数。
 - `keyStyles.buttonInsets`：普通键、功能键、候选栏、面板等 insets。
@@ -251,12 +249,12 @@ export function buildPreviewModel(project, viewport) {}
 - 键盘高度。
 - 普通键和功能键 insets。
 - 按键 text。
-- 图片素材引用。
+- 图片素材引用保留在模型和导出链路，当前不作为首版可编辑能力开放。
 
 本地保存：
 
 - `localStorage` 保存最后打开项目 id 和轻量 UI 状态。
-- `IndexedDB` 保存模板快照、项目 JSON 和图片素材。
+- `IndexedDB` 保存模板快照和项目 JSON；图片素材 Blob 管理待后续完整开放。
 - 用户手动点击保存模板。
 - 刷新后能恢复上次模板。
 
@@ -278,26 +276,31 @@ rtk npm run build
 rtk git status --short
 ```
 
-`rtk npm run dev` 默认启动新版工作台，入口为 `http://127.0.0.1:4317/`。旧 builder 服务保留为 `rtk npm run dev:builder`，仅作历史参考。
+`rtk npm run dev` 默认启动新版工作台，入口为 `http://127.0.0.1:4317/`。
 
 PowerShell 自带文件读取、枚举命令不需要强行套 `rtk`。
 
 ## 文档索引
 
 - `README.md`：项目总览。
+- `docs/INDEX.md`：仓库文档总索引和任务路由。
+- `docs/REQUIREMENTS.md`：产品需求、长期不变量和行为契约。
+- `docs/ARCHITECTURE_DECISIONS.md`：架构决策、责任边界和禁止事项。
+- `docs/CHANGE_PROTOCOL.md`：每次修改前后的文档联动和停手规则。
+- `docs/REGRESSION_MATRIX.md`：改动区域对应的回归范围、验证命令和文档同步矩阵。
+- `docs/OBSIDIAN_DASHBOARD.md`：Obsidian 看板模板；只做导航镜像，不做规则真源。
 - `docs/WORKBENCH_ARCHITECTURE.md`：新版工作台架构。
 - `docs/PROJECT_SCHEMA.md`：`project.json` schema 草案。
 - `docs/SAMPLE_SKIN_FIELD_MAP.md`：示例皮肤字段到 `project.json` 的映射。
 - `docs/NEXT_DEVELOPMENT_PLAN.md`：下一步阶段计划。
 - `docs/WORKBENCH_REBUILD_PLAN.md`：重建路线和旧前端取舍。
-- `docs/SAMPLE_SKIN_FIELD_MAP.md`：旧示例皮肤字段来源与当前 `project.json` 映射。
 
 ## 风险与边界
 
 - 不要把 Jsonnet 的完整自由度直接暴露给普通用户，否则工作台会变成代码编辑器。
 - 不要把 YAML 作为工作台内部状态，否则 light / dark 和多端差异会反复双份手改。
 - 不要在 UI 中直接拼接导出文件，导出逻辑必须放到独立包。
-- 不要急着删除旧代码，等新版 MVP 能稳定导出后再归档。
+- 旧 `apps/web` / `apps/builder` 链路不再保留为当前运行结构；需要追溯时看历史提交或归档文档。
 - 不要把数据型配置拆得过碎，`swipeData`、`hintSymbolsData`、`collectionData` 可以先保持独立。
 
 ## 当前可执行任务
@@ -316,7 +319,7 @@ PowerShell 自带文件读取、枚举命令不需要强行套 `rtk`。
 - `fontSize.libsonnet`：字号模块。
 - `center.libsonnet`：偏移模块和前景缩放模块。
 - `animation.libsonnet`：按键动画模块。
-- `config/keys.libsonnet`：图片素材、键盘高度、按键边距、26 键文案、数字键盘文案、符号键盘、toolbar、panel 模块。
+- `config/keys.libsonnet`：键盘高度、按键边距、26 键文案、数字键盘文案、符号键盘、toolbar、panel 模块；图片素材仅保留底层引用。
 - `keyboardLayout.libsonnet`：26 键布局和按键尺寸模块。
 - `swipeData*.libsonnet`：划动数据模块，首版用 JSON 编辑。
 - `hintSymbolsData.libsonnet`：长按候选模块，首版用 JSON 编辑。
