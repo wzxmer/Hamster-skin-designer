@@ -18,6 +18,7 @@
     "build:import-test": "node scripts/generate-import-test-package.mjs",
     "bump:workbench-version": "node scripts/bump-workbench-version.mjs",
     "update:workbench-version": "node scripts/update-workbench-version.mjs",
+    "build:pages": "npm run update:workbench-version && node scripts/prepare-pages-artifact.mjs",
     "build": "npm run validate:project-schema && npm run test:skin-effect && npm run test:exporter && npm run test:importer && npm run test:preview && node --check apps/workbench/src/app.js"
   }
 }

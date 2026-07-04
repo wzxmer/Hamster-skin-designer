@@ -30,13 +30,13 @@ jobs:
         with:
           enablement: true
 
-      - name: Update workbench version
-        run: node scripts/update-workbench-version.mjs
+      - name: Build Pages artifact
+        run: npm run build:pages
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: dist/pages
 
       - name: Deploy
         id: deployment
