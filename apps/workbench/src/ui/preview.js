@@ -2618,23 +2618,84 @@ function findProjectImageAsset(project, predicate) {
   return null;
 }
 
-function resolveFileImageSource(project, theme = 'light', imageRef = null) {
+function normalizeImageFileName(fileName = '') {
+  return String(fileName || '').trim().replace(/\.[^.]+$/, '');
+}
+
+function resolveProjectResource(project, theme = 'light', fileName = '') {
+  const normalizedFile = normalizeImageFileName(fileName);
+  if (!normalizedFile) return null;
+  const resources = project?.assets?.resources;
+  if (!resources || typeof resources !== 'object') return null;
+  return resources?.[theme]?.[normalizedFile]
+    || resources?.light?.[normalizedFile]
+    || resources?.dark?.[normalizedFile]
+    || null;
+}
+
+function spriteSheetSize(sprites = {}) {
+  let width = 0;
+  let height = 0;
+  for (const sprite of Object.values(sprites || {})) {
+    const rect = sprite?.rect || {};
+    const right = Number(rect.x || 0) + Number(rect.width || 0);
+    const bottom = Number(rect.y || 0) + Number(rect.height || 0);
+    if (Number.isFinite(right)) width = Math.max(width, right);
+    if (Number.isFinite(bottom)) height = Math.max(height, bottom);
+  }
+  return { width, height };
+}
+
+function spriteBackgroundCss(sprite, scale = { x: 1, y: 1 }) {
+  const rect = sprite?.rect || {};
+  const sheet = spriteSheetSize(sprite?.resource?.sprites || {});
+  const rectWidth = Number(rect.width);
+  const rectHeight = Number(rect.height);
+  const sheetWidth = Number(sheet.width);
+  const sheetHeight = Number(sheet.height);
+  if (!(rectWidth > 0 && rectHeight > 0 && sheetWidth > 0 && sheetHeight > 0)) return '';
+  const x = Number(rect.x || 0);
+  const y = Number(rect.y || 0);
+  const scaleX = Number(scale.x || 1);
+  const scaleY = Number(scale.y || 1);
+  const positionX = sheetWidth === rectWidth ? 50 : (x / (sheetWidth - rectWidth)) * 100;
+  const positionY = sheetHeight === rectHeight ? 50 : (y / (sheetHeight - rectHeight)) * 100;
+  return [
+    `background-size:${(sheetWidth / rectWidth) * scaleX * 100}% ${(sheetHeight / rectHeight) * scaleY * 100}%`,
+    `background-position:${positionX}% ${positionY}%`,
+  ].join(';');
+}
+
+function resolveFileImageAsset(project, theme = 'light', imageRef = null) {
   if (!imageRef || typeof imageRef !== 'object') return '';
   const fileName = String(imageRef.file || '').trim();
-  const normalizedFile = fileName.replace(/\.[^.]+$/, '');
+  const normalizedFile = normalizeImageFileName(fileName);
+  const resource = resolveProjectResource(project, theme, normalizedFile);
+  if (resource) {
+    const imageName = String(imageRef.image || 'IMG1');
+    const sprite = resource.sprites?.[imageName] ? { ...resource.sprites[imageName], resource } : null;
+    return {
+      source: normalizePreviewImageSource(resource.source || `resources/${normalizedFile}.png`, theme),
+      sprite,
+    };
+  }
   const matchAssetByFile = (item, key) => {
-    const itemFile = String(item.file || '').replace(/\.[^.]+$/, '');
+    const itemFile = normalizeImageFileName(item.file);
     const itemSourceBase = assetSourceBaseName(item.source);
     return itemFile === normalizedFile
       || String(key || '').toLowerCase() === normalizedFile.toLowerCase()
       || itemSourceBase.toLowerCase() === normalizedFile.toLowerCase();
   };
   const asset = normalizedFile ? findProjectImageAsset(project, matchAssetByFile) : null;
-  if (asset?.source) return normalizePreviewImageSource(asset.source, theme);
+  if (asset?.source) return { source: normalizePreviewImageSource(asset.source, theme), sprite: null };
   const imageAsset = imageRef.image ? findProjectImageAsset(project, (item) => String(item.image || '') === String(imageRef.image)) : null;
-  if (imageAsset?.source) return normalizePreviewImageSource(imageAsset.source, theme);
-  if (normalizedFile) return templateResourceUrl(theme, normalizedFile);
-  return '';
+  if (imageAsset?.source) return { source: normalizePreviewImageSource(imageAsset.source, theme), sprite: null };
+  if (normalizedFile) return { source: templateResourceUrl(theme, normalizedFile), sprite: null };
+  return null;
+}
+
+function resolveFileImageSource(project, theme = 'light', imageRef = null) {
+  return resolveFileImageAsset(project, theme, imageRef)?.source || '';
 }
 
 function resolveAssetImageSource(project, theme = 'light', assetImageName = '') {
@@ -2665,18 +2726,30 @@ function resolveStyleImageSource(style = {}, project, theme = 'light', context =
   return resolveFileImageSource(project, theme, imageRef);
 }
 
+function resolveStyleImageAsset(style = {}, project, theme = 'light', context = {}) {
+  const type = styleDisplayType(style);
+  if (type === 'assetImage') {
+    const source = resolveAssetImageSource(project, theme, style.assetImageName);
+    return source ? { source, sprite: null } : null;
+  }
+  if (type !== 'fileImage') return null;
+  const active = context.active === true;
+  const imageRef = active && style.highlightImage ? style.highlightImage : style.normalImage || style.highlightImage;
+  return resolveFileImageAsset(project, theme, imageRef);
+}
+
 function backgroundCssForStyle(project, theme, style = {}, context = {}) {
   const type = styleDisplayType(style);
   if (type === 'fileImage' || type === 'assetImage') {
-    const imageUrl = resolveStyleImageSource(style, project, theme, context);
-    if (imageUrl) {
+    const imageAsset = resolveStyleImageAsset(style, project, theme, context);
+    if (imageAsset?.source) {
       const scale = imageScale(style);
       return [
         geometryCss(style),
-        `background-image:url("${escapeHtml(imageUrl)}")`,
-        'background-position:center',
+        `background-image:url("${escapeHtml(imageAsset.source)}")`,
+        imageAsset.sprite ? spriteBackgroundCss(imageAsset.sprite, scale) : 'background-position:center',
         'background-repeat:no-repeat',
-        `background-size:${scale.x * 100}% ${scale.y * 100}%`,
+        imageAsset.sprite ? '' : `background-size:${scale.x * 100}% ${scale.y * 100}%`,
       ].filter(Boolean).join(';');
     }
   }
@@ -2700,9 +2773,24 @@ function renderForeground(style, content, context = {}) {
   const imageUrl = (type === 'fileImage' || type === 'assetImage')
     ? resolveStyleImageSource(style, context.project, context.theme, context)
     : '';
+  const imageAsset = (type === 'fileImage' || type === 'assetImage')
+    ? resolveStyleImageAsset(style, context.project, context.theme, context)
+    : null;
+  const imageStyle = imageAsset?.sprite
+    ? [
+      `background-image:url("${escapeHtml(imageAsset.source)}")`,
+      spriteBackgroundCss(imageAsset.sprite, imageScale(style)),
+      'background-repeat:no-repeat',
+      'width:100%',
+      'height:100%',
+      'display:block',
+    ].filter(Boolean).join(';')
+    : '';
   const safeContent = type === 'systemImage'
     ? renderSystemImageSvg(content || style.systemImageName || style.highlightSystemImageName)
-    : imageUrl
+    : imageStyle
+      ? `<span aria-hidden="true" style="${imageStyle}"></span>`
+      : imageUrl
       ? `<img src="${escapeHtml(imageUrl)}" alt="" draggable="false" style="width:100%;height:100%;object-fit:contain;display:block">`
       : escapeHtml(fallbackContent);
   const extraClass = style.className ? ` ${style.className}` : '';
@@ -3687,9 +3775,14 @@ function renderPanelKeyboard(project, theme, styles, frame, options = {}) {
   const orientation = previewOrientation(options);
   const nativePreview = nativePayloadForPreview(project, theme, 'panel', { ...options, orientation });
   const payload = nativePreview?.payload || null;
-  const scale = payload?.floatTargetScale || project.keyboardFrame?.panel?.floatTargetScale?.portrait || { x: 0.8, y: 0.6 };
-  const width = PREVIEW_LOGICAL_WIDTH * Number(scale.x || 0.8);
-  const height = (project.keyboardFrame?.portrait?.keyboardHeight || 210) * Number(scale.y || 0.6);
+  const defaultScale = orientation === 'landscape' ? { x: 0.58, y: 0.72 } : { x: 0.8, y: 0.6 };
+  const scale = payload?.floatTargetScale
+    || project.keyboardFrame?.panel?.floatTargetScale?.[orientation]
+    || project.keyboardFrame?.panel?.floatTargetScale?.portrait
+    || defaultScale;
+  const baseWidth = PREVIEW_LOGICAL_SIZE[orientation]?.width || PREVIEW_LOGICAL_WIDTH;
+  const width = baseWidth * Number(scale.x || defaultScale.x);
+  const height = frame.keyboardHeight * Number(scale.y || defaultScale.y);
   const keyboardInsets = payload?.keyboardStyle?.insets || styles.panelKeyboardBackgroundStyle.insets || {};
   const rowHeight = (height - numberInset(keyboardInsets, 'top') - numberInset(keyboardInsets, 'bottom')) / 2;
   const labels = project.keyboards?.panel?.text || {};
@@ -3705,7 +3798,7 @@ function renderPanelKeyboard(project, theme, styles, frame, options = {}) {
   }]));
 
   return `
-    <div class="panel-preview-wrap" style="height:${project.keyboardFrame?.portrait?.keyboardHeight || 210}px">
+    <div class="panel-preview-wrap" style="height:${frame.keyboardHeight}px">
       <div class="calayer-keyboard is-panel-keyboard" style="${backgroundCssForStyle(project, theme, payload?.keyboardBackgroundStyle || styles.panelKeyboardBackgroundStyle)};width:${width}px;height:${height}px;padding:${cssInsets(keyboardInsets)}">
         ${rows.map((row) => `
           <div class="calayer-row panel-row" style="height:${rowHeight}px">

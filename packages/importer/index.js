@@ -40,6 +40,25 @@ function decodeEntryContent(content) {
   return String(content ?? '');
 }
 
+function bytesToBase64(bytes) {
+  const value = bytes instanceof Uint8Array
+    ? bytes
+    : bytes instanceof ArrayBuffer
+      ? new Uint8Array(bytes)
+      : new TextEncoder().encode(String(bytes ?? ''));
+  if (typeof Buffer !== 'undefined') return Buffer.from(value).toString('base64');
+  let binary = '';
+  for (let index = 0; index < value.length; index += 1) {
+    binary += String.fromCharCode(value[index]);
+  }
+  return btoa(binary);
+}
+
+function imageDataUrlFromEntryContent(content) {
+  if (typeof content === 'string' && content.startsWith('data:image/')) return content;
+  return `data:image/png;base64,${bytesToBase64(content)}`;
+}
+
 function normalizeEntryPath(path = '') {
   return String(path).replaceAll('\\', '/').replace(/^\/+/, '');
 }
@@ -144,6 +163,7 @@ function parseEffectFilesLibsonnet(text) {
 
 function keyboardNameFromPath(path) {
   const stripped = stripPackageRoot(path);
+  if (/^(light|dark)\/resources\//i.test(stripped)) return null;
   const parts = stripped.split('/');
   if (parts.length < 2) return null;
   const themeName = parts[0];
@@ -164,6 +184,29 @@ function collectFilesFromEntries(entries = []) {
     files[stripped] = decodeEntryContent(entry.content);
   }
   return files;
+}
+
+function collectResourceAssetsFromEntries(entries = []) {
+  const resources = {};
+  const resourceEntries = {};
+  for (const entry of entries) {
+    const stripped = stripPackageRoot(entry.path);
+    const match = stripped.match(/^(light|dark)\/resources\/([^/]+)\.(png|yaml)$/i);
+    if (!match) continue;
+    const [, themeName, fileBase, extension] = match;
+    resources[themeName] = resources[themeName] || {};
+    resourceEntries[`${themeName}/${fileBase}`] = resourceEntries[`${themeName}/${fileBase}`] || {};
+    resourceEntries[`${themeName}/${fileBase}`][extension.toLowerCase()] = entry.content;
+  }
+  for (const [key, entry] of Object.entries(resourceEntries)) {
+    const [themeName, fileBase] = key.split('/');
+    if (!entry.png && !entry.yaml) continue;
+    resources[themeName][fileBase] = {
+      source: entry.png ? imageDataUrlFromEntryContent(entry.png) : `resources/${fileBase}.png`,
+      sprites: entry.yaml ? parseSimpleYaml(decodeEntryContent(entry.yaml)) : {},
+    };
+  }
+  return resources;
 }
 
 export async function readImportFileEntries(file) {
@@ -206,6 +249,7 @@ function collectYamlPayloads(files) {
   for (const [path, content] of Object.entries(files)) {
     const stripped = stripPackageRoot(path);
     if (!stripped.endsWith('.yaml')) continue;
+    if (/^(light|dark)\/resources\//i.test(stripped)) continue;
     payloads[stripped] = parseSimpleYaml(content);
   }
   return payloads;
@@ -278,7 +322,84 @@ function applyNativePayload(project, path, payload) {
   }
 }
 
-function buildProjectFromSkinPayloads(sampleProject, payloads, sourceName = '') {
+function collectConfigKeyboardNames(config = {}) {
+  const names = new Set();
+  const visit = (value) => {
+    if (typeof value === 'string' && value.endsWith('_portrait') || typeof value === 'string' && value.endsWith('_landscape')) {
+      names.add(value);
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+    if (isPlainObject(value)) {
+      Object.values(value).forEach(visit);
+    }
+  };
+  visit(config);
+  return [...names];
+}
+
+function hasResourceImage(resources, themeName, file, image = 'IMG1') {
+  return !!resources?.[themeName]?.[file]?.sprites?.[image];
+}
+
+function imageStyle(file, image = 'IMG1', highlightFile = null) {
+  const style = {
+    buttonStyleType: 'fileImage',
+    normalImage: { file, image },
+  };
+  if (highlightFile) style.highlightImage = { file: highlightFile, image };
+  return style;
+}
+
+function inferResourcePreviewPayload(resources, themeName, keyboardName) {
+  const payload = {};
+  if (hasResourceImage(resources, themeName, 'bj', 'IMG2')) {
+    payload.keyboardBackgroundStyle = imageStyle('bj', 'IMG2');
+  }
+  if (hasResourceImage(resources, themeName, 'bj', 'IMG3')) {
+    payload.toolbarBackgroundStyle = imageStyle('bj', 'IMG3');
+  }
+  if (hasResourceImage(resources, themeName, 'bj', 'IMG1')) {
+    payload.preeditBackgroundStyle = imageStyle('bj', 'IMG1');
+    payload.verticalCandidateBackgroundStyle = imageStyle('bj', 'IMG1');
+  }
+  if (/^(pinyin|alphabetic)_26_/.test(keyboardName) && hasResourceImage(resources, themeName, 'anjian26', 'IMG27')) {
+    payload.alphabeticBackgroundStyle = imageStyle(
+      'anjian26',
+      'IMG27',
+      hasResourceImage(resources, themeName, 'anjian26ax', 'IMG27') ? 'anjian26ax' : null,
+    );
+  }
+  if (/^numeric_9_/.test(keyboardName) && hasResourceImage(resources, themeName, 'anjian9', 'IMG1')) {
+    payload.alphabeticBackgroundStyle = imageStyle(
+      'anjian9',
+      'IMG1',
+      hasResourceImage(resources, themeName, 'anjian9ax', 'IMG1') ? 'anjian9ax' : null,
+    );
+  }
+  if (/^symbolic_/.test(keyboardName) && hasResourceImage(resources, themeName, 'anjian', 'IMG15')) {
+    payload.alphabeticBackgroundStyle = imageStyle('anjian', 'IMG15');
+  }
+  return Object.keys(payload).length ? payload : null;
+}
+
+function applyResourcePreviewFallbacks(project, resources) {
+  const keyboardNames = collectConfigKeyboardNames(project.config);
+  for (const themeName of ['light', 'dark']) {
+    for (const keyboardName of keyboardNames) {
+      if (project.nativeKeyboardPayloads?.[themeName]?.[keyboardName]) continue;
+      const inferred = inferResourcePreviewPayload(resources, themeName, keyboardName);
+      if (!inferred) continue;
+      project.nativeKeyboardPayloads[themeName] = project.nativeKeyboardPayloads[themeName] || {};
+      project.nativeKeyboardPayloads[themeName][keyboardName] = inferred;
+    }
+  }
+}
+
+function buildProjectFromSkinPayloads(sampleProject, payloads, sourceName = '', resources = {}) {
   const project = deepClone(sampleProject);
   project.meta = {
     ...project.meta,
@@ -286,17 +407,23 @@ function buildProjectFromSkinPayloads(sampleProject, payloads, sourceName = '') 
     description: '从皮肤包导入',
   };
   project.nativeKeyboardPayloads = { light: {}, dark: {} };
+  project.assets = {
+    ...(project.assets || {}),
+    resources: mergePlainObjectPatch(project.assets?.resources || {}, resources),
+  };
   const config = payloads['config.yaml'];
   applyConfig(project, config);
   for (const [path, payload] of Object.entries(payloads)) {
     applyNativePayload(project, path, payload);
   }
+  applyResourcePreviewFallbacks(project, resources);
   return project;
 }
 
 export async function importSkinProjectFromFile(file, sampleProject) {
   const entries = await readImportFileEntries(file);
   const files = collectFilesFromEntries(entries);
+  const resources = collectResourceAssetsFromEntries(entries);
   const projectJson = extractProjectJson(files);
   if (projectJson) {
     return {
@@ -312,7 +439,7 @@ export async function importSkinProjectFromFile(file, sampleProject) {
     throw new Error('未找到可识别的 project.json、Jsonnet 或 YAML 皮肤文件。');
   }
   return {
-    project: buildProjectFromSkinPayloads(sampleProject, payloads, file?.name || ''),
+    project: buildProjectFromSkinPayloads(sampleProject, payloads, file?.name || '', resources),
     source: Object.keys(jsonnetPayloads).length ? 'jsonnet+yaml' : 'yaml',
     importedFiles: Object.keys(files),
   };

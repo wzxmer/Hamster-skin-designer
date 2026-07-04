@@ -74,6 +74,28 @@ function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function normalizeResourceFileName(fileName = '') {
+  return String(fileName || '').replace(/\.[^.]+$/, '');
+}
+
+function availableResourceFilesForProject(project = {}) {
+  const files = new Set(AVAILABLE_TEMPLATE_RESOURCE_FILES);
+  const resources = project.assets?.resources;
+  if (!isPlainObject(resources)) return files;
+  for (const [themeName, themeResources] of Object.entries(resources)) {
+    if (!isPlainObject(themeResources)) continue;
+    for (const [fileName, resource] of Object.entries(themeResources)) {
+      const normalizedFile = normalizeResourceFileName(fileName);
+      const source = String(resource?.source || `resources/${normalizedFile}.png`);
+      const packagePath = `${themeName}/resources/${source.split('/').pop() || `${normalizedFile}.png`}`;
+      if (/^data:image\//i.test(source) || TEMPLATE_PACKAGE_ASSETS?.binaryFiles?.[packagePath]) {
+        files.add(normalizedFile);
+      }
+    }
+  }
+  return files;
+}
+
 function mergePlainObjectPatch(target, patch) {
   for (const [key, value] of Object.entries(patch || {})) {
     if (Array.isArray(value)) {
@@ -514,7 +536,7 @@ function buildSymbolicNativeKeyboardPayload(project, themeName, keyboardName) {
     : project.data?.collections?.symbolicDataSource;
   const categoryWidth = isLandscape ? '56/667' : '56/375';
   const descriptionWidth = isLandscape ? '611/667' : '319/375';
-  const keyboardHeight = Number(frame.keyboardHeight) || (isLandscape ? 160 : 268);
+  const keyboardHeight = Number(frame.keyboardHeight) || (isLandscape ? 144 : 268);
   const foregroundColor = themeColors['按键前景颜色'] || (themeName === 'dark' ? '#FFFFFF' : '#000000');
   const keyboardBackground = themeColors['键盘背景颜色'] || (themeName === 'dark' ? '#1f2024' : '#E1E2E7');
   const functionNormal = themeColors['功能键背景颜色-普通'] || (themeName === 'dark' ? '#4d535d' : '#BDC1CC');
@@ -536,10 +558,10 @@ function buildSymbolicNativeKeyboardPayload(project, themeName, keyboardName) {
       normalColor: keyboardBackground,
     },
     HStackStyle1: {
-      size: { height: isLandscape ? '106/160' : '227/281' },
+      size: { height: isLandscape ? '96/144' : '227/281' },
     },
     HStackStyle2: {
-      size: { height: isLandscape ? '54/160' : '54/281' },
+      size: { height: isLandscape ? '48/144' : '54/281' },
     },
     categoryCollection: {
       backgroundStyle: 'categoryCollectionBackgroundStyle',
@@ -718,7 +740,7 @@ function buildPanelNativeKeyboardPayload(project, themeName, keyboardName) {
   const highlightColor = themeColors['字母键背景颜色-高亮'] || (themeName === 'dark' ? '#505762' : '#ABB0BA');
   const lowerEdge = themeColors['底边缘颜色-普通'] || (themeName === 'dark' ? '#2b2d31' : '#88898D');
   const payload = {
-    floatTargetScale: panelFrame.floatTargetScale?.[orientation] || panelFrame.floatTargetScale?.portrait || (orientation === 'landscape' ? { x: 0.5, y: 0.85 } : { x: 0.8, y: 0.6 }),
+    floatTargetScale: panelFrame.floatTargetScale?.[orientation] || panelFrame.floatTargetScale?.portrait || (orientation === 'landscape' ? { x: 0.58, y: 0.72 } : { x: 0.8, y: 0.6 }),
     keyboardLayout: PANEL_BUTTONS.map((row) => ({
       HStack: {
         spacing: 3,
@@ -848,7 +870,10 @@ export function buildSkinEffectFileEntries(project) {
 
   entries.push({
     path: 'resources/asset-manifest.yaml',
-    value: pruneEmptyPlainObjects(project.assets.images),
+    value: pruneEmptyPlainObjects({
+      images: project.assets.images,
+      resources: project.assets.resources,
+    }),
   });
 
   return entries;
@@ -900,6 +925,7 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   const themeColors = project.theme?.[themeName]?.colors || {};
   const sharedFontSize = project.theme?.shared?.fontSize || {};
   const sharedCenter = project.theme?.shared?.center || {};
+  const availableResourceFiles = availableResourceFilesForProject(project);
   const customCenters = project.theme?.shared?.customCenters || {};
   const keyDisplays = project.keyboards?.keyboard26?.keyDisplays || {};
   const keyActions = project.keyboards?.keyboard26?.keyActions || {};
@@ -1286,7 +1312,7 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   for (const styleName of ['keyboardBackgroundStyle', 'toolbarBackgroundStyle', 'preeditBackgroundStyle', 'verticalCandidateBackgroundStyle']) {
     const style = payload?.[styleName];
     const fileName = style?.normalImage?.file;
-    if (!fileName || AVAILABLE_TEMPLATE_RESOURCE_FILES.has(fileName)) continue;
+    if (!fileName || availableResourceFiles.has(normalizeResourceFileName(fileName))) continue;
     payload[styleName] = {
       buttonStyleType: 'geometry',
       normalColor: normalizeContainerColor(themeColors['键盘背景颜色'], '#00000001'),
@@ -1360,6 +1386,9 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
     const legacyUppercasedStyle = payload[`${buttonName}UppercasedStateForegroundStyle`];
     if (legacyUppercasedStyle && !payload[`${buttonName}UppercasedForegroundStyle`]) {
       payload[`${buttonName}UppercasedForegroundStyle`] = structuredClone(legacyUppercasedStyle);
+    }
+    if (keyboardName.startsWith('alphabetic_26_') && isPlainObject(button.action) && button.action.character !== undefined) {
+      button.action = { symbol: String(button.action.character) };
     }
     if (/^pinyin_26_|^alphabetic_26_/.test(keyboardName)) {
       for (const refKey of ['uppercasedStateForegroundStyle', 'capsLockedStateForegroundStyle']) {
@@ -1708,8 +1737,8 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
     const normalBackgroundStyle = structuredClone(payload.alphabeticBackgroundStyle || payload.number1Bg || fallbackBackgroundStyle('numericNumberBackgroundStyle'));
     applySurfaceStyle(normalBackgroundStyle, project.keyStyles?.surfaceStyles?.keyboard26?.normal);
     applyInsets(normalBackgroundStyle, project.keyStyles?.buttonInsets?.keyboard26?.normal);
-    normalBackgroundStyle.normalColor = themeColors['按键背景颜色-普通'] || normalBackgroundStyle.normalColor;
-    normalBackgroundStyle.highlightColor = themeColors['按键背景颜色-高亮'] || normalBackgroundStyle.highlightColor;
+    normalBackgroundStyle.normalColor = themeColors['字母键背景颜色-普通'] || themeColors['按键背景颜色-普通'] || normalBackgroundStyle.normalColor;
+    normalBackgroundStyle.highlightColor = themeColors['字母键背景颜色-高亮'] || themeColors['按键背景颜色-高亮'] || normalBackgroundStyle.highlightColor;
     normalBackgroundStyle.normalLowerEdgeColor = themeColors['底边缘颜色-普通'] || normalBackgroundStyle.normalLowerEdgeColor;
     normalBackgroundStyle.highlightLowerEdgeColor = themeColors['底边缘颜色-高亮'] || normalBackgroundStyle.highlightLowerEdgeColor;
     normalBackgroundStyle.borderColor = themeColors['按键边缘颜色'] || normalBackgroundStyle.borderColor;
@@ -1734,7 +1763,7 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
     payload.symbolsCollectionBg = structuredClone(collectionBackgroundStyle);
     payload.collectionBackgroundStyle = structuredClone(collectionBackgroundStyle);
     if (isPlainObject(payload.numperiodButton)) {
-      payload.numperiodButton.backgroundStyle = 'number0Bg';
+      payload.numperiodButton.backgroundStyle = 'periodBg';
       payload.numperiodButton.foregroundStyle = ['numperiodFg'];
     }
     for (const styleName of [
@@ -2142,7 +2171,7 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
     for (const [styleName, style] of Object.entries(payload)) {
       if (!isPlainObject(style) || style.buttonStyleType !== 'fileImage') continue;
       const fileName = style.normalImage?.file || style.highlightImage?.file;
-      if (!fileName || AVAILABLE_TEMPLATE_RESOURCE_FILES.has(fileName)) continue;
+      if (!fileName || availableResourceFiles.has(normalizeResourceFileName(fileName))) continue;
       const baseMatch = styleName.match(/^(.+?)(?:ButtonForegroundStyle|Fg)$/);
       const upMatch = styleName.match(/^(.+?)(?:ButtonSwipeUpForegroundStyle|UpSwipeFg)$/);
       const downMatch = styleName.match(/^(.+?)(?:ButtonSwipeDownForegroundStyle|DownSwipeFg)$/);

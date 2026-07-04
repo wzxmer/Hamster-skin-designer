@@ -324,6 +324,9 @@ export function validateProject(project) {
   if (!isPlainObject(project.assets?.images)) {
     addIssue(errors, 'assets.images', '必须是图片素材引用对象。');
   }
+  if (project.assets?.resources !== undefined && !isPlainObject(project.assets.resources)) {
+    addIssue(errors, 'assets.resources', '必须是图片资源图集对象。');
+  }
 
   if (isPlainObject(project.export)) {
     validateExport(errors, project.export);

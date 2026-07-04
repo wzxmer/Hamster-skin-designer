@@ -82,6 +82,10 @@ const pinyin14UpperHtml = render(pinyinVariantUpperProject, { pinyinVariant: '14
 const pinyin17UpperHtml = render(pinyinVariantUpperProject, { pinyinVariant: '17' });
 const pinyin18UpperHtml = render(pinyinVariantUpperProject, { pinyinVariant: '18' });
 const pinyin26LandscapeHtml = render(baseProject, { pinyinVariant: '26', orientation: 'landscape' });
+const pinyin26LandscapePayload = buildEffectiveNativeKeyboardPayload(baseProject, 'light', 'pinyin_26_landscape');
+const alphabetic26Payload = buildEffectiveNativeKeyboardPayload(baseProject, 'light', 'alphabetic_26_portrait');
+const panelLandscapePayload = buildEffectiveNativeKeyboardPayload(baseProject, 'light', 'panel_landscape');
+const panelLandscapeHtml = render(baseProject, { mode: 'panel', orientation: 'landscape' });
 
 const linkedProject = createSampleProject();
 linkedProject.theme.shared.fontSize['按键前景文字大小'] = 33;
@@ -116,9 +120,22 @@ assert(!linkedHtml.includes('data-preview-key="translate"'), '预览 HTML 应同
 assert(baseHtml.includes('font-size:22.5px'), '默认 26 键中文预览应放大显示字母，但不改变导出字号。');
 assert(!alphabeticPreviewHtml.includes('is-pinyin-variant-keyboard'), '英文 26 键预览不应被中文 14/17/18 变体渲染覆盖。');
 assert(alphabeticPreviewHtml.includes('>英</span>'), '英文 26 键中英切换键应显示英文态。');
+assert(pinyin26LandscapePayload.preeditHeight === 12
+  && pinyin26LandscapePayload.toolbarHeight === 28
+  && pinyin26LandscapePayload.keyboardHeight === 144, '横屏键盘应使用降低后的统一高度 12/28/144。');
 assert(alphabeticStandardLandscapeHtml.includes('is-keyboard26-standard-landscape-keyboard'), '英文 26 键横屏常规模式应渲染普通横屏布局。');
 assert(!alphabeticStandardLandscapeHtml.includes('is-keyboard26-landscape-keyboard'), '英文 26 键横屏常规模式不应继续渲染分割布局。');
 assert(previewClassCellHtml(alphabeticStandardLandscapeHtml, 'q').includes('flex:0 0 10%'), '英文 26 键横屏常规模式应沿用竖屏 26 键普通键宽。');
+assert(panelLandscapePayload.floatTargetScale?.x === 0.58 && panelLandscapePayload.floatTargetScale?.y === 0.72, '自定义面板横屏应使用更宽更矮的浮动比例。');
+assert(panelLandscapeHtml.includes('panel-preview-wrap" style="height:144px"')
+  && panelLandscapeHtml.includes('width:454.71999999999997px')
+  && panelLandscapeHtml.includes('height:103.67999999999999px'), '自定义面板横屏预览应按横屏 frame 和浮动比例计算尺寸。');
+for (const key of 'abcdefghijklmnopqrstuvwxyz') {
+  const buttonAction = alphabetic26Payload?.[`${key}Button`]?.action;
+  assert(buttonAction?.symbol === key && !buttonAction?.character, `英文 26 键 ${key} 主按键动作应使用 symbol 类型。`);
+  const action = baseProject.data.swipes.alphabetic.swipe_down?.[key]?.action;
+  assert(!action?.character, `英文 26 键 ${key} 下划动作不应继续使用 character 类型。`);
+}
 assert(previewClassCellHtml(alphabeticStandardLandscapeHtml, 'space').includes('flex:0 0 44%'), '英文 26 键横屏常规模式应沿用竖屏 26 键空格宽度。');
 assert(pinyin14StandardLandscapeHtml.includes('is-pinyin14-landscape-keyboard'), '中文 14 键横屏应保持专用布局，不受 26 键横屏常规选项影响。');
 
@@ -382,15 +399,23 @@ numericSeedProject.keyboardCombo.slots.pinyin.variant = numericSeedPreset.layout
 numericSeedProject.keyboardCombo.slots.numeric.variant = '9';
 const numericSeedHtml = render(numericSeedProject, { mode: 'numeric' });
 const numericPayload = buildEffectiveNativeKeyboardPayload(numericSeedProject, 'light', 'numeric_9_portrait');
+const numericLandscapePayload = buildEffectiveNativeKeyboardPayload(numericSeedProject, 'light', 'numeric_9_landscape');
 assert(baseProject.keyboardCombo.swipeBehavior.ui?.numeric?.mode === 'disabled', '数字 9 键预设滑动功能按钮应默认关闭。');
 assert(numericHtml.includes('is-numeric-keyboard'), '数字 9 键应使用专用预览渲染。');
 assert(!numericHtml.includes('is-native-keyboard'), '数字 9 键专用预览不应被 native payload 渲染覆盖。');
 assert(numericHtml.includes('grid-template-columns:0.7fr 1fr 1fr 1fr 0.7fr;gap:0'), '数字 9 键预览左右功能列应等宽、无额外 grid gap，并保持三列主数字键等宽。');
 assert(Math.abs((cellHeight(numericHtml, '1') || 0) - (cellHeight(pinyin9Html, 'number1') || 0)) < 0.01, '数字 9 键与中文 9 键切换时按键行高应一致。');
+assert(numericPayload.number1Bg.normalColor === numericSeedProject.theme.light.colors['字母键背景颜色-普通'], '数字 9 键数字键普通色应跟随当前主题普通字母键色，不能继承旧 seed 透明色。');
+assert(numericPayload.number1Bg.highlightColor === numericSeedProject.theme.light.colors['字母键背景颜色-高亮'], '数字 9 键数字键高亮色应跟随当前主题普通字母键高亮色。');
+assert(numericLandscapePayload.number1Bg.normalColor === numericPayload.number1Bg.normalColor
+  && numericLandscapePayload.systemButtonBackgroundStyle.normalColor === numericPayload.systemButtonBackgroundStyle.normalColor
+  && numericLandscapePayload.symbolsCollectionBg.normalColor === numericPayload.symbolsCollectionBg.normalColor, '数字 9 键竖屏/横屏数字键、功能键、collection 配色应一致。');
 assert(backgroundStyle(previewKeyCellHtml(numericSeedHtml, '1')).includes(`background:${numericPayload.number1Bg.normalColor}`), '数字 9 键数字键背景应来自 resolved native payload。');
 assert(backgroundStyle(previewClassCellHtml(numericSeedHtml, 'numeric-collection')).includes(`background:${numericPayload.symbolsCollectionBg.normalColor}`), '数字 9 键左侧符号栏背景应来自 resolved native payload。');
 assert(previewKeyCellHtml(numericSeedHtml, 'space').includes(`>${numericPayload.numspaceFg.text}</span>`), '数字 9 键空格应显示 resolved native payload 的文字，不能空白。');
 assert(previewKeyCellHtml(numericSeedHtml, 'period').includes(`>${numericPayload.numperiodFg.text}</span>`), '数字 9 键句点应显示 resolved native payload 的文字，不能空白。');
+assert(numericPayload.numperiodButton?.backgroundStyle === 'periodBg', '数字 9 键句点键应使用 periodBg，跟随功能键配色而不是 0 键普通色。');
+assert(backgroundStyle(previewKeyCellHtml(numericSeedHtml, 'period')).includes(`background:${numericPayload.periodBg.normalColor}`), '数字 9 键句点背景应来自 periodBg。');
 assert(backgroundStyle(previewKeyCellHtml(numericSeedHtml, 'space')).includes(`background:${numericPayload.clearBg.normalColor}`)
   && backgroundStyle(previewKeyCellHtml(numericSeedHtml, 'equal')).includes(`background:${numericPayload.equalBg.normalColor}`)
   && backgroundStyle(previewKeyCellHtml(numericSeedHtml, 'backspace')).includes(`background:${numericPayload.backspaceBg.normalColor}`), '数字 9 键空格、等号、退格背景应来自各自 resolved native payload。');
@@ -438,6 +463,29 @@ function hasTemplateBackgroundImage(html) {
 assert(buildEffectiveNativeKeyboardPayload(imageBackgroundProject, 'light', 'pinyin_9_portrait')?.keyboardBackgroundStyle?.buttonStyleType === 'geometry', '中文九键预览应清理旧 seed 图片背景，回落统一键盘背景。');
 assert(buildEffectiveNativeKeyboardPayload(imageBackgroundProject, 'light', 'numeric_9_portrait')?.keyboardBackgroundStyle?.buttonStyleType === 'geometry', '数字键盘预览应清理旧 seed 图片背景，回落统一键盘背景。');
 assert(hasTemplateBackgroundImage(render(imageBackgroundProject, { mode: 'symbolic' })), '符号键盘预览应同步键盘背景图片。');
+
+const atlasProject = createSampleProject();
+const atlasPng = 'data:image/png;base64,iVBORw0KGgo=';
+atlasProject.assets.resources.light.atlas = {
+  source: atlasPng,
+  sprites: {
+    IMG1: { rect: { x: 0, y: 0, width: 100, height: 100 } },
+    IMG2: { rect: { x: 100, y: 0, width: 100, height: 100 } },
+  },
+};
+atlasProject.nativeKeyboardPayloads = {
+  light: {
+    pinyin_26_portrait: {
+      keyboardBackgroundStyle: {
+        buttonStyleType: 'fileImage',
+        normalImage: { file: 'atlas', image: 'IMG2' },
+      },
+    },
+  },
+};
+const atlasHtml = render(atlasProject, { mode: 'keyboard26' });
+assert(buildEffectiveNativeKeyboardPayload(atlasProject, 'light', 'pinyin_26_portrait')?.keyboardBackgroundStyle?.normalImage?.file === 'atlas', '项目内资源图集不应被当作缺失模板资源清理。');
+assert(atlasHtml.includes(atlasPng) && atlasHtml.includes('background-size:200% 100%') && atlasHtml.includes('background-position:100% 50%'), '预览应按 assets.resources 的 rect 裁切 fileImage 图集。');
 
 const symbolicCollectionProject = createSampleProject();
 symbolicCollectionProject.data.collections.symbolicDataSource.category = ['测试分类'];

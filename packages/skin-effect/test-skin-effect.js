@@ -7,6 +7,7 @@ function assert(condition, message) {
 
 const project = createSampleProject();
 const model = buildSkinEffectModel(project, { theme: 'light', keyboardName: 'pinyin_26_portrait' });
+const alphabeticModel = buildSkinEffectModel(project, { theme: 'light', keyboardName: 'alphabetic_26_portrait' });
 const effectProject = buildEffectiveProject(project);
 const effectFiles = buildSkinEffectFileEntries(effectProject);
 const enabledSwipeProject = createSampleProject();
@@ -28,6 +29,7 @@ assert(Array.isArray(model.nativePayload.keyboardLayout), '效果模型应包含
 assert(model.nativePayload.toolbarLayout, '效果模型应包含 toolbar 布局。');
 assert(model.nativePayload.spaceButton, '效果模型应包含空格键。');
 assert(model.nativePayload.HStackStyle?.size?.height === '1/5', '26 键导出应保留原始实机行高，不应用预览行高覆盖。');
+assert(alphabeticModel.nativePayload.qButton?.action?.symbol === 'q' && !alphabeticModel.nativePayload.qButton?.action?.character, '英文 26 键字母主按键应使用 symbol action。');
 assert(model.nativePayload.cnenButton?.action?.shortcut === '#中英切换', '效果模型应同步中英切换真实动作。');
 assert(model.nativePayload.cnenButtonForegroundStyle?.text === '中', '效果模型应同步中英切换显示文字。');
 assert(model.nativePayload.toolbarSymbolButton, '效果模型应包含工具栏符号按钮。');
@@ -125,7 +127,7 @@ const invalidBackgroundProject = createSampleProject();
 invalidBackgroundProject.nativeKeyboardPayloads = { light: { pinyin_26_portrait: {} } };
 invalidBackgroundProject.nativeKeyboardPayloads.light.pinyin_26_portrait.keyboardBackgroundStyle = {
   buttonStyleType: 'fileImage',
-  normalImage: { file: 'bg', image: 'IMG1' },
+  normalImage: { file: 'missing_bg', image: 'IMG1' },
 };
 const invalidBackgroundModel = buildSkinEffectModel(invalidBackgroundProject, { theme: 'light', keyboardName: 'pinyin_26_portrait' });
 assert(invalidBackgroundModel.nativePayload.keyboardBackgroundStyle?.buttonStyleType === 'geometry', '未打包资源的键盘背景图片应回退几何样式。');

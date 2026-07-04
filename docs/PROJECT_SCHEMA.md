@@ -48,10 +48,24 @@
 
 ## assets
 
-素材引用。网页内可以保存为 IndexedDB Blob，也可以在导出时写入 zip。
+素材分两层保存：`resources` 管图片文件和切片，`images` 管语义绑定。网页内可以保存为 IndexedDB Blob，也可以在导出时写入 zip。
 
 ```json
 {
+  "resources": {
+    "light": {
+      "bg": {
+        "source": "resources/bg.png",
+        "sprites": {
+          "IMG1": {
+            "rect": { "x": 0, "y": 0, "width": 1125, "height": 139 },
+            "insets": { "top": 45, "right": 240, "bottom": 48, "left": 50 }
+          }
+        }
+      }
+    },
+    "dark": {}
+  },
   "images": {
     "keyboardBackground": {
       "file": "bg",
@@ -66,6 +80,8 @@
   }
 }
 ```
+
+`resources.<theme>.<file>.sprites.<image>.rect` 对应 `resources/<file>.yaml` 里的裁切区域；`insets` 对应九宫格拉伸参数。`images` 只保存工作台语义位置，例如键盘背景或长按气泡使用哪个 `file + image`。
 
 ## theme
 
@@ -102,14 +118,14 @@
     "keyboardHeight": 210
   },
   "landscape": {
-    "preeditHeight": 14,
-    "toolbarHeight": 30,
-    "keyboardHeight": 160
+    "preeditHeight": 12,
+    "toolbarHeight": 28,
+    "keyboardHeight": 144
   },
   "panel": {
     "floatTargetScale": {
       "portrait": { "x": 0.8, "y": 0.6 },
-      "landscape": { "x": 0.5, "y": 0.85 }
+      "landscape": { "x": 0.58, "y": 0.72 }
     },
     "cornerRadius": 15
   }

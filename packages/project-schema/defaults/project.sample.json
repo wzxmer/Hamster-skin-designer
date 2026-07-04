@@ -10,6 +10,44 @@
     "updatedAt": "2026-06-05 20:22:40"
   },
   "assets": {
+    "resources": {
+      "light": {
+        "hold_back": {
+          "source": "resources/hold_back.png",
+          "sprites": {
+            "IMG1": {
+              "rect": { "x": 0, "y": 0, "width": 130, "height": 130 }
+            }
+          }
+        },
+        "hint": {
+          "source": "resources/hint.png",
+          "sprites": {
+            "IMG1": {
+              "rect": { "x": 0, "y": 0, "width": 130, "height": 130 }
+            }
+          }
+        }
+      },
+      "dark": {
+        "hold_back": {
+          "source": "resources/hold_back.png",
+          "sprites": {
+            "IMG1": {
+              "rect": { "x": 0, "y": 0, "width": 130, "height": 130 }
+            }
+          }
+        },
+        "hint": {
+          "source": "resources/hint.png",
+          "sprites": {
+            "IMG1": {
+              "rect": { "x": 0, "y": 0, "width": 130, "height": 130 }
+            }
+          }
+        }
+      }
+    },
     "images": {
       "keyboardBackground": {
         "file": "bg",
@@ -255,9 +293,9 @@
       "keyboardHeight": 216
     },
     "landscape": {
-      "preeditHeight": 14,
-      "toolbarHeight": 30,
-      "keyboardHeight": 160
+      "preeditHeight": 12,
+      "toolbarHeight": 28,
+      "keyboardHeight": 144
     },
     "panel": {
       "floatTargetScale": {
@@ -266,8 +304,8 @@
           "y": 0.6
         },
         "landscape": {
-          "x": 0.5,
-          "y": 0.85
+          "x": 0.58,
+          "y": 0.72
         }
       },
       "cornerRadius": 15
@@ -2649,7 +2687,7 @@
           },
           "a": {
             "action": {
-              "character": "~"
+              "symbol": "~"
             },
             "label": {
               "text": "~"
@@ -2759,7 +2797,7 @@
           },
           "v": {
             "action": {
-              "character": "<"
+              "symbol": "<"
             },
             "label": {
               "text": "<"
@@ -2771,7 +2809,7 @@
           },
           "b": {
             "action": {
-              "character": ">"
+              "symbol": ">"
             },
             "label": {
               "text": ">"
@@ -2783,7 +2821,7 @@
           },
           "n": {
             "action": {
-              "character": "？"
+              "symbol": "？"
             },
             "label": {
               "text": "?"
@@ -2795,7 +2833,7 @@
           },
           "m": {
             "action": {
-              "character": "..."
+              "symbol": "..."
             },
             "label": {
               "text": "..."

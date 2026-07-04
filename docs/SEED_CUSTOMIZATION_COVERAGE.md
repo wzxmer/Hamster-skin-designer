@@ -37,7 +37,7 @@
 | 长按候选 | `hintSymbolsData.libsonnet` / seed hint styles | `data.hints`、`theme.shared.fontSize/center` | 长按设置 | 预览和导出共用 | 部分覆盖 | 补 UI 易用性和按键级覆盖 |
 | 符号/Emoji 数据源 | `collectionData.libsonnet` | `data.collections`、`keyboardCombo.slots.symbolic/emoji` | 符号数据源、使用引导 | 默认 App 内键盘；自定义时导出 | 部分覆盖 | 明确 system/custom 两条路径，补 emoji/panel 自定义入口 |
 | 自定义 panel | seed panel payload | `keyboards.panel`、`keyboardCombo.slots.panel` | 自定义键盘 | 预览已有基础，导出部分接入 | 部分覆盖 | 补 panel 内容、图标、动作、尺寸的左侧编辑 |
-| 图片素材 | seed fileImage / asset refs | `assets.images` | 图片素材 | 底层兼容，UI 暂禁用 | 暂缓 | 等 Blob 管理、导入、预览、导出闭环完整再开放 |
+| 图片素材 | seed fileImage / asset refs / resources yaml | `assets.resources` + `assets.images` | 图片素材 | 底层兼容，UI 暂禁用 | 进行中 | 先建立资源图集模型，再开放预览、编辑与导出 |
 | 动画 | seed `animation` | `theme.shared.animation` | 按键动画 | 底层映射，UI 暂禁用 | 暂缓 | 等预览交互验证稳定后开放 |
 | 导出包结构 | 旧 builder / template | `export`、`config`、package builder | 皮肤配置 | exporter 输出 YAML / Jsonnet / zip | 已覆盖 | 继续守住 GitHub Pages 静态和 Jsonnet 包结构约束 |
 

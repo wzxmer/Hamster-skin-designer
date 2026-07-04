@@ -1109,6 +1109,27 @@ button:disabled:hover {
   line-height: 1.35;
 }
 
+.nested-panel,
+.asset-file-panel {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.nested-panel h4,
+.asset-file-panel h5 {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 780;
+  line-height: 1.3;
+}
+
+.asset-file-panel {
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
 .field-card label,
 .json-label {
   display: block;

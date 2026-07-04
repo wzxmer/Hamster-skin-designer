@@ -72,9 +72,9 @@ function buildJsonnetOthersLib(project) {
     '    ]),',
     '  },',
     "  '横屏': {",
-    `    'preedit高度': ${JSON.stringify(landscape.preeditHeight ?? 14)},`,
-    `    'toolbar高度': ${JSON.stringify(landscape.toolbarHeight ?? 30)},`,
-    `    'keyboard高度': ${JSON.stringify(landscape.keyboardHeight ?? 160)},`,
+    `    'preedit高度': ${JSON.stringify(landscape.preeditHeight ?? 12)},`,
+    `    'toolbar高度': ${JSON.stringify(landscape.toolbarHeight ?? 28)},`,
+    `    'keyboard高度': ${JSON.stringify(landscape.keyboardHeight ?? 144)},`,
     "    '键盘总高度': sumHeights([",
     "      self['preedit高度'],",
     "      self['toolbar高度'],",
@@ -124,6 +124,11 @@ function decodeBase64ToBytes(input) {
     return bytes;
   }
   throw new Error('当前环境不支持 base64 资源解码。');
+}
+
+function decodeDataUrlToBytes(input = '') {
+  const match = String(input || '').match(/^data:[^;,]+;base64,(.+)$/i);
+  return match ? decodeBase64ToBytes(match[1]) : null;
 }
 
 function quoteYamlString(value) {
@@ -318,6 +323,39 @@ function buildTemplateResourceFiles(options = {}) {
   return files;
 }
 
+function buildProjectResourceFiles(project) {
+  const files = [];
+  const resources = project.assets?.resources;
+  if (!isPlainObject(resources)) return files;
+  for (const theme of ['light', 'dark']) {
+    const themeResources = resources[theme];
+    if (!isPlainObject(themeResources)) continue;
+    for (const [fileName, resource] of Object.entries(themeResources)) {
+      if (!isPlainObject(resource)) continue;
+      const normalizedFile = String(fileName || '').replace(/\.[^.]+$/, '');
+      if (!normalizedFile) continue;
+      const source = String(resource.source || `resources/${normalizedFile}.png`);
+      const sourceFile = source.split(/[\\/]/).pop() || `${normalizedFile}.png`;
+      const sourcePath = `${theme}/resources/${sourceFile}`;
+      const binaryContent = /^data:image\//i.test(source)
+        ? decodeDataUrlToBytes(source)
+        : typeof TEMPLATE_PACKAGE_ASSETS?.binaryFiles?.[sourcePath] === 'string'
+          ? decodeBase64ToBytes(TEMPLATE_PACKAGE_ASSETS.binaryFiles[sourcePath])
+          : null;
+      if (!binaryContent) continue;
+      files.push({
+        path: `${theme}/resources/${normalizedFile}.png`,
+        content: binaryContent,
+      });
+      files.push({
+        path: `${theme}/resources/${normalizedFile}.yaml`,
+        content: ensureTrailingNewline(toYaml(resource.sprites || {})),
+      });
+    }
+  }
+  return files;
+}
+
 export function buildSkinPackageFiles(project, options = {}) {
   assertValidProject(project);
   const packageRoot = normalizeFileName(project?.meta?.name, 'hamster-skin');
@@ -336,6 +374,9 @@ export function buildSkinPackageFiles(project, options = {}) {
     }
   }
   for (const file of buildTemplateResourceFiles(options)) {
+    files.set(`${packageRoot}/${file.path}`, { ...file, path: `${packageRoot}/${file.path}` });
+  }
+  for (const file of buildProjectResourceFiles(project)) {
     files.set(`${packageRoot}/${file.path}`, { ...file, path: `${packageRoot}/${file.path}` });
   }
   files.set(`${packageRoot}/README.md`, { path: `${packageRoot}/README.md`, content: buildExportReadme(project) });

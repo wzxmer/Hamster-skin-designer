@@ -1,6 +1,7 @@
 import { createSampleProject } from '../project-schema/index.js';
 import { buildSkinPackageFiles, createZipArchive, toYaml } from '../exporter/index.js';
 import { importSkinProjectFromFile } from './index.js';
+import { buildEffectiveNativeKeyboardPayload } from '../skin-effect/index.js';
 import { deflateRawSync } from 'node:zlib';
 
 function assert(condition, message) {
@@ -86,6 +87,36 @@ assert(importedThirdParty.project.keyboardFrame.portrait.keyboardHeight === 444,
 assert(importedThirdParty.project.theme.light.colors['字母键背景颜色-普通'] === '#abcdef', 'Jsonnet 应覆盖 YAML 的普通键背景色。');
 assert(importedThirdParty.project.theme.shared.fontSize['按键前景文字大小'] === 24, 'Jsonnet 应覆盖 YAML 的字母字号。');
 assert(importedThirdParty.project.nativeKeyboardPayloads.light.pinyin_26_portrait.keyboardHeight === 444, '导入 raw payload 应只作为 nativeKeyboardPayloads 兼容输入保存。');
+
+const resourcePayload = {
+  keyboardHeight: 216,
+  keyboardBackgroundStyle: {
+    buttonStyleType: 'fileImage',
+    normalImage: { file: 'flower', image: 'IMG2' },
+  },
+};
+const resourcePackageBytes = createZipArchive([
+  { path: 'Flower/config.yaml', content: toYaml({ name: '素材皮肤', pinyin: { iPhone: { portrait: 'pinyin_26_portrait' } } }) },
+  { path: 'Flower/light/pinyin_26_portrait.yaml', content: toYaml(resourcePayload) },
+  { path: 'Flower/light/resources/flower.png', content: new Uint8Array([0x89, 0x50, 0x4e, 0x47]) },
+  { path: 'Flower/light/resources/flower.yaml', content: toYaml({ IMG2: { rect: { x: 100, y: 0, width: 100, height: 100 }, insets: { top: 1, right: 2, bottom: 3, left: 4 } } }) },
+]);
+const importedResourcePackage = await importSkinProjectFromFile(fileLike('flower.cskin', resourcePackageBytes), sampleProject);
+assert(importedResourcePackage.project.assets.resources.light.flower.source.startsWith('data:image/png;base64,'), '导入第三方 cskin 应把 resources png 转为项目内 data URL。');
+assert(importedResourcePackage.project.assets.resources.light.flower.sprites.IMG2.rect.x === 100, '导入第三方 cskin 应读取 resources yaml 切片。');
+assert(!importedResourcePackage.project.nativeKeyboardPayloads.light.flower, 'resources yaml 不应被误当成键盘 payload。');
+assert(buildEffectiveNativeKeyboardPayload(importedResourcePackage.project, 'light', 'pinyin_26_portrait')?.keyboardBackgroundStyle?.normalImage?.file === 'flower', '导入资源应被 skin-effect 视为有效资源，不应回退几何背景。');
+
+const resourceOnlyPackageBytes = createZipArchive([
+  { path: 'Only/config.yaml', content: toYaml({ name: '资源预览皮肤', pinyin: { iPhone: { portrait: 'pinyin_26_portrait' } } }) },
+  { path: 'Only/light/resources/bj.png', content: new Uint8Array([0x89, 0x50, 0x4e, 0x47]) },
+  { path: 'Only/light/resources/bj.yaml', content: toYaml({ IMG2: { rect: { x: 0, y: 0, width: 100, height: 100 } } }) },
+  { path: 'Only/light/resources/anjian26.png', content: new Uint8Array([0x89, 0x50, 0x4e, 0x47]) },
+  { path: 'Only/light/resources/anjian26.yaml', content: toYaml({ IMG27: { rect: { x: 0, y: 0, width: 100, height: 100 } } }) },
+]);
+const importedResourceOnly = await importSkinProjectFromFile(fileLike('resource-only.cskin', resourceOnlyPackageBytes), sampleProject);
+assert(importedResourceOnly.project.nativeKeyboardPayloads.light.pinyin_26_portrait?.keyboardBackgroundStyle?.normalImage?.file === 'bj', 'Jsonnet-only 资源包导入后应生成最小背景预览 payload。');
+assert(importedResourceOnly.project.nativeKeyboardPayloads.light.pinyin_26_portrait?.alphabeticBackgroundStyle?.normalImage?.file === 'anjian26', 'Jsonnet-only 资源包导入后应生成最小键帽预览 payload。');
 
 function createDeflatedZipFile(path, contentText) {
   const encoder = new TextEncoder();

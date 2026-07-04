@@ -55,7 +55,8 @@
 | `buttonInsets.panel.frame` | `keyStyles.buttonInsets.panel.frame` | 面板键盘外框 insets |
 | `buttonInsets.toolbar.*` | `keyStyles.buttonInsets.toolbar.*` | 候选栏和 toolbar 相关 insets |
 | `buttonInsets.hint.*` | `keyStyles.buttonInsets.hint.*` | 长按候选相关 insets |
-| `imageRefs.*` | `assets.images.*` | 图片素材引用 |
+| `imageRefs.*` | `assets.images.*` | 图片素材语义绑定 |
+| `resources/*.yaml` | `assets.resources.<theme>.<file>.sprites` | 图片图集切片 rect / insets |
 | `keyboardFrame.portrait.*` | `keyboardFrame.portrait.*` | 竖屏高度 |
 | `keyboardFrame.landscape.*` | `keyboardFrame.landscape.*` | 横屏高度 |
 | `keyboardFrame.panel.*` | `keyboardFrame.panel.*` | 面板浮动缩放和圆角 |

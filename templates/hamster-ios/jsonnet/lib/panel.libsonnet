@@ -1,7 +1,7 @@
 {
   floatTargetScale: {
     portrait: { x: 0.8, y: 0.6 },
-    landscape: { x: 0.5, y: 0.85 },
+    landscape: { x: 0.58, y: 0.72 },
   },
 
   layout: [

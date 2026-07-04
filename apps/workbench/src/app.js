@@ -2536,19 +2536,90 @@ function renderCandidateStyles() {
   `;
 }
 
-function renderAssets(value) {
-  return `<div class="section-grid">${
-    Object.entries(value || {}).map(([key, asset]) => `
-      <section class="field-card">
-        <label>${escapeHtml(key)}</label>
-        <div class="field-row">
-          ${input({ path: `assets.images.${key}.file`, label: '文件名', value: asset.file })}
-          ${input({ path: `assets.images.${key}.image`, label: '图片名', value: asset.image })}
-        </div>
-        ${input({ path: `assets.images.${key}.source`, label: '来源', value: asset.source || '' })}
-      </section>
-    `).join('')
-  }</div>`;
+function renderRectEditor(path, rect = {}) {
+  return `
+    <div class="field-row">
+      ${input({ path: `${path}.x`, label: 'x', value: rect.x ?? '', type: 'number', step: '0.01' })}
+      ${input({ path: `${path}.y`, label: 'y', value: rect.y ?? '', type: 'number', step: '0.01' })}
+      ${input({ path: `${path}.width`, label: '宽', value: rect.width ?? '', type: 'number', step: '0.01' })}
+      ${input({ path: `${path}.height`, label: '高', value: rect.height ?? '', type: 'number', step: '0.01' })}
+    </div>
+  `;
+}
+
+function renderResourceSpriteEditor(theme, fileKey, imageKey, sprite = {}) {
+  const basePath = `assets.resources.${theme}.${fileKey}.sprites.${imageKey}`;
+  return `
+    <section class="field-card">
+      <label>${escapeHtml(imageKey)}</label>
+      ${renderRectEditor(`${basePath}.rect`, sprite.rect || {})}
+      ${renderInsetObject(`${basePath}.insets`, '九宫格 insets', sprite.insets || {})}
+    </section>
+  `;
+}
+
+function renderAssets(value = {}) {
+  const resources = value.resources || {};
+  const images = value.images || {};
+  const fileSuggestions = [...new Set(Object.values(resources).flatMap((themeResources) => Object.keys(themeResources || {})))]
+    .map((file) => ({ label: file, value: file }));
+  const imageSuggestions = [...new Set(Object.values(resources).flatMap((themeResources) => (
+    Object.values(themeResources || {}).flatMap((resource) => Object.keys(resource?.sprites || {}))
+  )))]
+    .map((image) => ({ label: image, value: image }));
+
+  return `
+    <section class="group-card">
+      <h3>资源文件</h3>
+      <p class="scope-note">资源文件对应导出包里的 light/dark/resources/&lt;file&gt;.png 与同名 yaml。</p>
+      ${['light', 'dark'].map((theme) => `
+        <section class="nested-panel">
+          <h4>${theme === 'dark' ? '深色资源' : '浅色资源'}</h4>
+          <div class="section-grid">
+            ${Object.entries(resources?.[theme] || {}).map(([fileKey, resource]) => `
+              <section class="field-card">
+                <label>${escapeHtml(fileKey)}</label>
+                ${input({ path: `assets.resources.${theme}.${fileKey}.source`, label: '图片来源', value: resource.source || `resources/${fileKey}.png` })}
+                <p class="scope-note">切片数：${Object.keys(resource.sprites || {}).length}</p>
+              </section>
+            `).join('') || '<p class="scope-note">暂无资源。</p>'}
+          </div>
+        </section>
+      `).join('')}
+    </section>
+    <section class="group-card">
+      <h3>切片定位</h3>
+      ${['light', 'dark'].map((theme) => `
+        <section class="nested-panel">
+          <h4>${theme === 'dark' ? '深色切片' : '浅色切片'}</h4>
+          ${Object.entries(resources?.[theme] || {}).map(([fileKey, resource]) => `
+            <section class="asset-file-panel">
+              <h5>${escapeHtml(fileKey)}</h5>
+              <div class="section-grid">
+                ${Object.entries(resource.sprites || {}).map(([imageKey, sprite]) => renderResourceSpriteEditor(theme, fileKey, imageKey, sprite)).join('') || '<p class="scope-note">暂无切片。</p>'}
+              </div>
+            </section>
+          `).join('') || '<p class="scope-note">暂无切片。</p>'}
+        </section>
+      `).join('')}
+    </section>
+    <section class="group-card">
+      <h3>使用位置</h3>
+      <p class="scope-note">这里保存语义绑定；真正的 rect / insets 来自上方资源切片。</p>
+      <div class="section-grid">
+        ${Object.entries(images || {}).map(([key, asset]) => `
+          <section class="field-card">
+            <label>${escapeHtml(displayFieldLabel(key))}</label>
+            <div class="field-row">
+              ${input({ path: `assets.images.${key}.file`, label: '文件名', value: asset.file, suggestions: fileSuggestions })}
+              ${input({ path: `assets.images.${key}.image`, label: '图片名', value: asset.image, suggestions: imageSuggestions })}
+            </div>
+            ${input({ path: `assets.images.${key}.source`, label: '兼容来源', value: asset.source || '' })}
+          </section>
+        `).join('') || '<p class="scope-note">暂无绑定。</p>'}
+      </div>
+    </section>
+  `;
 }
 
 function renderKeyboardFrame(value) {
@@ -6478,7 +6549,7 @@ function renderModules() {
         ${disabledState.disabled ? `disabled aria-disabled="true" title="${escapeHtml(disabledState.reason)}"` : ''}
       >
         <span>${escapeHtml(module.title)}</span>
-        ${disabledState.disabled ? `<span class="module-status">${escapeHtml(disabledState.statusLabel)}</span>` : ''}
+        ${(disabledState.disabled || module.statusLabel) ? `<span class="module-status">${escapeHtml(disabledState.statusLabel || module.statusLabel)}</span>` : ''}
       </button>
     `;
   }).join('');
