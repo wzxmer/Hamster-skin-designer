@@ -1457,7 +1457,8 @@ function labelForMode(project, mode, key, options = {}) {
     enter: variant === '26' ? (text.enter?.default || '回车') : '发送',
   };
   if (profile === 'alphabetic' && /^[a-z]$/.test(key)) return key;
-  return labels[key] || pinyinVariantLettersLabel(key, project) || key;
+  if (Object.prototype.hasOwnProperty.call(labels, key)) return labels[key];
+  return pinyinVariantLettersLabel(key, project) || key;
 }
 
 function renderPinyin9Keyboard(project, theme, styles, frame, options = {}) {
