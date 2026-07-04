@@ -402,6 +402,10 @@ numericSeedProject.keyboardCombo.slots.numeric.variant = '9';
 const numericSeedHtml = render(numericSeedProject, { mode: 'numeric' });
 const numericPayload = buildEffectiveNativeKeyboardPayload(numericSeedProject, 'light', 'numeric_9_portrait');
 const numericLandscapePayload = buildEffectiveNativeKeyboardPayload(numericSeedProject, 'light', 'numeric_9_landscape');
+const pinyin9NumericProject = createSampleProject();
+pinyin9NumericProject.keyboardCombo.slots.pinyin.variant = '9';
+pinyin9NumericProject.keyboardCombo.slots.numeric.variant = '9';
+const pinyin9NumericPayload = buildEffectiveNativeKeyboardPayload(pinyin9NumericProject, 'light', 'numeric_9_portrait');
 const customNumericKeysProject = createSampleProject();
 customNumericKeysProject.keyboards.numeric.keyTypes = { ...(customNumericKeysProject.keyboards.numeric.keyTypes || {}), 1: 'character' };
 customNumericKeysProject.keyboards.numeric.keyDisplays = { ...(customNumericKeysProject.keyboards.numeric.keyDisplays || {}), 1: '壹' };
@@ -434,6 +438,8 @@ assert(backgroundStyle(previewKeyCellHtml(numericSeedHtml, 'space')).includes(`b
   && backgroundStyle(previewKeyCellHtml(numericSeedHtml, 'equal')).includes(`background:${numericPayload.equalBg.normalColor}`)
   && backgroundStyle(previewKeyCellHtml(numericSeedHtml, 'backspace')).includes(`background:${numericPayload.backspaceBg.normalColor}`), '数字 9 键空格、等号、退格背景应来自各自 resolved native payload。');
 assert(previewKeyCellHtml(numericSeedHtml, 'enter').includes(`>${numericPayload.enterFgCol7.text}</span>`), '数字 9 键搜索/确认按钮文案应来自 resolved native 条件前景。');
+assert(numericPayload.number1Button?.action?.character === '1' && !numericPayload.number1Button?.action?.symbol, '数字 9 键数字键默认触发类型应为 character。');
+assert(pinyin9NumericPayload.number1Button?.action?.symbol === '1' && !pinyin9NumericPayload.number1Button?.action?.character, '选择中文 9 键时，数字 9 键数字键默认触发类型应为 symbol。');
 assert(customNumericPayload.number1Button?.action?.character === '1' && !customNumericPayload.number1Button?.action?.symbol, '数字 9 键普通按键应支持统一编辑触发类型。');
 assert(customNumericPayload.number1Fg?.text === '壹' && previewKeyCellHtml(customNumericHtml, '1').includes('>壹</span>'), '数字 9 键普通按键应支持统一编辑显示内容。');
 assert(customNumericPayload.numspaceFg?.text === '', '数字 9 键功能键应支持统一编辑空显示内容。');

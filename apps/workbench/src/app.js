@@ -4120,7 +4120,7 @@ function numericKeyEditFields(path, value) {
     functionKeys: NUMERIC_FUNCTION_KEY_ORDER,
     displayPath: numericDisplayPath(value),
     displayValue: numericDisplayValue(numeric, value),
-    defaultKeyType: /^\d$/.test(value) ? 'symbol' : 'character',
+    defaultKeyType: /^\d$/.test(value) && activePinyinVariant() === '9' ? 'symbol' : 'character',
     defaultFunctionActions: {
       symbol: { type: 'keyboardType', value: 'symbolic' },
       return: { type: 'keyboardType', value: 'pinyin' },

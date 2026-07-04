@@ -1908,6 +1908,7 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
       payload.collection.type = payload.collection.type || 'numericSymbols';
       payload.collection.dataSource = payload.collection.dataSource || 'numericSymbols';
     }
+    const numericNumberDefaultType = project.keyboardCombo?.slots?.pinyin?.variant === '9' ? 'symbol' : 'character';
     for (let index = 0; index <= 9; index += 1) {
       const buttonName = `number${index}Button`;
       const styleName = `number${index}Fg`;
@@ -1926,10 +1927,10 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
         key: String(index),
         buttonName,
         styleName,
-        defaultAction: { symbol: String(index) },
+        defaultAction: { [numericNumberDefaultType]: String(index) },
         defaultText: String(index),
         defaultMode: 'character',
-        defaultType: 'symbol',
+        defaultType: numericNumberDefaultType,
         textOptions: {
           center: { ...(sharedCenter['数字键盘数字前景偏移'] || sharedCenter['26键中文前景偏移'] || {}), x: 0.5, y: 0.54 },
           fontSize: sharedFontSize['数字键盘数字前景字体大小'] || sharedFontSize['按键前景文字大小'] || 15,
