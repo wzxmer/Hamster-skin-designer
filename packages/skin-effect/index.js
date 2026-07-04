@@ -964,6 +964,7 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   const customCenters = project.theme?.shared?.customCenters || {};
   const keyDisplays = project.keyboards?.keyboard26?.keyDisplays || {};
   const keyActions = project.keyboards?.keyboard26?.keyActions || {};
+  const keyTriggers = project.keyboards?.keyboard26?.keyTriggers || {};
   const numericConfig = project.keyboards?.numeric || {};
   const symbolicConfig = project.keyboards?.symbolic || {};
   const keyTextColor = themeColors['按键前景颜色'] || (themeName === 'dark' ? '#FFFFFF' : '#000000');
@@ -1815,6 +1816,26 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
       fontSize: sharedFontSize['功能键前景文字大小'] || 16,
     });
   };
+  const normalizePinyinNumberButtonActions = () => {
+    if (!keyboardName.startsWith('pinyin_')) return;
+    for (let index = 0; index <= 9; index += 1) {
+      const key = `number${index}`;
+      const button = payload[`${key}Button`];
+      if (!isPlainObject(button)) continue;
+      const override = normalizeActionObject(keyActions[key]);
+      if (project.keyboards?.keyboard26?.keyEditorModes?.[key] === 'function' && Object.keys(override).length) {
+        if (override.character === key) override.character = String(index);
+        if (override.symbol === key) override.symbol = String(index);
+        button.action = override;
+        continue;
+      }
+      const trigger = Object.prototype.hasOwnProperty.call(keyTriggers, key)
+        ? keyTriggers[key]
+        : String(index);
+      const actionType = project.keyboards?.keyboard26?.keyTypes?.[key] === 'symbol' ? 'symbol' : 'character';
+      button.action = { [actionType]: String(trigger) };
+    }
+  };
   const normalizeNumeric9Payload = () => {
     if (!keyboardName.startsWith('numeric_9_')) return;
     const containerBackgroundStyle = sharedKeyboardContainerBackgroundStyle();
@@ -2617,6 +2638,7 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   normalizePinyinVariantRowHeights();
   normalizePinyin18Payload();
   normalizeVariantEnterButton();
+  normalizePinyinNumberButtonActions();
   applyPinyinVariantLetterCaseLabels();
   inferMissingButtonStyleTypes(payload);
   ensureCoreFallbackStyles();

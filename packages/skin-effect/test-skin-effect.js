@@ -83,6 +83,27 @@ const defaultPinyin9Model = buildSkinEffectModel(createSampleProject(), { theme:
 for (let index = 1; index <= 9; index += 1) {
   assert(defaultPinyin9Model.nativePayload[`number${index}Button`]?.action?.character === String(index), `中文 9 键 number${index} 主按键触发应参考 9 键样本输出 character ${index}。`);
 }
+const pinyin9TriggerProject = createSampleProject();
+pinyin9TriggerProject.keyboards.keyboard26.keyTriggers = {
+  ...(pinyin9TriggerProject.keyboards.keyboard26.keyTriggers || {}),
+  number1: '1',
+};
+pinyin9TriggerProject.keyboards.keyboard26.keyTypes = {
+  ...(pinyin9TriggerProject.keyboards.keyboard26.keyTypes || {}),
+  number2: 'symbol',
+};
+pinyin9TriggerProject.keyboards.keyboard26.keyActions = {
+  ...(pinyin9TriggerProject.keyboards.keyboard26.keyActions || {}),
+  number3: { actionType: 'character', actionValue: 'number3', character: 'number3' },
+};
+pinyin9TriggerProject.keyboards.keyboard26.keyEditorModes = {
+  ...(pinyin9TriggerProject.keyboards.keyboard26.keyEditorModes || {}),
+  number3: 'function',
+};
+const customPinyin9TriggerModel = buildSkinEffectModel(pinyin9TriggerProject, { theme: 'light', keyboardName: 'pinyin_9_portrait' });
+assert(customPinyin9TriggerModel.nativePayload.number1Button?.action?.character === '1', '中文 9 键自定义触发不应导出 number1。');
+assert(customPinyin9TriggerModel.nativePayload.number2Button?.action?.symbol === '2', '中文 9 键 number2 改为 symbol 时触发值也应为 2。');
+assert(customPinyin9TriggerModel.nativePayload.number3Button?.action?.character === '3', '中文 9 键旧 action 写入 number3 时应归一为 3。');
 numericSwipeProject.data.swipes.numeric = {
   swipe_up: {
     '1': {

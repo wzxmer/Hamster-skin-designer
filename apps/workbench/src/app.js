@@ -3463,6 +3463,17 @@ function keyboard26DisplayPath(key) {
   return `keyboards.keyboard26.keyDisplays.${key}`;
 }
 
+function keyboard26TriggerPath(key, fallbackPath) {
+  return /^number[0-9]$/.test(key) ? `keyboards.keyboard26.keyTriggers.${key}` : fallbackPath;
+}
+
+function keyboard26TriggerValue(key) {
+  const configured = getPath(state.project, `keyboards.keyboard26.keyTriggers.${key}`);
+  if (configured !== undefined && configured !== null) return configured;
+  const numberMatch = String(key).match(/^number([0-9])$/);
+  return numberMatch ? numberMatch[1] : key;
+}
+
 function keyboard26MappedDisplayKeys(value = {}) {
   const scopeKeys = currentPreviewScope().mode === 'keyboard26'
     ? currentPreviewKeyboardKeys()
@@ -3843,6 +3854,8 @@ function keyEditFieldsForKey(key) {
   const displayTypePath = `keyboards.keyboard26.keyDisplayTypes.${value}`;
   const displayTypeValue = getPath(state.project, displayTypePath) || 'text';
   const action = keyboard26FunctionActionFields(value);
+  const triggerPath = keyboard26TriggerPath(value, path);
+  const triggerValue = keyboard26TriggerValue(value);
   const showSchemaNameOnSpace = state.project?.keyboardCombo?.spaceRow?.showSchemaNameOnSpace === true;
   const schemaNameField = ['space', 'enter'].includes(value)
     ? `
@@ -3890,7 +3903,7 @@ function keyEditFieldsForKey(key) {
       <div class="key-edit-fields key-edit-fields-four">
         ${modeField}
         ${editorModeValue === 'function' ? functionActionFields : keyTypeField}
-        ${editorModeValue === 'function' ? '' : input({ path, label: '按键触发', value })}
+        ${editorModeValue === 'function' ? '' : input({ path: triggerPath, label: '按键触发', value: triggerValue })}
       </div>
     </section>
   `;
@@ -5406,9 +5419,7 @@ function handleGuideSpacebarAction(button) {
 function finalizeGuideGeneration() {
   pushUndoSnapshot();
   applyGuidePlanToProject(state.project);
-  if (!previewModeExists(state.previewMode)) {
-    state.previewMode = defaultPreviewMode();
-  }
+  resetPreviewToDefaultSelection();
   state.editingKey = null;
   markDirty();
   renderAll();
@@ -6999,6 +7010,18 @@ function defaultPreviewMode() {
   const keyboards = configPreviewKeyboards();
   if (keyboards.includes('pinyin_26_portrait')) return configPreviewValue('pinyin_26_portrait');
   return keyboards.length ? configPreviewValue(keyboards[0]) : 'keyboard26';
+}
+
+function resetPreviewToDefaultSelection() {
+  state.previewMode = defaultPreviewMode();
+  state.previewModeStack = [];
+  state.previewOrientation = 'portrait';
+  state.previewKeyboardDismissed = false;
+  state.candidateState = 'toolbar';
+  state.previewPressedKey = null;
+  state.previewHintKey = null;
+  state.previewShiftActive = false;
+  state.previewCapsLocked = false;
 }
 
 function previewModeExists(mode) {
@@ -9862,6 +9885,7 @@ function mergeDefaultCollections(project, sampleProject) {
   next.keyboards.keyboard26.keyDisplays = next.keyboards.keyboard26.keyDisplays || {};
   next.keyboards.keyboard26.keyDisplayTypes = next.keyboards.keyboard26.keyDisplayTypes || {};
   next.keyboards.keyboard26.keyTypes = next.keyboards.keyboard26.keyTypes || {};
+  next.keyboards.keyboard26.keyTriggers = next.keyboards.keyboard26.keyTriggers || {};
   next.keyboards.keyboard26.layout = next.keyboards.keyboard26.layout || {};
   next.keyboards.keyboard26.metrics = next.keyboards.keyboard26.metrics || deepClone(sampleProject.keyboards?.keyboard26?.metrics || {});
   next.keyboards.keyboard26.variants = next.keyboards.keyboard26.variants || deepClone(sampleProject.keyboards?.keyboard26?.variants || {});
