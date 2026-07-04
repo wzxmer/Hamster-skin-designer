@@ -402,6 +402,18 @@ numericSeedProject.keyboardCombo.slots.numeric.variant = '9';
 const numericSeedHtml = render(numericSeedProject, { mode: 'numeric' });
 const numericPayload = buildEffectiveNativeKeyboardPayload(numericSeedProject, 'light', 'numeric_9_portrait');
 const numericLandscapePayload = buildEffectiveNativeKeyboardPayload(numericSeedProject, 'light', 'numeric_9_landscape');
+const customNumericKeysProject = createSampleProject();
+customNumericKeysProject.keyboards.numeric.keyTypes = { ...(customNumericKeysProject.keyboards.numeric.keyTypes || {}), 1: 'character' };
+customNumericKeysProject.keyboards.numeric.keyDisplays = { ...(customNumericKeysProject.keyboards.numeric.keyDisplays || {}), 1: '壹' };
+customNumericKeysProject.keyboards.numeric.text = { ...(customNumericKeysProject.keyboards.numeric.text || {}), space: '' };
+customNumericKeysProject.keyboards.numeric.keyDisplayTypes = { ...(customNumericKeysProject.keyboards.numeric.keyDisplayTypes || {}), backspace: 'systemImageName' };
+customNumericKeysProject.keyboards.numeric.keyDisplays.backspace = 'delete.left.fill';
+customNumericKeysProject.keyboards.numeric.keyActions = {
+  ...(customNumericKeysProject.keyboards.numeric.keyActions || {}),
+  backspace: { actionType: 'action', actionValue: 'backspace', action: 'backspace' },
+};
+const customNumericPayload = buildEffectiveNativeKeyboardPayload(customNumericKeysProject, 'light', 'numeric_9_portrait');
+const customNumericHtml = render(customNumericKeysProject, { mode: 'numeric' });
 assert(baseProject.keyboardCombo.swipeBehavior.ui?.numeric?.mode === 'disabled', '数字 9 键预设滑动功能按钮应默认关闭。');
 assert(numericHtml.includes('is-numeric-keyboard'), '数字 9 键应使用专用预览渲染。');
 assert(!numericHtml.includes('is-native-keyboard'), '数字 9 键专用预览不应被 native payload 渲染覆盖。');
@@ -414,7 +426,7 @@ assert(numericLandscapePayload.number1Bg.normalColor === numericPayload.number1B
   && numericLandscapePayload.symbolsCollectionBg.normalColor === numericPayload.symbolsCollectionBg.normalColor, '数字 9 键竖屏/横屏数字键、功能键、collection 配色应一致。');
 assert(backgroundStyle(previewKeyCellHtml(numericSeedHtml, '1')).includes(`background:${numericPayload.number1Bg.normalColor}`), '数字 9 键数字键背景应来自 resolved native payload。');
 assert(backgroundStyle(previewClassCellHtml(numericSeedHtml, 'numeric-collection')).includes(`background:${numericPayload.symbolsCollectionBg.normalColor}`), '数字 9 键左侧符号栏背景应来自 resolved native payload。');
-assert(previewKeyCellHtml(numericSeedHtml, 'space').includes(`>${numericPayload.numspaceFg.text}</span>`), '数字 9 键空格应显示 resolved native payload 的文字，不能空白。');
+assert(numericPayload.numspaceFg.text === '空格' && previewKeyCellHtml(numericSeedHtml, 'space').includes('>空格</span>'), '数字 9 键默认空格应显示 resolved native payload 的文字，不能回退显示 space。');
 assert(previewKeyCellHtml(numericSeedHtml, 'period').includes(`>${numericPayload.numperiodFg.text}</span>`), '数字 9 键句点应显示 resolved native payload 的文字，不能空白。');
 assert(numericPayload.numperiodButton?.backgroundStyle === 'periodBg', '数字 9 键句点键应使用 periodBg，跟随功能键配色而不是 0 键普通色。');
 assert(backgroundStyle(previewKeyCellHtml(numericSeedHtml, 'period')).includes(`background:${numericPayload.periodBg.normalColor}`), '数字 9 键句点背景应来自 periodBg。');
@@ -422,6 +434,30 @@ assert(backgroundStyle(previewKeyCellHtml(numericSeedHtml, 'space')).includes(`b
   && backgroundStyle(previewKeyCellHtml(numericSeedHtml, 'equal')).includes(`background:${numericPayload.equalBg.normalColor}`)
   && backgroundStyle(previewKeyCellHtml(numericSeedHtml, 'backspace')).includes(`background:${numericPayload.backspaceBg.normalColor}`), '数字 9 键空格、等号、退格背景应来自各自 resolved native payload。');
 assert(previewKeyCellHtml(numericSeedHtml, 'enter').includes(`>${numericPayload.enterFgCol7.text}</span>`), '数字 9 键搜索/确认按钮文案应来自 resolved native 条件前景。');
+assert(customNumericPayload.number1Button?.action?.character === '1' && !customNumericPayload.number1Button?.action?.symbol, '数字 9 键普通按键应支持统一编辑触发类型。');
+assert(customNumericPayload.number1Fg?.text === '壹' && previewKeyCellHtml(customNumericHtml, '1').includes('>壹</span>'), '数字 9 键普通按键应支持统一编辑显示内容。');
+assert(customNumericPayload.numspaceFg?.text === '', '数字 9 键功能键应支持统一编辑空显示内容。');
+assert(customNumericPayload.backspaceButton?.action?.action === 'backspace', '数字 9 键功能键应支持统一编辑标准 action。');
+assert(customNumericPayload.backspaceFg?.buttonStyleType === 'systemImage' && customNumericPayload.backspaceFg?.systemImageName === 'delete.left.fill', '数字 9 键功能键应支持统一编辑 systemImageName 显示。');
+const customSymbolicKeysProject = createSampleProject();
+customSymbolicKeysProject.keyboards.symbolic.keyActions = {
+  ...(customSymbolicKeysProject.keyboards.symbolic.keyActions || {}),
+  pageUp: { actionType: 'shortcut', actionValue: '#rimePreviousPage', shortcut: '#rimePreviousPage' },
+};
+customSymbolicKeysProject.keyboards.symbolic.keyDisplays = {
+  ...(customSymbolicKeysProject.keyboards.symbolic.keyDisplays || {}),
+  return: '回主键盘',
+  backspace: 'delete.left.fill',
+};
+customSymbolicKeysProject.keyboards.symbolic.keyDisplayTypes = {
+  ...(customSymbolicKeysProject.keyboards.symbolic.keyDisplayTypes || {}),
+  backspace: 'systemImageName',
+};
+const customSymbolicPayload = buildEffectiveNativeKeyboardPayload(customSymbolicKeysProject, 'light', 'symbolic_portrait');
+assert(customSymbolicPayload.symbolreturnButtonForegroundStyle?.text === '回主键盘', '符号键盘功能键应支持统一编辑显示内容。');
+assert(customSymbolicPayload.pageUpButton?.action?.shortcut === '#rimePreviousPage', '符号键盘功能键应支持统一编辑功能动作。');
+assert(customSymbolicPayload.symbolbackspaceButtonForegroundStyle?.buttonStyleType === 'systemImage'
+  && customSymbolicPayload.symbolbackspaceButtonForegroundStyle?.systemImageName === 'delete.left.fill', '符号键盘功能键应支持统一编辑 systemImageName 显示。');
 assert(previewKeyCellHtml(pinyin14LandscapeNumericHtml, 'number1').includes('>1</span>'), '中文 14 键横屏九宫格 number1 应显示数字 1。');
 assert(previewKeyCellHtml(pinyin14LandscapeNumericHtml, 'number9').includes('>9</span>'), '中文 14 键横屏九宫格 number9 应显示数字 9。');
 assert(previewKeyCellHtml(pinyin14LandscapeNumericHtml, 'number0').includes('>0</span>'), '中文 14 键横屏九宫格 number0 应显示数字 0。');
@@ -433,6 +469,38 @@ for (const key of ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']) {
 const panelHtml = render(baseProject, { mode: 'panel' });
 assert(panelHtml.includes('is-panel-keyboard'), '自定义面板应渲染竖屏 panel 预览。');
 assert(panelHtml.includes('⌨') && panelHtml.includes('📁') && panelHtml.includes('👕'), '自定义面板系统图标缺少 SVG 时应显示 fallback 图标。');
+const customPanelKeysProject = createSampleProject();
+customPanelKeysProject.keyboards.panel.keyActions = {
+  ...(customPanelKeysProject.keyboards.panel.keyActions || {}),
+  Deploy: { actionType: 'sendKeys', actionValue: 'Control+d', sendKeys: 'Control+d' },
+};
+customPanelKeysProject.keyboards.panel.keyDisplays = {
+  ...(customPanelKeysProject.keyboards.panel.keyDisplays || {}),
+  Deploy: '发布',
+  Finder: 'folder.fill',
+};
+customPanelKeysProject.keyboards.panel.keyDisplayTypes = {
+  ...(customPanelKeysProject.keyboards.panel.keyDisplayTypes || {}),
+  Finder: 'systemImageName',
+};
+customPanelKeysProject.keyboards.panel.keyEditorModes = {
+  ...(customPanelKeysProject.keyboards.panel.keyEditorModes || {}),
+  Lenovo: 'character',
+};
+customPanelKeysProject.keyboards.panel.keyTypes = {
+  ...(customPanelKeysProject.keyboards.panel.keyTypes || {}),
+  Lenovo: 'symbol',
+};
+customPanelKeysProject.keyboards.panel.keyTriggers = {
+  ...(customPanelKeysProject.keyboards.panel.keyTriggers || {}),
+  Lenovo: '联想',
+};
+const customPanelPayload = buildEffectiveNativeKeyboardPayload(customPanelKeysProject, 'light', 'panel_portrait');
+assert(customPanelPayload.DeployButton?.action?.sendKeys === 'Control+d'
+  && customPanelPayload.DeployButtonForegroundStyle2?.text === '发布', '自定义面板按键应支持统一编辑动作和文字显示。');
+assert(customPanelPayload.FinderButtonForegroundStyle?.systemImageName === 'folder.fill'
+  && customPanelPayload.FinderButtonForegroundStyle2?.text === '文件', '自定义面板按键应支持统一编辑 systemImageName，且不把图标名写入文字行。');
+assert(customPanelPayload.LenovoButton?.action?.symbol === '联想', '自定义面板按键应支持统一编辑触发类型和按键触发。');
 const imageBackgroundProject = createSampleProject();
 imageBackgroundProject.nativeKeyboardPayloads = {
   light: {

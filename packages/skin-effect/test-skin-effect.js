@@ -40,6 +40,7 @@ assert(model.nativePayload.toolbarPhraseButton?.action?.shortcut === '#showPhras
 assert(model.nativePayload.toolbarPasteboardButton?.action?.shortcut === '#showPasteboardView', '工具栏剪贴板应导出 showPasteboardView 快捷指令。');
 assert(model.nativePayload.toolbarCloseButton?.action === 'dismissKeyboard', '工具栏收起键应导出 App 可直接执行的标准 action 字符串。');
 assert(normalizeActionObject({ action: 'dismissKeyboard' })?.action === 'dismissKeyboard', '标准 action 包装对象不应被规范化为 shortcut。');
+assert(normalizeActionObject('backspace')?.action === 'backspace', '标准 action 字符串不应被规范化为 shortcut。');
 assert(normalizeActionObject({ shortcutCommand: '#Phrase' })?.shortcut === '#showPhraseView', '旧 shortcutCommand 常用语应兼容归一为官方 shortcut。');
 assert(normalizeActionObject({ shortcut: '#Pasteboard' })?.shortcut === '#showPasteboardView', '旧剪贴板快捷指令应兼容归一为官方 shortcut。');
 assert(normalizeActionObject({ floatKeyboardType: 'panel' })?.keyboardType === 'panel', '旧项目 floatKeyboardType: panel 应兼容归一为 keyboardType: panel。');
@@ -78,6 +79,10 @@ const numericSwipeProject = createSampleProject();
 const defaultNumericModel = buildSkinEffectModel(numericSwipeProject, { theme: 'light', keyboardName: 'numeric_9_portrait' });
 assert(!defaultNumericModel.nativePayload.number1Button?.swipeUpAction && !defaultNumericModel.nativePayload.number1Button?.swipeDownAction, '数字 9 键默认不应导出上下划动动作。');
 assert(!defaultNumericModel.nativePayload.number1Button?.foregroundStyle?.includes('number1ButtonSwipeUpForegroundStyle'), '数字 9 键默认不应显示上划前景。');
+const defaultPinyin9Model = buildSkinEffectModel(createSampleProject(), { theme: 'light', keyboardName: 'pinyin_9_portrait' });
+for (let index = 1; index <= 9; index += 1) {
+  assert(defaultPinyin9Model.nativePayload[`number${index}Button`]?.action?.character === String(index), `中文 9 键 number${index} 主按键触发应参考 9 键样本输出 character ${index}。`);
+}
 numericSwipeProject.data.swipes.numeric = {
   swipe_up: {
     '1': {

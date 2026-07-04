@@ -1628,7 +1628,7 @@
       "text": {
         "return": "返回",
         "symbol": "#+=",
-        "space": "",
+        "space": "空格",
         "period": ".",
         "equal": "=",
         "enter": "换行"

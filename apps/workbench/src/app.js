@@ -317,6 +317,19 @@ const PANEL_BUTTONS = [
   ['emoji', 'character.textbox', 'Simplified'],
   ['Lenovo', 'bolt.horizontal.circle', 'Lenovo'],
 ];
+const PANEL_DEFAULT_ACTIONS = {
+  Hamster: { type: 'openURL', value: 'hamster3://com.ihsiao.apps.hamster3/' },
+  Switcher: { type: 'shortcut', value: '#RimeSwitcher' },
+  settings: { type: 'openURL', value: 'hamster3://com.ihsiao.apps.hamster3/keyboardSettings' },
+  Phrase: { type: 'shortcut', value: '#toggleEmbeddedInputMode' },
+  Finder: { type: 'openURL', value: 'hamster3://com.ihsiao.apps.hamster3/finder' },
+  HamsterSkin: { type: 'openURL', value: 'hamster3://com.ihsiao.apps.hamster3/keyboardSkins' },
+  Upload: { type: 'openURL', value: 'hamster3://com.ihsiao.apps.hamster3/clipboard?action=openPictureInPicture' },
+  Deploy: { type: 'openURL', value: 'hamster3://com.ihsiao.apps.hamster3/rime?action=deploy' },
+  emoji: { type: 'shortcut', value: '#简繁切换' },
+  Lenovo: { type: 'sendKeys', value: 'Shift+p' },
+};
+const PANEL_BUTTON_LABELS = Object.fromEntries(PANEL_BUTTONS.map(([key, , textKey]) => [key, textKey]));
 const LANDSCAPE_SECTION_LABELS = {
   left: '横屏左区',
   middle: '横屏中区',
@@ -3116,6 +3129,21 @@ function keyboard26FunctionActionFieldsForPath(basePath) {
   return { type: action.type, value: action.value || '' };
 }
 
+function keyboardFunctionActionFieldsForPath(basePath, defaults = {}) {
+  const key = basePath.split('.').pop();
+  const action = actionToFields(getPath(state.project, `${basePath}.action`));
+  const explicitType = getPath(state.project, `${basePath}.actionType`);
+  const explicitValue = getPath(state.project, `${basePath}.actionValue`);
+  if (explicitType) {
+    return {
+      type: explicitType,
+      value: explicitValue !== undefined && explicitValue !== null ? String(explicitValue) : action.value || '',
+    };
+  }
+  if (!action.value && key && defaults[key]) return { ...defaults[key] };
+  return { type: action.type, value: action.value || '' };
+}
+
 function actionValueField({ basePath, action, toolbar = false, label = '指令内容' }) {
   const actionType = displayActionTypeKey(action.type);
   if (actionType === 'action') {
@@ -3182,6 +3210,17 @@ function keyboard26EditorModeForKey(key) {
   const configured = getPath(state.project, `keyboards.keyboard26.keyEditorModes.${key}`);
   if (configured === 'character' || configured === 'function') return configured;
   return KEYBOARD26_FUNCTION_KEY_ORDER.includes(key) ? 'function' : 'character';
+}
+
+function keyboardEditorModeForKey(keyboardId, key, functionKeys = []) {
+  const configured = getPath(state.project, `keyboards.${keyboardId}.keyEditorModes.${key}`);
+  if (configured === 'character' || configured === 'function') return configured;
+  return functionKeys.includes(key) ? 'function' : 'character';
+}
+
+function configuredOrFallback(path, fallback = '') {
+  const value = getPath(state.project, path);
+  return value === undefined || value === null ? fallback : value;
 }
 
 function keyboardTypeActionOptions() {
@@ -3778,10 +3817,11 @@ function keyEditFieldsForKey(key) {
   if (!state.editingKey) return '';
   const path = state.editingKey.path;
   if (path === keyboard26PunctuationColumnPath()) return punctuationColumnEditFields(path);
-  const value = getPath(state.project, path) || key || '';
+  const value = getPath(state.project, path) || state.editingKey.value || key || '';
   if (path.startsWith('toolbar.layout.')) return toolbarButtonEditFields(path, value);
   if (path.startsWith('keyboards.numeric.layout.')) return numericKeyEditFields(path, value);
   if (path.startsWith('keyboards.symbolic.layout.')) return symbolicKeyEditFields(path, value);
+  if (path.startsWith('keyboards.panel.buttons.')) return panelKeyEditFields(path, value);
   if (path.startsWith('keyboards.emoji.layout.')) return keyEditPanel('按键编辑', [
     input({ path, label: '文本', value }),
   ], path);
@@ -3984,28 +4024,149 @@ function keyEditPanel(title, fields, path = state.editingKey?.path || '') {
   `;
 }
 
+function standardKeyEditFields({
+  keyboardId,
+  path,
+  value,
+  keyboard = {},
+  functionKeys = [],
+  displayPath,
+  displayValue,
+  triggerPath = path,
+  triggerValue = value,
+  defaultKeyType = 'character',
+  defaultFunctionActions = {},
+}) {
+  const modePath = `keyboards.${keyboardId}.keyEditorModes.${value}`;
+  const typePath = `keyboards.${keyboardId}.keyTypes.${value}`;
+  const displayTypePath = `keyboards.${keyboardId}.keyDisplayTypes.${value}`;
+  const actionBasePath = `keyboards.${keyboardId}.keyActions.${value}`;
+  const editorModeValue = keyboardEditorModeForKey(keyboardId, value, functionKeys);
+  const typeValue = getPath(state.project, typePath) || defaultKeyType;
+  const displayTypeValue = getPath(state.project, displayTypePath) || 'text';
+  const action = keyboardFunctionActionFieldsForPath(actionBasePath, defaultFunctionActions);
+  const resolvedDisplayValue = configuredOrFallback(displayPath, displayValue);
+  return `
+    <section class="group-card key-edit-panel" data-key-edit-panel-path="${escapeHtml(path)}">
+      <div class="field-card-title">
+        <h3>按键编辑</h3>
+        ${closeIconButton('data-keyboard-action="close-key-editor"', '关闭编辑')}
+      </div>
+      <section class="key-edit-section">
+        <h4>基础</h4>
+        <div class="key-edit-fields key-edit-fields-four">
+          ${selectField({
+    path: modePath,
+    label: '按键类型',
+    value: editorModeValue,
+    options: KEY_EDITOR_MODES,
+  })}
+          ${editorModeValue === 'function'
+    ? actionEditorFields({ basePath: actionBasePath, action, types: ACTION_TYPES })
+    : selectField({
+      path: typePath,
+      label: '触发类型',
+      value: typeValue,
+      options: [
+        { value: 'character', selectedLabel: 'character', dropdownLabel: 'character' },
+        { value: 'symbol', selectedLabel: 'symbol', dropdownLabel: 'symbol' },
+      ],
+    })}
+          ${editorModeValue === 'function' ? '' : input({ path: triggerPath, label: '按键触发', value: triggerValue })}
+        </div>
+      </section>
+      <section class="key-edit-section">
+        <h4>显示</h4>
+        <div class="key-edit-fields key-edit-fields-four">
+          ${selectField({
+    path: displayTypePath,
+    label: '显示类型',
+    value: displayTypeValue,
+    selectClassName: 'compact-enum-select',
+    options: DISPLAY_TYPE_OPTIONS,
+  })}
+          ${displayTypeValue === 'systemImageName'
+    ? ''
+    : displayValueField({ path: displayPath, type: displayTypeValue, value: resolvedDisplayValue })}
+          ${iconValueField({ path: displayPath, type: displayTypeValue, value: resolvedDisplayValue })}
+        </div>
+      </section>
+      <p class="key-edit-tip">所有键盘按键共用同一套属性：按键触发、触发类型、功能动作、显示类型与显示内容。</p>
+      <span class="key-edit-focus-sentinel" tabindex="0" aria-hidden="true"></span>
+    </section>
+  `;
+}
+
 function numericKeyEditFields(path, value) {
   const numeric = state.project.keyboards?.numeric || {};
-  const textPath = ['symbol', 'return', 'period', 'equal', 'space', 'enter'].includes(value)
-    ? `keyboards.numeric.text.${value}`
-    : `keyboards.numeric.keyDisplays.${value}`;
-  const displayValue = getPath(state.project, textPath) || numericDisplayValue(numeric, value);
-  return keyEditPanel('按键编辑', [
-    input({ path, label: '文本', value }),
-    input({ path: textPath, label: '显示内容', value: displayValue }),
-  ], path);
+  return standardKeyEditFields({
+    keyboardId: 'numeric',
+    path,
+    value,
+    keyboard: numeric,
+    functionKeys: NUMERIC_FUNCTION_KEY_ORDER,
+    displayPath: numericDisplayPath(value),
+    displayValue: numericDisplayValue(numeric, value),
+    defaultKeyType: /^\d$/.test(value) ? 'symbol' : 'character',
+    defaultFunctionActions: {
+      symbol: { type: 'keyboardType', value: 'symbolic' },
+      return: { type: 'keyboardType', value: 'pinyin' },
+      backspace: { type: 'action', value: 'backspace' },
+      period: { type: 'symbol', value: '.' },
+      equal: { type: 'character', value: '=' },
+      space: { type: 'action', value: 'space' },
+      enter: { type: 'action', value: 'enter' },
+    },
+  });
 }
 
 function symbolicKeyEditFields(path, value) {
   const symbolic = state.project.keyboards?.symbolic || {};
-  const textPath = value === 'return'
-    ? 'keyboards.symbolic.text.return'
-    : `keyboards.symbolic.keyDisplays.${value}`;
-  const displayValue = getPath(state.project, textPath) || symbolicDisplayValue(symbolic, value);
-  return keyEditPanel('按键编辑', [
-    input({ path, label: '文本', value }),
-    input({ path: textPath, label: '显示内容', value: displayValue }),
-  ], path);
+  return standardKeyEditFields({
+    keyboardId: 'symbolic',
+    path,
+    value,
+    keyboard: symbolic,
+    functionKeys: SYMBOLIC_FUNCTION_KEY_ORDER,
+    displayPath: symbolicDisplayPath(value),
+    displayValue: symbolicDisplayValue(symbolic, value),
+    defaultKeyType: 'symbol',
+    defaultFunctionActions: {
+      return: { type: 'keyboardType', value: 'pinyin' },
+      pageUp: { type: 'shortcut', value: '#rimePreviousPage' },
+      pageDown: { type: 'shortcut', value: '#rimeNextPage' },
+      lock: { type: 'action', value: 'symbolicKeyboardLockStateToggle' },
+      backspace: { type: 'action', value: 'backspace' },
+    },
+  });
+}
+
+function panelDisplayPath(key) {
+  return `keyboards.panel.keyDisplays.${key}`;
+}
+
+function panelDisplayValue(value = {}, key) {
+  if (Object.prototype.hasOwnProperty.call(value.keyDisplays || {}, key)) return value.keyDisplays[key];
+  const textKey = PANEL_BUTTON_LABELS[key];
+  if (textKey && Object.prototype.hasOwnProperty.call(value.text || {}, textKey)) return value.text[textKey];
+  return textKey || key;
+}
+
+function panelKeyEditFields(path, value) {
+  const panel = state.project.keyboards?.panel || {};
+  return standardKeyEditFields({
+    keyboardId: 'panel',
+    path,
+    value,
+    keyboard: panel,
+    functionKeys: Object.keys(PANEL_BUTTON_LABELS),
+    displayPath: panelDisplayPath(value),
+    displayValue: panelDisplayValue(panel, value),
+    triggerPath: `keyboards.panel.keyTriggers.${value}`,
+    triggerValue: configuredOrFallback(`keyboards.panel.keyTriggers.${value}`, value),
+    defaultKeyType: 'character',
+    defaultFunctionActions: PANEL_DEFAULT_ACTIONS,
+  });
 }
 
 function toolbarButtonEditFields(path, value) {
@@ -4092,11 +4253,11 @@ function renderRowListEditor({ title, path, rows = [], rowLabel = '行', actionP
           <button class="tool-button primary" type="button" data-layout-action="add-row" data-action-prefix="${escapeHtml(actionPrefix)}" data-path="${escapeHtml(path)}"><span aria-hidden="true">＋</span>添加${escapeHtml(rowLabel)}</button>
         </div>
       </div>
-      <div class="key-row-list">
+      <div class="key-row-list visual-layout-editor">
         ${(rows || []).map((keys, rowIndex) => `
           <div class="field-card key-row-card" draggable="true" data-drag-row-path="${escapeHtml(path)}" data-drag-row-index="${rowIndex}">
             <div class="field-card-title row-heading">
-              <span>${escapeHtml(rowLabel)} ${rowIndex + 1}</span>
+              <span class="row-title">${escapeHtml(rowLabel)} ${rowIndex + 1}</span>
               <button class="mini-button row-add-button" type="button" data-layout-action="add-key" data-action-prefix="${escapeHtml(actionPrefix)}" data-path="${escapeHtml(path)}" data-row-index="${rowIndex}"><span aria-hidden="true">＋</span>添加按键</button>
               ${removeRowButton(`data-layout-action="remove-row" data-action-prefix="${escapeHtml(actionPrefix)}" data-path="${escapeHtml(path)}" data-index="${rowIndex}"`, `移除${rowLabel}`)}
             </div>
@@ -4167,21 +4328,6 @@ function metricKeyboardOptions(keyboards = {}) {
     .filter((item) => item.keys.length || item.id === 'panel' || item.id === 'emoji');
 }
 
-function renderKeyMapping(title, keys, labels, valueForKey) {
-  return `
-    <section class="group-card">
-      <h3>${escapeHtml(title)}</h3>
-      <div class="key-display-grid compact-field-grid">
-        ${keys.map((key) => input({
-    path: valueForKey(key).path,
-    label: labels[key] || key,
-    value: valueForKey(key).value,
-  })).join('')}
-      </div>
-    </section>
-  `;
-}
-
 function numericDisplayPath(key) {
   if (['symbol', 'return', 'period', 'equal', 'space', 'enter'].includes(key)) return `keyboards.numeric.text.${key}`;
   return `keyboards.numeric.keyDisplays.${key}`;
@@ -4189,14 +4335,18 @@ function numericDisplayPath(key) {
 
 function numericDisplayValue(value, key) {
   const text = value.text || {};
-  if (/^\d$/.test(key)) return value.keyDisplays?.[key] || key;
-  return value.keyDisplays?.[key] || text[key] || NUMERIC_KEY_LABELS[key] || key;
+  if (Object.prototype.hasOwnProperty.call(value.keyDisplays || {}, key)) return value.keyDisplays[key];
+  if (Object.prototype.hasOwnProperty.call(text, key)) return text[key];
+  if (/^\d$/.test(key)) return key;
+  return NUMERIC_KEY_LABELS[key] || key;
 }
 
 function symbolicDisplayValue(value, key) {
   const text = value.text || {};
-  if (key === 'return') return value.keyDisplays?.return || text.return || '返回';
-  return value.keyDisplays?.[key] || SYMBOLIC_KEY_LABELS[key] || key;
+  if (Object.prototype.hasOwnProperty.call(value.keyDisplays || {}, key)) return value.keyDisplays[key];
+  if (key === 'return' && Object.prototype.hasOwnProperty.call(text, 'return')) return text.return;
+  if (key === 'return') return '返回';
+  return SYMBOLIC_KEY_LABELS[key] || key;
 }
 
 function symbolicDisplayPath(key) {
@@ -4213,15 +4363,13 @@ function metricKeyLabel(keyboardId, keyboard = {}, key) {
   if (keyboardId === 'panel') {
     const panelButton = PANEL_BUTTONS.find(([buttonKey]) => buttonKey === key);
     const textKey = panelButton?.[2];
-    return keyboard.text?.[textKey] || keyboard.text?.[key] || key;
+    return keyboard.keyDisplays?.[key] || keyboard.text?.[textKey] || keyboard.text?.[key] || key;
   }
   return keyboard.keyDisplays?.[key] || keyboard.text?.[key] || keyCodeLabel(key);
 }
 
 function renderNumericKeyboard(value) {
   const columns = value.layout?.portrait?.columns || [];
-  const keys = collectLayoutKeys(columns);
-  const mappedKeys = [...new Set(keys.filter((key) => key !== 'collection'))];
   return `
     ${renderRowListEditor({
     title: '竖屏数字键盘布局',
@@ -4230,10 +4378,6 @@ function renderNumericKeyboard(value) {
     rowLabel: '列',
     actionPrefix: 'numeric-portrait',
   })}
-    ${renderKeyMapping('数字和符号显示', mappedKeys, NUMERIC_KEY_LABELS, (key) => ({
-    path: numericDisplayPath(key),
-    value: numericDisplayValue(value, key),
-  }))}
     <section class="group-card">
       <h3>符号集合</h3>
       <div class="compact-field-grid">
@@ -4265,7 +4409,6 @@ function renderKeyboard26Text(value) {
 
 function renderSymbolic(value) {
   const functionRows = value.layout?.portrait?.functionRows || [];
-  const functionKeys = [...new Set([...SYMBOLIC_FUNCTION_KEY_ORDER, ...collectLayoutKeys(functionRows)])];
   const categoryRows = value.layout?.portrait?.categoryRows || SYMBOLIC_SPECIAL_LAYOUT_GROUPS[0].defaultRows;
   return `
     ${renderRowListEditor({
@@ -4282,21 +4425,6 @@ function renderSymbolic(value) {
     rowLabel: '行',
     actionPrefix: 'symbolic-function',
   })}
-    ${renderKeyMapping('按键映射', functionKeys, SYMBOLIC_KEY_LABELS, (key) => ({
-    path: symbolicDisplayPath(key),
-    value: symbolicDisplayValue(value, key),
-  }))}
-    <section class="group-card">
-      <h3>功能键文本</h3>
-      <div class="section-grid compact-field-grid">
-        ${input({ path: 'keyboards.symbolic.text.return', label: SYMBOLIC_KEY_LABELS.return, value: value.text?.return || '' })}
-        ${functionKeys.filter((key) => key !== 'return').map((key) => input({
-    path: `keyboards.symbolic.keyDisplays.${key}`,
-    label: SYMBOLIC_KEY_LABELS[key] || key,
-    value: value.keyDisplays?.[key] || '',
-  })).join('')}
-      </div>
-    </section>
     <section class="group-card">
       <h3>滚动列表尺寸</h3>
       <div class="section-grid compact-field-grid">
@@ -4311,6 +4439,38 @@ function renderSymbolic(value) {
     <section class="group-card">
       <h3>布局源码</h3>
       ${renderJsonTextarea('keyboards.symbolic.layout', value.layout || {})}
+    </section>
+  `;
+}
+
+function renderPanelKeyboard(value = {}) {
+  const rows = [
+    PANEL_BUTTONS.slice(0, 5).map(([key]) => key),
+    PANEL_BUTTONS.slice(5).map(([key]) => key),
+  ];
+  return `
+    <section class="group-card">
+      <h3>自定义面板按键</h3>
+      <div class="key-row-list visual-layout-editor">
+        ${rows.map((row, rowIndex) => `
+          <div class="field-card key-row-card">
+            <div class="field-card-title row-heading">
+              <span class="row-title">行 ${rowIndex + 1}</span>
+            </div>
+            <div class="visual-key-row">
+              ${row.map((key) => renderVisualKeyToken(
+    'keyboards.panel.buttons',
+    key,
+    '',
+    '',
+    `keyboards.panel.buttons.${key}`,
+  )).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      ${renderInlineKeyEditPanel('keyboards.panel.buttons')}
+      <p class="empty-note">点击按键编辑触发动作、显示类型和显示内容。</p>
     </section>
   `;
 }
@@ -5295,7 +5455,7 @@ function customKeyboardPanelPath(panelId = activeCustomKeyboardPanel()) {
     numeric: 'keyboards.numeric',
     symbolic: 'keyboards.symbolic',
     emoji: 'data.collections.emojiDataSource',
-    panel: 'keyboards.panel.text',
+    panel: 'keyboards.panel',
   };
   return paths[panelId] || 'keyboards.keyboard26';
 }
@@ -5321,7 +5481,7 @@ function renderCustomKeyboards(value = {}) {
   })}
         ${renderJsonTextarea('data.collections.emojiDataSource', state.project.data?.collections?.emojiDataSource || {})}
       `,
-    panel: () => renderStringMap(value.panel?.text || {}, 'keyboards.panel.text'),
+    panel: () => renderPanelKeyboard(value.panel || {}),
   }[previewPanel]?.() || renderKeyboard26Text(value.keyboard26 || {}));
   const fallbackContent = (
     (scope.mode === 'symbolic' && effectiveKeyboardCombo().slots.symbolic.source !== 'custom')
@@ -8065,7 +8225,7 @@ function editableKeyTokenFromEvent(event) {
 function switchKeyEditor(token) {
   const path = token.dataset.keyEditPath;
   if (!path) return;
-  state.editingKey = { path };
+  state.editingKey = { path, value: token.dataset.keyValue || '' };
   if (token.dataset.centerGroup && token.dataset.centerKey) {
     state.selectedCenterTarget = {
       group: token.dataset.centerGroup,
@@ -8569,7 +8729,7 @@ function setFieldValue(path, value, type) {
     renderEditor();
     return;
   }
-  if (path.startsWith('keyboards.keyboard26.keyActions.') && path.endsWith('.actionKeyboardSelection')) {
+  if (/^keyboards\.(keyboard26|numeric|symbolic|panel)\.keyActions\./.test(path) && path.endsWith('.actionKeyboardSelection')) {
     const basePath = path.replace(/\.actionKeyboardSelection$/, '');
     const actionType = getPath(state.project, `${basePath}.actionType`) || 'keyboardType';
     const mappedValue = keyboardTypeSelectionToActionValue(String(value || ''));
@@ -8748,9 +8908,9 @@ function setFieldValue(path, value, type) {
     return;
   }
 
-  if (path.startsWith('keyboards.keyboard26.keyActions.') && path.endsWith('.actionType')) {
+  if (/^keyboards\.(keyboard26|numeric|symbolic|panel)\.keyActions\./.test(path) && path.endsWith('.actionType')) {
     const basePath = path.replace(/\.actionType$/, '');
-    const currentAction = keyboard26FunctionActionFieldsForPath(basePath);
+    const currentAction = keyboardFunctionActionFieldsForPath(basePath);
     const nextType = value;
     const nextValue = '';
     updateActionState(basePath, nextType, nextValue);
@@ -8762,7 +8922,7 @@ function setFieldValue(path, value, type) {
     return;
   }
 
-  if (path.startsWith('keyboards.keyboard26.keyEditorModes.')) {
+  if (/^keyboards\.(keyboard26|numeric|symbolic|panel)\.keyEditorModes\./.test(path)) {
     setPath(state.project, path, value);
     markDirty();
     renderProjectSummary();
@@ -8789,9 +8949,9 @@ function setFieldValue(path, value, type) {
     return;
   }
 
-  if (path.startsWith('keyboards.keyboard26.keyActions.') && path.endsWith('.actionValue')) {
+  if (/^keyboards\.(keyboard26|numeric|symbolic|panel)\.keyActions\./.test(path) && path.endsWith('.actionValue')) {
     const basePath = path.replace(/\.actionValue$/, '');
-    const currentAction = keyboard26FunctionActionFieldsForPath(basePath);
+    const currentAction = keyboardFunctionActionFieldsForPath(basePath);
     if (path.includes('.combine.')) return;
     const nextType = currentAction.type;
     updateActionState(basePath, nextType, value);
@@ -8880,8 +9040,9 @@ function handleInput(event) {
     markDirty();
     if (
       path.startsWith('toolbar.actions.')
-      || path.startsWith('keyboards.keyboard26.keyActions.')
-      || path.startsWith('keyboards.keyboard26.keyDisplayTypes.')
+      || /^keyboards\.(keyboard26|numeric|symbolic|panel)\.keyActions\./.test(path)
+      || /^keyboards\.(keyboard26|numeric|symbolic|panel)\.keyDisplayTypes\./.test(path)
+      || /^keyboards\.(keyboard26|numeric|symbolic|panel)\.keyEditorModes\./.test(path)
       || path === 'keyboardCombo.spaceRow.showSchemaNameOnSpace'
       || path.startsWith('guide.preferences.')
       || (path.startsWith('toolbar.display.') && path.endsWith('.type'))
@@ -9723,6 +9884,10 @@ function mergeDefaultCollections(project, sampleProject) {
   }
   next.keyboards.numeric.layout.landscape = next.keyboards.numeric.layout.landscape || {};
   next.keyboards.numeric.keyDisplays = next.keyboards.numeric.keyDisplays || {};
+  next.keyboards.numeric.keyDisplayTypes = next.keyboards.numeric.keyDisplayTypes || {};
+  next.keyboards.numeric.keyTypes = next.keyboards.numeric.keyTypes || {};
+  next.keyboards.numeric.keyActions = next.keyboards.numeric.keyActions || {};
+  next.keyboards.numeric.keyEditorModes = next.keyboards.numeric.keyEditorModes || {};
   if (!Array.isArray(next.keyboards.numeric.collectionSymbols)) {
     next.keyboards.numeric.collectionSymbols = deepClone(
       sampleProject.keyboards?.numeric?.collectionSymbols || DEFAULT_NUMERIC_SYMBOLS,
@@ -9747,6 +9912,10 @@ function mergeDefaultCollections(project, sampleProject) {
     ?? sampleProject.keyboards?.symbolic?.layout?.portrait?.descriptionCellHeight
     ?? 28;
   next.keyboards.symbolic.keyDisplays = next.keyboards.symbolic.keyDisplays || {};
+  next.keyboards.symbolic.keyDisplayTypes = next.keyboards.symbolic.keyDisplayTypes || {};
+  next.keyboards.symbolic.keyTypes = next.keyboards.symbolic.keyTypes || {};
+  next.keyboards.symbolic.keyActions = next.keyboards.symbolic.keyActions || {};
+  next.keyboards.symbolic.keyEditorModes = next.keyboards.symbolic.keyEditorModes || {};
   next.keyboards.emoji = next.keyboards.emoji || {};
   next.keyboards.emoji.layout = next.keyboards.emoji.layout || {};
   next.keyboards.emoji.layout.portrait = next.keyboards.emoji.layout.portrait || {};
@@ -9756,6 +9925,12 @@ function mergeDefaultCollections(project, sampleProject) {
   next.keyboards.panel = next.keyboards.panel || {};
   next.keyboards.panel.text = next.keyboards.panel.text || deepClone(sampleProject.keyboards?.panel?.text || {});
   next.keyboards.panel.metrics = next.keyboards.panel.metrics || deepClone(sampleProject.keyboards?.panel?.metrics || {});
+  next.keyboards.panel.keyDisplays = next.keyboards.panel.keyDisplays || {};
+  next.keyboards.panel.keyDisplayTypes = next.keyboards.panel.keyDisplayTypes || {};
+  next.keyboards.panel.keyTypes = next.keyboards.panel.keyTypes || {};
+  next.keyboards.panel.keyTriggers = next.keyboards.panel.keyTriggers || {};
+  next.keyboards.panel.keyActions = next.keyboards.panel.keyActions || {};
+  next.keyboards.panel.keyEditorModes = next.keyboards.panel.keyEditorModes || {};
   if (next.meta?.name === '仿ios-显') next.meta.name = sampleProject.config?.name || sampleProject.meta?.name || next.meta.name;
   if (next.meta?.author === '叙白') next.meta.author = sampleProject.config?.author || sampleProject.meta?.author || next.meta.author;
   if (

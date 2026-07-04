@@ -9,6 +9,21 @@ const AVAILABLE_TEMPLATE_RESOURCE_FILES = new Set(
     .map((path) => path.split('/').pop().replace(/\.png$/i, '')),
 );
 const ACTION_AUX_KEYS = new Set(['actionType', 'actionValue', 'actionKeyboardSelection', 'presetValue']);
+const STANDARD_ACTION_VALUES = new Set([
+  'space',
+  'enter',
+  'tab',
+  'shift',
+  'backspace',
+  'dismissKeyboard',
+  'moveCursorBackward',
+  'moveCursorForward',
+  'returnPrimaryKeyboard',
+  'returnLastKeyboard',
+  'symbolicKeyboardLockStateToggle',
+  'settings',
+  'nextKeyboard',
+]);
 const LEGACY_SHORTCUT_VALUE_MAP = {
   pasteboard: '#showPasteboardView',
   '#Pasteboard': '#showPasteboardView',
@@ -142,6 +157,7 @@ function decimalFractionToIntegerFraction(value) {
 
 export function normalizeActionObject(value) {
   if (typeof value === 'string') {
+    if (STANDARD_ACTION_VALUES.has(value)) return { action: value };
     const shortcutValue = normalizeShortcutValue(value);
     return shortcutValue ? { shortcut: shortcutValue } : {};
   }
@@ -775,12 +791,24 @@ function buildPanelNativeKeyboardPayload(project, themeName, keyboardName) {
     animation: ['ButtonScaleAnimation'],
   };
   for (const [buttonName, config] of Object.entries(PANEL_BUTTON_CONFIG)) {
+    const editorKey = buttonName.replace(/Button$/, '');
+    const panelConfig = project.keyboards?.panel || {};
+    const actionOverride = normalizeActionObject(panelConfig.keyActions?.[editorKey]);
     payload[buttonName] = {
       action: structuredClone(config.action),
       backgroundStyle: 'ButtonBackgroundStyle',
       foregroundStyle: [`${buttonName}ForegroundStyle`, `${buttonName}ForegroundStyle2`],
       size: { height: '1/4' },
     };
+    if (panelConfig.keyEditorModes?.[editorKey] === 'character') {
+      const actionType = panelConfig.keyTypes?.[editorKey] === 'symbol' ? 'symbol' : 'character';
+      const trigger = Object.prototype.hasOwnProperty.call(panelConfig.keyTriggers || {}, editorKey)
+        ? panelConfig.keyTriggers[editorKey]
+        : editorKey;
+      payload[buttonName].action = { [actionType]: String(trigger) };
+    } else if (Object.keys(actionOverride).length) {
+      payload[buttonName].action = actionOverride;
+    }
     payload[`${buttonName}ForegroundStyle`] = {
       buttonStyleType: 'systemImage',
       center: sharedCenter['panel键盘按键sf符号前景偏移'] || { y: 0.4 },
@@ -789,13 +817,20 @@ function buildPanelNativeKeyboardPayload(project, themeName, keyboardName) {
       normalColor: foregroundColor,
       systemImageName: config.systemImageName,
     };
+    const displayType = panelConfig.keyDisplayTypes?.[editorKey] || 'text';
+    const hasDisplay = Object.prototype.hasOwnProperty.call(panelConfig.keyDisplays || {}, editorKey);
+    const displayValue = hasDisplay ? panelConfig.keyDisplays[editorKey] : (textMap[config.textKey] || config.text);
+    const displayText = displayType === 'systemImageName' ? (textMap[config.textKey] || config.text) : displayValue;
+    if (displayType === 'systemImageName') {
+      payload[`${buttonName}ForegroundStyle`].systemImageName = displayValue;
+    }
     payload[`${buttonName}ForegroundStyle2`] = {
       buttonStyleType: 'text',
       center: sharedCenter['panel键盘按键文字前景偏移'] || { y: 0.7 },
       fontSize: sharedFontSize['panel按键前景文字大小'] || 12,
       highlightColor: foregroundColor,
       normalColor: foregroundColor,
-      text: textMap[config.textKey] || config.text,
+      text: displayText,
     };
   }
   return payload;
@@ -929,6 +964,8 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   const customCenters = project.theme?.shared?.customCenters || {};
   const keyDisplays = project.keyboards?.keyboard26?.keyDisplays || {};
   const keyActions = project.keyboards?.keyboard26?.keyActions || {};
+  const numericConfig = project.keyboards?.numeric || {};
+  const symbolicConfig = project.keyboards?.symbolic || {};
   const keyTextColor = themeColors['按键前景颜色'] || (themeName === 'dark' ? '#FFFFFF' : '#000000');
   const swipeTextColor = themeColors['划动字符颜色'] || (themeName === 'dark' ? '#b6b7b9' : '#838383ff');
   const toolbarTextColor = themeColors['toolbar按键颜色'] || (themeName === 'dark' ? '#e5e5e5' : '#4a4a4a');
@@ -1612,6 +1649,57 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
     delete payload[styleName].normalImage;
     delete payload[styleName].highlightImage;
   };
+  const applyStandardKeyConfig = ({
+    keyboardConfig = {},
+    key,
+    buttonName,
+    styleName,
+    defaultAction = {},
+    defaultText = '',
+    defaultMode = 'character',
+    defaultType = 'character',
+    defaultDisplayType = 'text',
+    textOptions = {},
+    applyWithoutConfig = true,
+  }) => {
+    const button = payload[buttonName];
+    if (!isPlainObject(button)) return;
+    const hasConfiguredKey = [
+      keyboardConfig.keyEditorModes,
+      keyboardConfig.keyActions,
+      keyboardConfig.keyTypes,
+      keyboardConfig.keyDisplays,
+      keyboardConfig.keyDisplayTypes,
+      keyboardConfig.text,
+    ].some((collection) => Object.prototype.hasOwnProperty.call(collection || {}, key));
+    if (!applyWithoutConfig && !hasConfiguredKey) return;
+    const mode = keyboardConfig.keyEditorModes?.[key] || defaultMode;
+    const actionOverride = normalizeActionObject(keyboardConfig.keyActions?.[key]);
+    if (mode === 'function') {
+      if (Object.keys(actionOverride).length) button.action = actionOverride;
+      else if (Object.keys(defaultAction).length) button.action = structuredClone(defaultAction);
+    } else {
+      const actionType = keyboardConfig.keyTypes?.[key] || defaultType;
+      button.action = { [actionType === 'symbol' ? 'symbol' : 'character']: String(key) };
+    }
+    const hasKeyDisplay = Object.prototype.hasOwnProperty.call(keyboardConfig.keyDisplays || {}, key);
+    const hasTextDisplay = Object.prototype.hasOwnProperty.call(keyboardConfig.text || {}, key);
+    const displayValue = hasKeyDisplay
+      ? keyboardConfig.keyDisplays[key]
+      : hasTextDisplay
+        ? keyboardConfig.text[key]
+        : (defaultText || String(key));
+    if ((keyboardConfig.keyDisplayTypes?.[key] || defaultDisplayType) === 'systemImageName') {
+      setSystemImageStyle(styleName, displayValue, {
+        normalColor: keyTextColor,
+        highlightColor: keyTextColor,
+        ...textOptions,
+      });
+    } else {
+      setTextStyle(styleName, displayValue, textOptions);
+    }
+    button.foregroundStyle = [styleName];
+  };
   const normalizeCandidateBarStyle = () => {
     if (isPlainObject(payload.horizontalCandidates)) {
       payload.horizontalCandidates.candidateStyle = 'candidateStyle';
@@ -1695,6 +1783,10 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
         : defaultSymbols;
     }
     for (let index = 0; index <= 9; index += 1) {
+      const button = payload[`number${index}Button`];
+      if (index >= 1 && index <= 9 && isPlainObject(button)) {
+        button.action = { character: String(index) };
+      }
       const style = payload[`number${index}ButtonForegroundStyle`];
       if (isPlainObject(style)) {
         style.buttonStyleType = 'text';
@@ -1808,6 +1900,107 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
         fontSize: sharedFontSize['数字键盘数字前景字体大小'] || sharedFontSize['按键前景文字大小'] || 15,
       });
       payload[`${buttonName}ForegroundStyle`] = structuredClone(payload[styleName]);
+      applyStandardKeyConfig({
+        keyboardConfig: numericConfig,
+        key: String(index),
+        buttonName,
+        styleName,
+        defaultAction: { symbol: String(index) },
+        defaultText: String(index),
+        defaultMode: 'character',
+        defaultType: 'symbol',
+        textOptions: {
+          center: { ...(sharedCenter['数字键盘数字前景偏移'] || sharedCenter['26键中文前景偏移'] || {}), x: 0.5, y: 0.54 },
+          fontSize: sharedFontSize['数字键盘数字前景字体大小'] || sharedFontSize['按键前景文字大小'] || 15,
+        },
+      });
+    }
+    const numericFunctionButtons = {
+      symbol: { buttonName: 'symbolicButton', styleName: 'symbolicFg', defaultAction: { keyboardType: 'symbolic' }, defaultText: project.keyboards?.numeric?.text?.symbol || '#+=' },
+      return: { buttonName: 'returnButton', styleName: 'returnFgGray', defaultAction: { keyboardType: 'pinyin' }, defaultText: project.keyboards?.numeric?.text?.return || '返回' },
+      backspace: { buttonName: 'backspaceButton', styleName: 'backspaceFg', defaultAction: { action: 'backspace' }, defaultText: 'delete.left', defaultDisplayType: 'systemImageName' },
+      period: { buttonName: 'numperiodButton', styleName: 'numperiodFg', defaultAction: { symbol: '.' }, defaultText: project.keyboards?.numeric?.text?.period || '.' },
+      equal: { buttonName: 'equalButton', styleName: 'equalFg', defaultAction: { character: '=' }, defaultText: project.keyboards?.numeric?.text?.equal || '=' },
+      space: { buttonName: 'spaceButton', styleName: 'numspaceFg', defaultAction: { action: 'space' }, defaultText: project.keyboards?.numeric?.text?.space || '空格' },
+      enter: { buttonName: 'enterButton', styleName: 'enterFgCol7', defaultAction: { action: 'enter' }, defaultText: project.keyboards?.numeric?.text?.enter || '发送' },
+    };
+    for (const [key, config] of Object.entries(numericFunctionButtons)) {
+      applyStandardKeyConfig({
+        keyboardConfig: numericConfig,
+        key,
+        buttonName: config.buttonName,
+        styleName: config.styleName,
+        defaultAction: config.defaultAction,
+        defaultText: config.defaultText,
+        defaultMode: 'function',
+        defaultType: 'character',
+        defaultDisplayType: config.defaultDisplayType || 'text',
+        textOptions: {
+          center: sharedCenter['功能键前景文字偏移'] || { x: 0.5, y: 0.5 },
+          fontSize: sharedFontSize['功能键前景文字大小'] || 16,
+          normalColor: keyTextColor,
+          highlightColor: keyTextColor,
+        },
+      });
+    }
+  };
+  const applySymbolicStandardKeyConfig = () => {
+    if (!keyboardName.startsWith('symbolic_')) return;
+    const symbolicFunctionButtons = {
+      return: {
+        buttonName: 'symbolreturnButton',
+        styleName: 'symbolreturnButtonForegroundStyle',
+        defaultAction: { action: 'returnLastKeyboard' },
+        defaultText: project.keyboards?.symbolic?.text?.return || '返回',
+      },
+      pageUp: {
+        buttonName: 'pageUpButton',
+        styleName: 'pageUpButtonForegroundStyle',
+        defaultAction: { shortcut: '#subCollectionPageUp' },
+        defaultText: 'chevron.up',
+        defaultDisplayType: 'systemImageName',
+      },
+      pageDown: {
+        buttonName: 'pageDownButton',
+        styleName: 'pageDownButtonForegroundStyle',
+        defaultAction: { shortcut: '#subCollectionPageDown' },
+        defaultText: 'chevron.down',
+        defaultDisplayType: 'systemImageName',
+      },
+      lock: {
+        buttonName: 'lockButton',
+        styleName: 'lockButtonForegroundStyle',
+        defaultAction: { action: 'symbolicKeyboardLockStateToggle' },
+        defaultText: 'lock',
+        defaultDisplayType: 'systemImageName',
+      },
+      backspace: {
+        buttonName: 'symbolbackspaceButton',
+        styleName: 'symbolbackspaceButtonForegroundStyle',
+        defaultAction: { action: 'backspace' },
+        defaultText: 'delete.left',
+        defaultDisplayType: 'systemImageName',
+      },
+    };
+    for (const [key, config] of Object.entries(symbolicFunctionButtons)) {
+      applyStandardKeyConfig({
+        keyboardConfig: symbolicConfig,
+        key,
+        buttonName: config.buttonName,
+        styleName: config.styleName,
+        defaultAction: config.defaultAction,
+        defaultText: config.defaultText,
+        defaultMode: 'function',
+        defaultType: 'symbol',
+        defaultDisplayType: config.defaultDisplayType || 'text',
+        applyWithoutConfig: false,
+        textOptions: {
+          center: sharedCenter['功能键前景文字偏移'] || { x: 0.5, y: 0.5 },
+          fontSize: sharedFontSize['功能键前景文字大小'] || 16,
+          normalColor: keyTextColor,
+          highlightColor: keyTextColor,
+        },
+      });
     }
   };
   const normalizeIos14AlphabeticPayload = () => {
@@ -2417,6 +2610,7 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   }
   normalizePinyin9Payload();
   normalizeNumeric9Payload();
+  applySymbolicStandardKeyConfig();
   normalizeIos14AlphabeticPayload();
   normalizePinyin14Payload();
   normalizePinyin17Payload();
