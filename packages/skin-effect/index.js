@@ -1,5 +1,6 @@
 import { NATIVE_KEYBOARD_PRESET_PAYLOADS } from '../../apps/workbench/src/data/native-keyboard-presets.generated.js';
 import TEMPLATE_PACKAGE_ASSETS from '../../templates/hamster-ios/package-assets.json' with { type: 'json' };
+import { sanitizeLegacyNativeSeed } from './legacy-seed-sanitizer.js';
 
 const DEFAULT_NATIVE_PAYLOAD_PRESET = 'ios-26';
 const AVAILABLE_TEMPLATE_RESOURCE_FILES = new Set(
@@ -1567,17 +1568,77 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
     delete payload[styleName].normalImage;
     delete payload[styleName].highlightImage;
   };
+  const setSystemImageStyle = (styleName, systemImageName, options = {}) => {
+    payload[styleName] = {
+      ...(isPlainObject(payload[styleName]) ? payload[styleName] : {}),
+      buttonStyleType: 'systemImage',
+      systemImageName,
+      center: options.center || payload[styleName]?.center || sharedCenter['toolbar按键sf符号偏移'] || { x: 0.5, y: 0.53 },
+      fontSize: options.fontSize || payload[styleName]?.fontSize || sharedFontSize['toolbar按键前景sf符号大小'] || 16,
+      highlightColor: options.highlightColor || payload[styleName]?.highlightColor || toolbarTextColor,
+      normalColor: options.normalColor || payload[styleName]?.normalColor || toolbarTextColor,
+    };
+    delete payload[styleName].text;
+    delete payload[styleName].assetImageName;
+    delete payload[styleName].normalImage;
+    delete payload[styleName].highlightImage;
+  };
+  const normalizeCandidateBarStyle = () => {
+    if (isPlainObject(payload.horizontalCandidates)) {
+      payload.horizontalCandidates.candidateStyle = 'candidateStyle';
+    }
+    if (isPlainObject(payload.horizontalCandidatesStyle)) {
+      payload.horizontalCandidatesStyle.backgroundStyle = 'toolbarBackgroundStyle';
+    }
+    payload.candidateStyle = {
+      ...(isPlainObject(payload.candidateStyle) ? payload.candidateStyle : {}),
+      commentColor: themeColors['候选字体未选中字体颜色'] || keyTextColor,
+      commentFontSize: sharedFontSize['未展开comment字体大小'] || 12,
+      highlightBackgroundColor: '#00000000',
+      indexColor: themeColors['候选字体未选中字体颜色'] || keyTextColor,
+      indexFontSize: sharedFontSize['未展开候选字体选中字体大小'] || 17,
+      preferredBackgroundColor: themeColors['选中候选背景颜色'] || '#FFFFFF',
+      preferredCommentColor: themeColors['候选字体选中字体颜色'] || keyTextColor,
+      preferredIndexColor: themeColors['候选字体选中字体颜色'] || keyTextColor,
+      preferredTextColor: themeColors['候选字体选中字体颜色'] || keyTextColor,
+      textColor: themeColors['候选字体未选中字体颜色'] || keyTextColor,
+      textFontSize: sharedFontSize['未展开候选字体选中字体大小'] || 17,
+    };
+    if (isPlainObject(payload.expandButton)) {
+      payload.expandButton.backgroundStyle = 'toolbarButtonBackgroundStyle';
+      payload.expandButton.foregroundStyle = 'expandButtonForegroundStyle';
+    }
+    setSystemImageStyle('expandButtonForegroundStyle', 'chevron.down', {
+      center: sharedCenter['toolbar按键sf符号偏移'] || { x: 0.5, y: 0.53 },
+      fontSize: sharedFontSize['toolbar按键前景sf符号大小'] || 16,
+      normalColor: toolbarTextColor,
+      highlightColor: toolbarTextColor,
+    });
+  };
+  const ensureAlphabeticHintBackgroundStyle = () => {
+    payload.alphabeticHintBackgroundStyle = {
+      ...(isPlainObject(payload.alphabeticHintBackgroundStyle) ? payload.alphabeticHintBackgroundStyle : {}),
+      buttonStyleType: 'geometry',
+      cornerRadius: 7,
+      normalColor: themeName === 'dark' ? '#6B6B6B' : '#ffffff',
+      highlightColor: '#0279FE',
+      shadowOffset: { x: 0, y: 5 },
+    };
+  };
   const normalizePinyin9Payload = () => {
     if (!keyboardName.startsWith('pinyin_9_')) return;
+    const containerBackgroundStyle = sharedKeyboardContainerBackgroundStyle();
+    payload.keyboardBackgroundStyle = structuredClone(containerBackgroundStyle);
+    payload.toolbarBackgroundStyle = structuredClone(containerBackgroundStyle);
+    payload.keyboardStyle = payload.keyboardStyle && isPlainObject(payload.keyboardStyle) ? payload.keyboardStyle : {};
+    payload.keyboardStyle.backgroundStyle = 'keyboardBackgroundStyle';
     payload.toolbarStyle = payload.toolbarStyle && isPlainObject(payload.toolbarStyle) ? payload.toolbarStyle : {};
     payload.toolbarStyle.backgroundStyle = payload.toolbarStyle.backgroundStyle || 'toolbarBackgroundStyle';
+    normalizeCandidateBarStyle();
+    ensureAlphabeticHintBackgroundStyle();
     payload.preeditStyle = payload.preeditStyle && isPlainObject(payload.preeditStyle) ? payload.preeditStyle : {};
     payload.preeditStyle.backgroundStyle = payload.preeditStyle.backgroundStyle || 'preeditBackgroundStyle';
     payload.preeditStyle.foregroundStyle = payload.preeditStyle.foregroundStyle || 'preeditForegroundStyle';
-    payload.toolbarBackgroundStyle = payload.toolbarBackgroundStyle || {
-      buttonStyleType: 'geometry',
-      normalColor: normalizeContainerColor(themeColors['键盘背景颜色'], '#00000001'),
-    };
     payload.preeditBackgroundStyle = payload.preeditBackgroundStyle || {
       buttonStyleType: 'geometry',
       normalColor: normalizeContainerColor(themeColors['键盘背景颜色'], '#00000001'),
@@ -1636,16 +1697,14 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   const normalizeNumeric9Payload = () => {
     if (!keyboardName.startsWith('numeric_9_')) return;
     const containerBackgroundStyle = sharedKeyboardContainerBackgroundStyle();
-    payload.keyboardBackgroundStyle = isPlainObject(payload.keyboardBackgroundStyle)
-      ? payload.keyboardBackgroundStyle
-      : structuredClone(containerBackgroundStyle);
-    payload.toolbarBackgroundStyle = isPlainObject(payload.toolbarBackgroundStyle)
-      ? payload.toolbarBackgroundStyle
-      : structuredClone(containerBackgroundStyle);
+    payload.keyboardBackgroundStyle = structuredClone(containerBackgroundStyle);
+    payload.toolbarBackgroundStyle = structuredClone(containerBackgroundStyle);
     payload.keyboardStyle = payload.keyboardStyle && isPlainObject(payload.keyboardStyle) ? payload.keyboardStyle : {};
     payload.keyboardStyle.backgroundStyle = 'keyboardBackgroundStyle';
     payload.toolbarStyle = payload.toolbarStyle && isPlainObject(payload.toolbarStyle) ? payload.toolbarStyle : {};
     payload.toolbarStyle.backgroundStyle = 'toolbarBackgroundStyle';
+    normalizeCandidateBarStyle();
+    ensureAlphabeticHintBackgroundStyle();
     const normalBackgroundStyle = structuredClone(payload.alphabeticBackgroundStyle || payload.number1Bg || fallbackBackgroundStyle('numericNumberBackgroundStyle'));
     applySurfaceStyle(normalBackgroundStyle, project.keyStyles?.surfaceStyles?.keyboard26?.normal);
     applyInsets(normalBackgroundStyle, project.keyStyles?.buttonInsets?.keyboard26?.normal);
@@ -1754,12 +1813,14 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
     payload.keyboardStyle.backgroundStyle = 'keyboardBackgroundStyle';
     payload.toolbarStyle = payload.toolbarStyle && isPlainObject(payload.toolbarStyle) ? payload.toolbarStyle : {};
     payload.toolbarStyle.backgroundStyle = 'toolbarBackgroundStyle';
+    normalizeCandidateBarStyle();
+    ensureAlphabeticHintBackgroundStyle();
     const letterBackgroundKeys = [
       'qwBg', 'erBg', 'tyBg', 'uiBg', 'opBg',
       'asBg', 'dfBg', 'ghBg', 'jkBg', 'lBg',
       'zxBg', 'cvBg', 'bnBg', 'mBg',
     ];
-    const functionBackgroundKeys = ['shiftBg', 'backspaceBg', '123Bg', 'commaBg', 'cnenBg', 'periodBg', 'enterBgGray'];
+    const functionBackgroundKeys = ['shiftBg', 'backspaceBg', '123Bg', 'commaBg', 'cnenBg', 'periodBg', 'equalBg', 'symbolicBg', 'enterBgGray'];
     const normalBackgroundStyle = structuredClone(payload.alphabeticBackgroundStyle || fallbackBackgroundStyle('alphabeticBackgroundStyle'));
     applySurfaceStyle(normalBackgroundStyle, project.keyStyles?.surfaceStyles?.keyboard26?.normal);
     applyInsets(normalBackgroundStyle, project.keyStyles?.buttonInsets?.keyboard26?.normal);
@@ -1793,6 +1854,48 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
     }
     payload.spaceBg = structuredClone(normalBackgroundStyle);
     payload.enterBgCol = structuredClone(enterBackgroundStyle);
+    const comboKeys = [
+      'qw', 'er', 'ty', 'ui', 'op',
+      'as', 'df', 'gh', 'jk',
+      'zx', 'cv', 'bn',
+    ];
+    for (const comboKey of comboKeys) {
+      const buttonName = `${comboKey}Button`;
+      if (!isPlainObject(payload[buttonName])) continue;
+      const symbols = comboKey.split('');
+      payload[buttonName].hintStyle = `${buttonName}HintStyle`;
+      payload[buttonName].hintSymbolsStyle = `${buttonName}HintSymbolsStyle`;
+      payload[`${buttonName}HintStyle`] = {
+        backgroundStyle: 'alphabeticHintBackgroundStyle',
+        foregroundStyle: `${buttonName}HintForegroundStyle`,
+        swipeUpForegroundStyle: `${buttonName}HintForegroundStyle`,
+      };
+      setTextStyle(`${buttonName}HintForegroundStyle`, applyPinyinProjectLetterCase(project, symbols[0]), {
+        center: { x: 0.5, y: 0.6, ...(sharedCenter['长按气泡文字偏移'] || {}) },
+        fontSize: sharedFontSize['按下气泡文字大小'] || 28,
+        normalColor: themeName === 'dark' ? '#E6E6E6' : '#2E2E2E',
+        highlightColor: themeName === 'dark' ? '#E6E6E6' : '#2E2E2E',
+      });
+      payload[`${buttonName}HintSymbolsStyle`] = {
+        backgroundStyle: 'alphabeticHintSymbolsBackgroundStyle',
+        insets: { bottom: 3, left: 8, right: 8, top: 3 },
+        selectedBackgroundStyle: 'alphabeticHintSymbolsSelectedStyle',
+        selectedIndex: 0,
+        symbolStyles: symbols.map((_, index) => `${buttonName}HintSymbolsStyleOf${index}`),
+      };
+      symbols.forEach((symbol, index) => {
+        payload[`${buttonName}HintSymbolsStyleOf${index}`] = {
+          action: { character: symbol },
+          foregroundStyle: `${buttonName}HintSymbolsForegroundStyleOf${index}`,
+        };
+        setTextStyle(`${buttonName}HintSymbolsForegroundStyleOf${index}`, applyPinyinProjectLetterCase(project, symbol), {
+          center: { x: 0.5, y: 0.5, ...(sharedCenter['长按气泡文字偏移'] || {}) },
+          fontSize: sharedFontSize['长按气泡文字大小'] || 20,
+          normalColor: keyTextColor,
+          highlightColor: '#FFFFFF',
+        });
+      });
+    }
     if (keyboardName.includes('portrait')) {
       const footerWidths = {
         '123Button': 1.15 / 7,
@@ -1885,6 +1988,15 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   };
   const normalizePinyin18Payload = () => {
     if (!keyboardName.startsWith('pinyin_18_')) return;
+    const containerBackgroundStyle = sharedKeyboardContainerBackgroundStyle();
+    payload.keyboardBackgroundStyle = structuredClone(containerBackgroundStyle);
+    payload.toolbarBackgroundStyle = structuredClone(containerBackgroundStyle);
+    payload.keyboardStyle = payload.keyboardStyle && isPlainObject(payload.keyboardStyle) ? payload.keyboardStyle : {};
+    payload.keyboardStyle.backgroundStyle = 'keyboardBackgroundStyle';
+    payload.toolbarStyle = payload.toolbarStyle && isPlainObject(payload.toolbarStyle) ? payload.toolbarStyle : {};
+    payload.toolbarStyle.backgroundStyle = 'toolbarBackgroundStyle';
+    normalizeCandidateBarStyle();
+    ensureAlphabeticHintBackgroundStyle();
     const orientation = keyboardName.includes('landscape') ? 'landscape' : 'portrait';
     const metrics = project.keyboards?.keyboard26?.variants?.['18']?.metrics?.[orientation]
       || project.keyboards?.keyboard26?.variants?.['18']?.metrics?.portrait
@@ -2287,6 +2399,7 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   ensureCoreFallbackStyles();
   replaceMissingVariantImageForegrounds();
   ensureReferencedStyles();
+  sanitizeLegacyNativeSeed(payload, { keyboardName });
   pruneMissingLayoutCells();
   normalizeLegacyStyleTypes(payload);
   inferMissingButtonStyleTypes(payload);

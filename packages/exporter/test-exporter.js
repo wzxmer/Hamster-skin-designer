@@ -1,6 +1,7 @@
 import { createZipArchive, buildEffectiveNativeKeyboardPayload, buildJsonnetSourceFiles, buildSkinPackageFiles, buildYamlSkinFiles, toYaml } from './index.js';
 import { createSampleProject } from '../project-schema/index.js';
 import { buildEffectiveProject } from '../skin-effect/index.js';
+import { LEGACY_RUNTIME_COLORS, LEGACY_RUNTIME_STYLE_NAMES } from '../skin-effect/legacy-seed-sanitizer.js';
 import { KEYBOARD_SKIN_PRESETS } from '../../apps/workbench/src/data/keyboard-presets.js';
 import { NATIVE_KEYBOARD_PRESET_PAYLOADS } from '../../apps/workbench/src/data/native-keyboard-presets.generated.js';
 
@@ -131,6 +132,33 @@ function assertNativePayloadRenderable(payload, label) {
     }
   }
   assert(!invalidStyles.length, `${label} 不应包含 App 无法渲染的样式：${invalidStyles.join(', ')}`);
+}
+
+function assertNoLegacyRuntimeResidue(payload, label, options = {}) {
+  const hits = [];
+  const walk = (value, path) => {
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => walk(item, `${path}.${index}`));
+      return;
+    }
+    if (!value || typeof value !== 'object') return;
+    for (const [key, item] of Object.entries(value)) {
+      const nextPath = `${path}.${key}`;
+      if (LEGACY_RUNTIME_STYLE_NAMES.includes(key)) hits.push(`${nextPath}:legacy-key`);
+      if (typeof item === 'string') {
+        const normalized = item.toLowerCase();
+        if (LEGACY_RUNTIME_STYLE_NAMES.includes(item)) hits.push(`${nextPath}:${item}`);
+        if (options.checkColors !== false && LEGACY_RUNTIME_COLORS.includes(normalized)) hits.push(`${nextPath}:${item}`);
+        if (/(?:normalImage|highlightImage|\.file)$/.test(nextPath) && /hold_back|hint|T14|yy|T9/i.test(item)) {
+          hits.push(`${nextPath}:${item}`);
+        }
+      } else {
+        walk(item, nextPath);
+      }
+    }
+  };
+  walk(payload, '$');
+  assert(!hits.length, `${label} 不应残留旧 seed 运行数据：${hits.slice(0, 12).join(', ')}`);
 }
 
 function mergeProjectPatch(target, patch) {
@@ -713,6 +741,7 @@ assert(yamlBlock(customMetricsKeyboard, 'lButton').includes('percentage: 0.18') 
 assert(yamlBlock(customMetricsKeyboard, 'spaceButton').includes('percentage: 0.46'), '左侧按键尺寸模块修改空格宽度后，导出 YAML 应同步。');
 for (const { preset, project: presetProject, files, config, keyboardName, keyboard, payload } of presetChecks) {
   const rawPayload = NATIVE_KEYBOARD_PRESET_PAYLOADS[preset.value]?.light?.[keyboardName];
+  const presetNativePayload = preset.nativePayloads?.light?.[keyboardName];
   const alphabeticKeyboard = findFile(files, 'light/alphabetic_26_portrait.yaml')?.content || '';
   assert(presetProject.guide.preferences.symbolLayout === 'system', `${preset.label} 默认符号键盘应选择 App 内键盘。`);
   assert(presetProject.guide.preferences.emojiLayout === 'system', `${preset.label} 默认 Emoji 键盘应选择 App 内键盘。`);
@@ -725,6 +754,9 @@ for (const { preset, project: presetProject, files, config, keyboardName, keyboa
   assert(alphabeticKeyboard.includes('keyboardLayout:') && !alphabeticKeyboard.includes('\nkeyboard:'), `${preset.label} 同包英文 26 键也应导出原生键盘 YAML。`);
   assert(payload.keyboardHeight > 0 && payload.toolbarHeight > 0, `${preset.label} 应写入有效 frame 高度。`);
   assert(rawPayload, `${preset.label} 应存在示例皮肤实际 raw payload。`);
+  if (/^(pinyin_(9|14|18)|numeric_9)_/.test(keyboardName)) {
+    assertNoLegacyRuntimeResidue(presetNativePayload, `${preset.label} preset.nativePayloads/${keyboardName}`, { checkColors: false });
+  }
   assert(payload.keyboardHeight === 216 && payload.toolbarHeight === 41, `${preset.label} 应使用统一竖屏 toolbar/keyboard 高度。`);
   if (preset.value === 'ios-26') {
     assert(JSON.stringify(payload.keyboardLayout) !== JSON.stringify(rawPayload.keyboardLayout) && !JSON.stringify(payload.keyboardLayout).includes('pinyin26RowInsetButton'), '仿 iOS 26键导出不应使用伪空白 Cell，避免 App 解析皮肤格式失败。');
@@ -743,6 +775,19 @@ assert(preset14.payload.toolbarStyle.backgroundStyle === 'toolbarBackgroundStyle
   && preset14.payload.keyboardStyle.backgroundStyle === 'keyboardBackgroundStyle'
   && preset14.payload.toolbarBackgroundStyle?.normalColor === preset14.payload.keyboardBackgroundStyle?.normalColor
   && preset14.payload.toolbarBackgroundStyle?.normalColor !== '#00000001', '示例14键预设 toolbar/keyboard 容器背景应使用统一背景样式，不能残留 raw seed 透明圆角背景。');
+assert(preset14.payload.horizontalCandidates?.candidateStyle === 'candidateStyle'
+  && preset14.payload.horizontalCandidatesStyle?.backgroundStyle === 'toolbarBackgroundStyle'
+  && preset14.payload.candidateStyle?.preferredTextColor !== '#00c381'
+  && !preset14.payload.horizontalCandidateStyle
+  && !preset14.keyboard.includes('horizontalCandidateStyle:'), '示例14键预设候选栏应使用统一 candidateStyle，不能残留 raw seed 绿色候选样式。');
+assert(preset14.payload.erButton?.hintStyle === 'erButtonHintStyle'
+  && preset14.payload.erButton?.hintSymbolsStyle === 'erButtonHintSymbolsStyle'
+  && preset14.payload.erButtonHintStyle?.backgroundStyle === 'alphabeticHintBackgroundStyle'
+  && preset14.payload.erButtonHintSymbolsStyle?.backgroundStyle === 'alphabeticHintSymbolsBackgroundStyle'
+  && preset14.payload.alphabeticHintSymbolsBackgroundStyle?.buttonStyleType === 'geometry'
+  && preset14.payload.alphabeticHintSymbolsSelectedStyle?.buttonStyleType === 'geometry'
+  && preset14.payload.erButtonHintSymbolsForegroundStyleOf0?.text === 'e'
+  && preset14.payload.erButtonHintSymbolsForegroundStyleOf1?.text === 'r', '示例14键组合键长按应导出统一 hint/hintSymbols 样式，不能依赖旧 seed 缺省图层。');
 assert(preset14.keyboard.includes('Cell: "qwButton"') && preset14.keyboard.includes('Cell: "cvButton"'), '示例14键预设应导出 14 键布局骨架。');
 assert(preset14.payload['123Button'].size.width.percentage === preset14.payload.enterButton.size.width.percentage
   && preset14.payload.commaButton.size.width.percentage === preset14.payload.cnenButton.size.width.percentage
@@ -789,12 +834,23 @@ assert(preset14NumericPayload.returnFgCol?.normalColor === preset14NumericPayloa
   && preset14NumericPayload.enterFgCol9?.normalColor === preset14NumericPayload.enterFgGray?.normalColor
   && preset14NumericPayload.returnFgCol?.normalColor !== '#FFFFFF'
   && preset14NumericPayload.enterFgCol9?.normalColor !== '#FFFFFF', '示例14键切数字9键时返回/搜索类条件按钮文字应统一到功能键文字色，不能残留 raw seed 白字。');
+assert(!JSON.stringify(preset14NumericPayload).includes('horizontalCandidateStyle')
+  && !JSON.stringify(preset14NumericPayload).includes('hold_back')
+  && !/"file":"hint"/.test(JSON.stringify(preset14NumericPayload)), '示例14键切数字9键时 resolved payload 不应残留旧候选别名或旧长按图片样式。');
 const preset17 = presetChecks.find((item) => item.preset.value === 'ios-17');
 assert(preset17.payload.hButton.size.width === '1/6' || preset17.payload.hButton.size.width.percentage > 0.16, '示例17键预设普通键应接近六等分。');
 assert(preset17.keyboard.includes('Cell: "hButton"') && preset17.keyboard.includes('Cell: "wButton"'), '示例17键预设应导出 17 键关键按键。');
 assert(preset17.payload.HStackStyle.size.height === '1/4', '示例17键竖屏只有四行，行高应统一为 1/4。');
 const preset18 = presetChecks.find((item) => item.preset.value === 'ios-18');
 assert(preset18.payload.toolbarStyle.insets?.top === 5, '示例18键预设应使用统一 toolbarStyle 顶部边距。');
+assert(preset18.payload.horizontalCandidates?.candidateStyle === 'candidateStyle'
+  && preset18.payload.horizontalCandidatesStyle?.backgroundStyle === 'toolbarBackgroundStyle'
+  && preset18.payload.candidateStyle?.preferredTextColor !== '#00c381'
+  && !preset18.payload.horizontalCandidateStyle
+  && !preset18.keyboard.includes('horizontalCandidateStyle:')
+  && preset18.payload.toolbarStyle?.backgroundStyle === 'toolbarBackgroundStyle'
+  && preset18.payload.toolbarBackgroundStyle?.normalColor === preset18.payload.keyboardBackgroundStyle?.normalColor
+  && preset18.payload.alphabeticHintSymbolsBackgroundStyle?.buttonStyleType === 'geometry', '示例18键预设候选栏应使用统一 candidateStyle，不能残留 raw seed 绿色候选样式。');
 assert(!preset18.payload.toolbarMenuButton?.size && !preset18.payload.toolbarCloseButton?.size, '示例18键工具栏不应保留 raw seed 的 1/7 按钮宽度，8 个槽位应由 App 均分排列。');
 assert(preset18.payload.aButton.bounds?.alignment === 'right' && preset18.payload.lButton.bounds?.alignment === 'left', '示例18键预设应保留 A/L 可见区域对齐。');
 assert(preset18.keyboard.includes('Cell: "wButton"') && preset18.keyboard.includes('Cell: "xButton"'), '示例18键预设应导出示例皮肤实际 18 键关键按键。');
@@ -820,13 +876,25 @@ assert(yamlBlock(preset9.keyboard, 'collection').includes('type: "t9Symbols"')
   && preset9.keyboard.includes('dataSource:')
   && preset9.keyboard.includes('symbols:')
   && preset9.keyboard.includes('value: "，"'), '仿 iOS 9键左侧符号列表应有默认符号数据。');
+assert(!preset9.keyboard.includes('horizontalCandidateStyle:')
+  && !preset9.keyboard.includes('hold_back')
+  && !preset9.keyboard.includes('file: "hint"'), '仿 iOS 9键导出不应残留旧候选别名或旧长按图片样式。');
 for (const variant of ['9', '14', '18']) {
   const variantProject = createSampleProject();
   variantProject.keyboardCombo.slots.pinyin.variant = variant;
-  for (const orientation of ['portrait', 'landscape']) {
-    const keyboardName = `pinyin_${variant}_${orientation}`;
-    const payload = buildEffectiveNativeKeyboardPayload(variantProject, 'light', keyboardName);
-    assertNativePayloadRenderable(payload, `中文${variant}键${orientation} payload`);
+  for (const themeName of ['light', 'dark']) {
+    for (const orientation of ['portrait', 'landscape']) {
+      const keyboardName = `pinyin_${variant}_${orientation}`;
+      const payload = buildEffectiveNativeKeyboardPayload(variantProject, themeName, keyboardName);
+      assertNativePayloadRenderable(payload, `中文${variant}键${themeName}/${orientation} payload`);
+      assertNoLegacyRuntimeResidue(payload, `中文${variant}键${themeName}/${orientation} payload`);
+    }
+    for (const orientation of ['portrait', 'landscape']) {
+      const keyboardName = `numeric_9_${orientation}`;
+      const payload = buildEffectiveNativeKeyboardPayload(variantProject, themeName, keyboardName);
+      assertNativePayloadRenderable(payload, `数字9键${themeName}/${orientation} payload`);
+      assertNoLegacyRuntimeResidue(payload, `数字9键${themeName}/${orientation} payload`);
+    }
   }
 }
 const stablePinyin9Project = createSampleProject();
@@ -844,6 +912,7 @@ assert(stablePinyin9Payload.enterButton.backgroundStyle === 'systemButtonBackgro
   && stablePinyin9Payload.enterButton.foregroundStyle === 'enterButtonForegroundStyle', '中文9键发送/换行键不应依赖 App 可能不解析的 JS 样式引用。');
 assert(!stablePinyin9Payload.number1Button.swipeUpAction && !stablePinyin9Payload.number1Button.swipeDownAction, '中文9键预设滑动功能默认关闭时不应导出上下划动作。');
 const stablePinyin14Payload = buildEffectiveNativeKeyboardPayload(comboPinyin14Project, 'light', 'pinyin_14_portrait');
+const stablePinyin14LandscapePayload = buildEffectiveNativeKeyboardPayload(comboPinyin14Project, 'light', 'pinyin_14_landscape');
 const stablePinyin14UpperProject = createSampleProject();
 stablePinyin14UpperProject.guide = { preferences: { pinyin26LetterCase: 'upper' } };
 stablePinyin14UpperProject.keyboardCombo.slots.pinyin.variant = '14';
@@ -859,6 +928,9 @@ assert(stablePinyin14Payload.shiftButton.action?.sendKeys === '`'
   && !stablePinyin14Payload.shiftButton.uppercasedStateForegroundStyle,
   '中文14键竖屏导出 shiftButton 应为实机分词键，不应保留 Shift 状态旧数据。');
 assert(stablePinyin14Payload.qwFg?.text === 'qw' && stablePinyin14UpperPayload.qwFg?.text === 'QW', '中文14键导出应随使用引导大小写联动。');
+assert(stablePinyin14LandscapePayload.equalBg?.normalColor !== '#fafafa'
+  && stablePinyin14LandscapePayload.symbolicBg?.normalColor !== '#f6f6f6'
+  && !stablePinyin14LandscapePayload.horizontalCandidateStyle, '中文14键横屏候选和功能键背景不应残留 raw seed 旧色值。');
 assert(stablePinyin14Payload.enterButton.foregroundStyle === 'enterButtonForegroundStyle'
   && stablePinyin14Payload.enterButtonForegroundStyle?.text === '发送', '中文14键发送键文案应使用共享预设，不应沿用 raw returnKeyType 条件文案。');
 assert(Array.isArray(stablePinyin14Payload.enterButton.backgroundStyle), '中文14键发送键背景应保留该预设自己的条件模板。');

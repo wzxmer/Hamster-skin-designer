@@ -1,4 +1,5 @@
 import { NATIVE_KEYBOARD_PRESET_PAYLOADS } from './native-keyboard-presets.generated.js';
+import { sanitizeLegacyNativePayloads } from '../../../../packages/skin-effect/legacy-seed-sanitizer.js';
 
 const IOS_KEYBOARD_SURFACE = {
   cornerRadius: 8.5,
@@ -330,6 +331,10 @@ function syncToolbarPresetPayloads(nativePayloads, toolbarConfig) {
   return nextPayloads;
 }
 
+function cleanPresetPayloads(nativePayloads) {
+  return sanitizeLegacyNativePayloads(nativePayloads || {});
+}
+
 const IOS9_VARIANT = {
   portraitRows: [
     ['punctuationColumn', 'number1', 'number2', 'number3', 'backspace'],
@@ -621,7 +626,7 @@ export const KEYBOARD_SKIN_PRESETS = [
     value: 'ios-26',
     label: '仿 iOS 26键',
     layout: '26',
-    nativePayloads: syncToolbarPresetPayloads(NATIVE_KEYBOARD_PRESET_PAYLOADS['ios-26'], IOS26_TOOLBAR),
+    nativePayloads: cleanPresetPayloads(syncToolbarPresetPayloads(NATIVE_KEYBOARD_PRESET_PAYLOADS['ios-26'], IOS26_TOOLBAR)),
     patch: presetPatch({
       layout: '26',
       frame: {
@@ -643,7 +648,7 @@ export const KEYBOARD_SKIN_PRESETS = [
     value: 'ios-9',
     label: '仿 iOS 9键',
     layout: '9',
-    nativePayloads: NATIVE_KEYBOARD_PRESET_PAYLOADS['ios-9'],
+    nativePayloads: cleanPresetPayloads(NATIVE_KEYBOARD_PRESET_PAYLOADS['ios-9']),
     patch: presetPatch({
       layout: '9',
       frame: {
@@ -657,7 +662,7 @@ export const KEYBOARD_SKIN_PRESETS = [
     value: 'ios-14',
     label: '示例 14键',
     layout: '14',
-    nativePayloads: NATIVE_KEYBOARD_PRESET_PAYLOADS['ios-14'],
+    nativePayloads: cleanPresetPayloads(NATIVE_KEYBOARD_PRESET_PAYLOADS['ios-14']),
     patch: presetPatch({
       layout: '14',
       frame: {
@@ -672,7 +677,7 @@ export const KEYBOARD_SKIN_PRESETS = [
     value: 'ios-17',
     label: '示例 17键',
     layout: '17',
-    nativePayloads: NATIVE_KEYBOARD_PRESET_PAYLOADS['ios-17'],
+    nativePayloads: cleanPresetPayloads(NATIVE_KEYBOARD_PRESET_PAYLOADS['ios-17']),
     patch: presetPatch({
       layout: '17',
       frame: {
@@ -687,7 +692,7 @@ export const KEYBOARD_SKIN_PRESETS = [
     value: 'ios-18',
     label: '示例 18键',
     layout: '18',
-    nativePayloads: NATIVE_KEYBOARD_PRESET_PAYLOADS['ios-18'],
+    nativePayloads: cleanPresetPayloads(NATIVE_KEYBOARD_PRESET_PAYLOADS['ios-18']),
     patch: presetPatch({
       layout: '18',
       frame: {

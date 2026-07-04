@@ -435,8 +435,8 @@ function hasTemplateBackgroundImage(html) {
   return html.includes('background-image:url(') && html.includes('resources/hold_back.png');
 }
 
-assert(hasTemplateBackgroundImage(render(imageBackgroundProject, { pinyinVariant: '9' })), '中文九键预览应同步键盘背景图片。');
-assert(hasTemplateBackgroundImage(render(imageBackgroundProject, { mode: 'numeric' })), '数字键盘预览应同步键盘背景图片。');
+assert(buildEffectiveNativeKeyboardPayload(imageBackgroundProject, 'light', 'pinyin_9_portrait')?.keyboardBackgroundStyle?.buttonStyleType === 'geometry', '中文九键预览应清理旧 seed 图片背景，回落统一键盘背景。');
+assert(buildEffectiveNativeKeyboardPayload(imageBackgroundProject, 'light', 'numeric_9_portrait')?.keyboardBackgroundStyle?.buttonStyleType === 'geometry', '数字键盘预览应清理旧 seed 图片背景，回落统一键盘背景。');
 assert(hasTemplateBackgroundImage(render(imageBackgroundProject, { mode: 'symbolic' })), '符号键盘预览应同步键盘背景图片。');
 
 const symbolicCollectionProject = createSampleProject();
