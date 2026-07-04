@@ -5,6 +5,12 @@
 AGENTS.md
 RTK.md
 memory/
+docs/
+.agents/
+GITHUB_RUNTIME_CONSTRAINTS.md
+PROJECT_BASELINE.md
+PROJECT_MEMORY_RULES.md
+REFACTOR_SPLIT_PLAN.md
 node_modules/
 dist/
 *.zip
