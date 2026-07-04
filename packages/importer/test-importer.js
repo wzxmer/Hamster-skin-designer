@@ -61,6 +61,49 @@ const yamlPayload = {
     fontSize: 18,
     center: { x: 0.5, y: 0.61 },
   },
+  keyboardLayout: [
+    { HStack: { subviews: [{ Cell: 'qButton' }, { Cell: 'wButton' }] } },
+    { HStack: { subviews: [{ Cell: '123Button' }, { Cell: 'spaceButton' }] } },
+  ],
+  systemButtonBackgroundStyle: {
+    normalColor: '#666666',
+    highlightColor: '#777777',
+    cornerRadius: 8,
+    insets: { top: 1, left: 1, bottom: 2, right: 2 },
+  },
+  enterButtonBlueBackgroundStyle: {
+    normalColor: '#0088ff',
+    cornerRadius: 9,
+  },
+  qButton: {
+    action: { character: 'q' },
+    foregroundStyle: ['qButtonForegroundStyle', 'qButtonUpForegroundStyle', 'qButtonDownForegroundStyle'],
+    swipeUpAction: { character: '1' },
+    swipeDownAction: { shortcut: '#paste' },
+  },
+  wButton: {
+    action: { character: 'w' },
+    foregroundStyle: 'wButtonForegroundStyle',
+    swipeUpAction: 'selectSecondCandidate',
+  },
+  wButtonForegroundStyle: {
+    buttonStyleType: 'text',
+    text: 'w',
+  },
+  qButtonUpForegroundStyle: {
+    buttonStyleType: 'text',
+    text: '1',
+    fontSize: 8,
+    normalColor: '#777777',
+    center: { x: 0.2, y: 0.3 },
+  },
+  qButtonDownForegroundStyle: {
+    buttonStyleType: 'text',
+    text: '粘贴',
+    fontSize: 9,
+    normalColor: '#888888',
+    center: { x: 0.8, y: 0.7 },
+  },
 };
 const jsonnetPayload = {
   ...yamlPayload,
@@ -86,7 +129,39 @@ assert(importedThirdParty.project.meta.author === '作者A', '导入 config.yaml
 assert(importedThirdParty.project.keyboardFrame.portrait.keyboardHeight === 444, 'Jsonnet 应覆盖 YAML 的键盘高度。');
 assert(importedThirdParty.project.theme.light.colors['字母键背景颜色-普通'] === '#abcdef', 'Jsonnet 应覆盖 YAML 的普通键背景色。');
 assert(importedThirdParty.project.theme.shared.fontSize['按键前景文字大小'] === 24, 'Jsonnet 应覆盖 YAML 的字母字号。');
+assert(importedThirdParty.project.theme.light.colors['功能键背景颜色-普通'] === '#666666', '导入应同步功能键背景配色到模块字段。');
+assert(importedThirdParty.project.theme.light.colors['enter键背景(蓝色)'] === '#0088ff', '导入应同步发送键背景配色到模块字段。');
+assert(importedThirdParty.project.keyStyles.buttonInsets.keyboard26.functionKey.top === 1, '导入应同步功能键 insets 到模块字段。');
+assert(importedThirdParty.project.data.swipes.pinyin.swipe_up.q.action.character === '1', '导入应同步上滑动作到划动模块。');
+assert(importedThirdParty.project.data.swipes.pinyin.swipe_down.q.action.shortcut === '#paste', '导入应同步下滑动作到划动模块。');
+assert(importedThirdParty.project.data.swipes.pinyin.swipe_up.q.label.text === '1', '导入应同步上滑显示文案。');
+assert(importedThirdParty.project.data.swipes.pinyin.swipe_up.w.label.text === 'selectSecondCandidate', '字符串划动动作应保留可见标签。');
+assert(importedThirdParty.project.keyboards.keyboard26.variants['26'].portraitRows[0][0] === 'q', '导入应从 keyboardLayout 回填 26 键布局行。');
 assert(importedThirdParty.project.nativeKeyboardPayloads.light.pinyin_26_portrait.keyboardHeight === 444, '导入 raw payload 应只作为 nativeKeyboardPayloads 兼容输入保存。');
+
+const darkSharedPayload = {
+  ...yamlPayload,
+  qButtonForegroundStyle: {
+    ...yamlPayload.qButtonForegroundStyle,
+    fontSize: 99,
+  },
+};
+const lightDarkBytes = createZipArchive([
+  { path: 'LightDark/config.yaml', content: toYaml({ name: '明暗主题', pinyin: { iPhone: { portrait: 'pinyin_26_portrait' } } }) },
+  { path: 'LightDark/light/pinyin_26_portrait.yaml', content: toYaml(jsonnetPayload) },
+  { path: 'LightDark/dark/pinyin_26_portrait.yaml', content: toYaml(darkSharedPayload) },
+]);
+const importedLightDark = await importSkinProjectFromFile(fileLike('light-dark.zip', lightDarkBytes), sampleProject);
+assert(importedLightDark.project.theme.shared.fontSize['按键前景文字大小'] === 24, '存在 light payload 时 dark 不应覆盖 shared 字号字段。');
+assert(importedLightDark.project.theme.dark.colors['按键前景颜色'] === '#555555', 'dark 主题颜色仍应导入到 dark colors。');
+
+const jsonStyleYamlBytes = createZipArchive([
+  { path: 'JsonStyle/config.yaml', content: toYaml({ name: 'JSON 风格 YAML', pinyin: { iPhone: { portrait: 'pinyin_26_portrait' } } }) },
+  { path: 'JsonStyle/light/pinyin_26_portrait.yaml', content: JSON.stringify(yamlPayload) },
+]);
+const importedJsonStyleYaml = await importSkinProjectFromFile(fileLike('json-style.zip', jsonStyleYamlBytes), sampleProject);
+assert(importedJsonStyleYaml.project.nativeKeyboardPayloads.light.pinyin_26_portrait.qButton.swipeUpAction.character === '1', '导入器应解析 JSON 风格 YAML payload。');
+assert(importedJsonStyleYaml.project.data.swipes.pinyin.swipe_up.q.action.character === '1', 'JSON 风格 YAML 的上滑动作应同步到模块字段。');
 
 const rootZipBytes = createZipArchive([
   { path: 'config.yaml', content: toYaml({ name: '根目录 zip 皮肤', author: '作者B', pinyin: { iPhone: { portrait: 'pinyin_26_portrait' } } }) },
@@ -136,7 +211,10 @@ assert(importedExternalMapped.project.config.pinyin.iPhone.landscape === 'pinyin
 assert(importedExternalMapped.project.importCompatibility.originalConfig.pinyin.iPhone.portrait === 'pinyin_Sp', '导入兼容层应保留原始 config 映射。');
 assert(importedExternalMapped.project.nativeKeyboardPayloads.light.pinyin_14_portrait.keyboardHeight === 231, '外部命名竖屏 payload 应复制到标准 14 键名。');
 assert(importedExternalMapped.project.nativeKeyboardPayloads.light.pinyin_14_landscape.keyboardHeight === 151, '外部命名横屏 payload 应复制到标准 14 键名。');
+assert(importedExternalMapped.project.keyboardFrame.landscape.keyboardHeight === 151, '外部命名横屏 payload 应回填横屏高度。');
+assert(importedExternalMapped.project.keyboardFrame.portrait.keyboardHeight === 231, '外部命名竖屏后续 payload 不应污染主键盘高度。');
 assert(importedExternalMapped.project.nativeKeyboardPayloads.light.numeric_9_landscape.keyboardHeight === 152, '外部 config 中复用英文横屏作为数字横屏时应复制到数字标准名。');
+assert(JSON.stringify(importedExternalMapped.project.keyboards.keyboard26.variants['14'].portraitRows) === JSON.stringify(sampleProject.keyboards.keyboard26.variants['14'].portraitRows), '14 键导入不应使用第三方 keyboardLayout 覆盖预设 rows。');
 assert(!importedExternalMapped.importedFiles.some((path) => path.includes('__MACOSX') || path.includes('/._')), '导入包应忽略 macOS zip 元数据文件。');
 
 const resourcePayload = {

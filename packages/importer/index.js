@@ -9,6 +9,45 @@ const YAML_TO_PROJECT_COLOR_KEYS = new Map([
   ['highlightLowerEdgeColor', '底边缘颜色-高亮'],
   ['borderColor', '按键边缘颜色'],
 ]);
+const FUNCTION_STYLE_COLOR_KEYS = new Map([
+  ['normalColor', '功能键背景颜色-普通'],
+  ['highlightColor', '功能键背景颜色-高亮'],
+  ['normalLowerEdgeColor', '底边缘颜色-普通'],
+  ['highlightLowerEdgeColor', '底边缘颜色-高亮'],
+  ['borderColor', '按键边缘颜色'],
+]);
+const ENTER_STYLE_COLOR_KEYS = new Map([
+  ['normalColor', 'enter键背景(蓝色)'],
+]);
+const BUTTON_STYLE_KEYS = ['cornerRadius', 'borderSize', 'shadowRadius', 'shadowOpacity', 'shadowOffset'];
+const KNOWN_PUNCTUATION_ACTIONS = new Map([
+  [',', 'spaceRight'],
+  ['，', 'spaceRight'],
+  ['.', 'period'],
+  ['。', 'period'],
+  [';', 'semicolon'],
+  ['；', 'semicolon'],
+]);
+const FUNCTION_BUTTON_KEY_ALIASES = new Map([
+  ['123', '123'],
+  ['numeric', '123'],
+  ['number', '123'],
+  ['symbol', 'symbol'],
+  ['symbolic', 'symbol'],
+  ['shift', 'shift'],
+  ['backspace', 'backspace'],
+  ['delete', 'backspace'],
+  ['return', 'return'],
+  ['enter', 'enter'],
+  ['space', 'space'],
+  ['cnen', 'cnen'],
+  ['alphabetic', 'cnen'],
+  ['comma', 'spaceRight'],
+  ['period', 'period'],
+  ['semicolon', 'semicolon'],
+  ['clear', 'reinput'],
+  ['reinput', 'reinput'],
+]);
 
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -105,6 +144,8 @@ function parseYamlScalar(value) {
 }
 
 function parseSimpleYaml(text) {
+  const object = parseJsonnetObject(text);
+  if (isPlainObject(object) || Array.isArray(object)) return object;
   const root = {};
   const stack = [{ indent: -1, value: root }];
   const lines = String(text || '').replace(/\r\n?/g, '\n').split('\n');
@@ -261,6 +302,196 @@ function setThemeColor(project, themeName, key, value) {
   project.theme[themeName].colors[key] = value;
 }
 
+function styleRefNames(value) {
+  if (typeof value === 'string') return [value];
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => {
+      if (typeof item === 'string') return [item];
+      if (isPlainObject(item) && typeof item.styleName === 'string') return [item.styleName];
+      return [];
+    });
+  }
+  if (isPlainObject(value) && typeof value.styleName === 'string') return [value.styleName];
+  return [];
+}
+
+function firstStyleObject(payload, refs) {
+  for (const ref of refs) {
+    if (isPlainObject(payload?.[ref])) return payload[ref];
+  }
+  return null;
+}
+
+function firstForegroundStyle(payload, button, matcher = null, fallbackToAny = true) {
+  const refs = styleRefNames(button?.foregroundStyle);
+  const matchedRefs = matcher ? refs.filter((ref) => matcher(ref)) : refs;
+  return firstStyleObject(payload, matchedRefs.length || !fallbackToAny ? matchedRefs : refs);
+}
+
+function actionText(action) {
+  if (typeof action === 'string') return action;
+  if (!isPlainObject(action)) return '';
+  return action.character || action.symbol || action.shortcut || action.keyboardType || '';
+}
+
+function normalizeImportedButtonKey(rawKey = '', button = null) {
+  let key = String(rawKey || '').replace(/Button$/i, '');
+  key = key.replace(/^number(\d)$/i, '$1');
+  const lower = key.toLowerCase();
+  if (/^\d$/.test(key)) return key;
+  if (/^[a-z]{1,3}$/.test(key)) return key.toLowerCase();
+  if (FUNCTION_BUTTON_KEY_ALIASES.has(lower)) return FUNCTION_BUTTON_KEY_ALIASES.get(lower);
+  const action = button?.action;
+  const actionValue = actionText(action);
+  if (KNOWN_PUNCTUATION_ACTIONS.has(actionValue)) return KNOWN_PUNCTUATION_ACTIONS.get(actionValue);
+  if (isPlainObject(action)) {
+    if (action.keyboardType === 'numeric') return '123';
+    if (action.keyboardType === 'alphabetic') return 'cnen';
+    if (action.keyboardType === 'symbolic') return 'symbol';
+  }
+  return key;
+}
+
+function collectLayoutRows(payload = {}) {
+  if (!Array.isArray(payload.keyboardLayout)) return [];
+  const rows = [];
+  const collectCells = (node, cells = []) => {
+    if (Array.isArray(node)) {
+      for (const item of node) collectCells(item, cells);
+      return cells;
+    }
+    if (!isPlainObject(node)) return cells;
+    if (typeof node.Cell === 'string') {
+      cells.push(node.Cell);
+      return cells;
+    }
+    for (const value of Object.values(node)) collectCells(value, cells);
+    return cells;
+  };
+  for (const row of payload.keyboardLayout) {
+    const cells = collectCells(row)
+      .map((cell) => normalizeImportedButtonKey(cell, payload[cell]))
+      .filter(Boolean);
+    if (cells.length) rows.push(cells);
+  }
+  return rows;
+}
+
+function setSurfaceAndInsets(project, group, slot, style) {
+  if (!isPlainObject(style)) return;
+  project.keyStyles.surfaceStyles[group] = project.keyStyles.surfaceStyles[group] || {};
+  project.keyStyles.surfaceStyles[group][slot] = project.keyStyles.surfaceStyles[group][slot] || {};
+  for (const key of BUTTON_STYLE_KEYS) {
+    if (style[key] !== undefined) project.keyStyles.surfaceStyles[group][slot][key] = deepClone(style[key]);
+  }
+  if (isPlainObject(style.insets)) {
+    project.keyStyles.buttonInsets[group] = project.keyStyles.buttonInsets[group] || {};
+    project.keyStyles.buttonInsets[group][slot] = deepClone(style.insets);
+  }
+}
+
+function applyStyleColors(project, themeName, style, colorMap) {
+  if (!isPlainObject(style)) return;
+  for (const [yamlKey, projectKey] of colorMap) {
+    setThemeColor(project, themeName, projectKey, style[yamlKey]);
+  }
+}
+
+function projectSwipeProfileForKeyboardName(keyboardName) {
+  if (keyboardName.startsWith('numeric_')) return 'numeric';
+  if (keyboardName.startsWith('alphabetic_')) return 'alphabetic';
+  if (keyboardName.startsWith('pinyin_')) return 'pinyin';
+  return '';
+}
+
+function ensureSwipeProfile(project, profile) {
+  if (!profile) return null;
+  project.data = project.data || {};
+  project.data.swipes = project.data.swipes || {};
+  project.data.swipes[profile] = project.data.swipes[profile] || { swipe_up: {}, swipe_down: {} };
+  project.data.swipes[profile].swipe_up = project.data.swipes[profile].swipe_up || {};
+  project.data.swipes[profile].swipe_down = project.data.swipes[profile].swipe_down || {};
+  return project.data.swipes[profile];
+}
+
+function assignImportedSwipe(project, profile, direction, key, action, labelStyle) {
+  const normalizedAction = isPlainObject(action) || typeof action === 'string' ? deepClone(action) : null;
+  if (!normalizedAction) return;
+  const swipes = ensureSwipeProfile(project, profile);
+  if (!swipes) return;
+  swipes[direction][key] = {
+    ...(swipes[direction][key] || {}),
+    action: normalizedAction,
+    label: {
+      ...(swipes[direction][key]?.label || {}),
+      text: typeof labelStyle?.text === 'string' ? labelStyle.text : actionText(action),
+    },
+  };
+  project.data.swipesEnabled = true;
+  project.keyboardCombo = project.keyboardCombo || {};
+  project.keyboardCombo.swipeBehavior = {
+    ...(project.keyboardCombo.swipeBehavior || {}),
+    mode: 'visible',
+  };
+}
+
+function applyImportedButtonData(project, keyboardName, payload) {
+  const profile = projectSwipeProfileForKeyboardName(keyboardName);
+  if (!profile) return;
+  const keyboardTarget = profile === 'numeric'
+    ? (project.keyboards.numeric = project.keyboards.numeric || {})
+    : (project.keyboards.keyboard26 = project.keyboards.keyboard26 || {});
+  keyboardTarget.keyDisplays = keyboardTarget.keyDisplays || {};
+  if (profile !== 'numeric') {
+    keyboardTarget.keyActions = keyboardTarget.keyActions || {};
+  }
+  for (const [buttonName, button] of Object.entries(payload)) {
+    if (!/Button$/i.test(buttonName) || !isPlainObject(button)) continue;
+    const key = normalizeImportedButtonKey(buttonName, button);
+    if (!key || key === 'static') continue;
+    const foreground = firstForegroundStyle(payload, button, (ref) => !/(?:Up|Down)Swipe|(?:Swipe)?(?:Up|Down)Foreground/i.test(ref));
+    if (foreground?.text && !/^\$/.test(String(foreground.text))) {
+      const displayKey = profile === 'alphabetic' && /^[a-z]$/.test(key) ? `alphabetic.${key}` : key;
+      keyboardTarget.keyDisplays[displayKey] = foreground.text;
+    }
+    if (profile !== 'numeric' && isPlainObject(button.action) && ['shift', 'backspace', 'space', 'enter', '123', 'cnen', 'symbol'].includes(key)) {
+      keyboardTarget.keyActions[key] = deepClone(button.action);
+    }
+    if (button.swipeUpAction !== undefined) {
+      assignImportedSwipe(project, profile, 'swipe_up', key, button.swipeUpAction, firstForegroundStyle(payload, button, (ref) => /(?:UpSwipe|SwipeUp|UpForeground)/i.test(ref), false));
+    }
+    if (button.swipeDownAction !== undefined) {
+      assignImportedSwipe(project, profile, 'swipe_down', key, button.swipeDownAction, firstForegroundStyle(payload, button, (ref) => /(?:DownSwipe|SwipeDown|DownForeground)/i.test(ref), false));
+    }
+  }
+}
+
+function applyImportedLayoutRows(project, keyboardName, payload) {
+  const rows = collectLayoutRows(payload);
+  if (!rows.length) return;
+  const orientation = keyboardName.includes('landscape') ? 'landscape' : 'portrait';
+  if (keyboardName.startsWith('pinyin_')) {
+    const variant = keyboardName.match(/^pinyin_(9|14|17|18|26)_/)?.[1] || inferImportedPinyinVariant(project, keyboardName);
+    if (variant !== '26') return;
+    project.keyboards.keyboard26 = project.keyboards.keyboard26 || {};
+    project.keyboards.keyboard26.variants = project.keyboards.keyboard26.variants || {};
+    project.keyboards.keyboard26.variants[variant] = project.keyboards.keyboard26.variants[variant] || {};
+    project.keyboards.keyboard26.variants[variant][orientation === 'landscape' ? 'landscapeRows' : 'portraitRows'] = rows;
+    return;
+  }
+  if (keyboardName.startsWith('alphabetic_26_')) {
+    project.keyboards.keyboard26 = project.keyboards.keyboard26 || {};
+    project.keyboards.keyboard26.layout = project.keyboards.keyboard26.layout || {};
+    project.keyboards.keyboard26.layout[orientation] = rows;
+    return;
+  }
+  if (keyboardName.startsWith('numeric_')) {
+    project.keyboards.numeric = project.keyboards.numeric || {};
+    project.keyboards.numeric.layout = project.keyboards.numeric.layout || {};
+    project.keyboards.numeric.layout[orientation] = rows;
+  }
+}
+
 function applyConfig(project, config) {
   if (!isPlainObject(config)) return;
   project.config = mergePlainObjectPatch(project.config || {}, config);
@@ -268,49 +499,65 @@ function applyConfig(project, config) {
   if (typeof config.author === 'string') project.meta.author = config.author;
 }
 
-function applyNativePayload(project, path, payload) {
-  const descriptor = keyboardNameFromPath(path);
-  if (!descriptor || !isPlainObject(payload)) return;
-  const { themeName, keyboardName } = descriptor;
-  project.nativeKeyboardPayloads[themeName] = project.nativeKeyboardPayloads[themeName] || {};
-  project.nativeKeyboardPayloads[themeName][keyboardName] = payload;
-  if (Number.isFinite(Number(payload.preeditHeight))) {
+function applyImportedPayloadProperties(project, themeName, keyboardName, payload, options = {}) {
+  if (!isPlainObject(payload)) return;
+  const applyShared = options.applyShared !== false;
+  applyImportedLayoutRows(project, keyboardName, payload);
+  applyImportedButtonData(project, keyboardName, payload);
+  if (keyboardName.startsWith('pinyin_') && Number.isFinite(Number(payload.preeditHeight))) {
     const orientation = keyboardName.includes('landscape') ? 'landscape' : 'portrait';
     project.keyboardFrame[orientation].preeditHeight = Number(payload.preeditHeight);
   }
-  if (Number.isFinite(Number(payload.toolbarHeight))) {
+  if (keyboardName.startsWith('pinyin_') && Number.isFinite(Number(payload.toolbarHeight))) {
     const orientation = keyboardName.includes('landscape') ? 'landscape' : 'portrait';
     project.keyboardFrame[orientation].toolbarHeight = Number(payload.toolbarHeight);
   }
-  if (Number.isFinite(Number(payload.keyboardHeight))) {
+  if (keyboardName.startsWith('pinyin_') && Number.isFinite(Number(payload.keyboardHeight))) {
     const orientation = keyboardName.includes('landscape') ? 'landscape' : 'portrait';
     project.keyboardFrame[orientation].keyboardHeight = Number(payload.keyboardHeight);
   }
   const keyBg = payload.alphabeticBackgroundStyle;
   if (isPlainObject(keyBg)) {
-    for (const [yamlKey, projectKey] of YAML_TO_PROJECT_COLOR_KEYS) {
-      setThemeColor(project, themeName, projectKey, keyBg[yamlKey]);
-    }
-    for (const key of ['cornerRadius', 'borderSize', 'shadowRadius', 'shadowOpacity', 'shadowOffset']) {
-      if (keyBg[key] !== undefined) {
-        project.keyStyles.surfaceStyles.keyboard26.normal[key] = deepClone(keyBg[key]);
-      }
-    }
-    if (isPlainObject(keyBg.insets)) {
-      project.keyStyles.buttonInsets.keyboard26.normal = deepClone(keyBg.insets);
-    }
+    applyStyleColors(project, themeName, keyBg, YAML_TO_PROJECT_COLOR_KEYS);
+    setSurfaceAndInsets(project, 'keyboard26', 'normal', keyBg);
+  }
+  const functionBg = payload.systemButtonBackgroundStyle
+    || payload['123Bg']
+    || payload.shiftBg
+    || payload.backspaceBg;
+  if (isPlainObject(functionBg)) {
+    applyStyleColors(project, themeName, functionBg, FUNCTION_STYLE_COLOR_KEYS);
+    setSurfaceAndInsets(project, 'keyboard26', 'functionKey', functionBg);
+  }
+  const enterBg = payload.enterButtonBlueBackgroundStyle
+    || payload.enterBgCol
+    || payload.returnBgCol;
+  if (isPlainObject(enterBg)) {
+    applyStyleColors(project, themeName, enterBg, ENTER_STYLE_COLOR_KEYS);
+    setSurfaceAndInsets(project, 'keyboard26', 'enterAccent', enterBg);
   }
   const foreground = payload.qButtonForegroundStyle;
   if (isPlainObject(foreground)) {
-    if (Number.isFinite(Number(foreground.fontSize))) {
+    if (applyShared && Number.isFinite(Number(foreground.fontSize))) {
       project.theme.shared.fontSize['按键前景文字大小'] = Number(foreground.fontSize);
     }
-    if (isPlainObject(foreground.center)) {
+    if (applyShared && isPlainObject(foreground.center)) {
       project.theme.shared.center['26键中文前景偏移'] = deepClone(foreground.center);
     }
     if (typeof foreground.normalColor === 'string') {
       setThemeColor(project, themeName, '按键前景颜色', foreground.normalColor);
     }
+  }
+  const swipeForeground = firstStyleObject(payload, Object.keys(payload).filter((key) => /(?:UpSwipeFg|ButtonUpForegroundStyle|ButtonSwipeUpForegroundStyle)$/i.test(key)));
+  if (isPlainObject(swipeForeground)) {
+    if (applyShared && Number.isFinite(Number(swipeForeground.fontSize))) project.theme.shared.fontSize['上划文字大小'] = Number(swipeForeground.fontSize);
+    if (applyShared && isPlainObject(swipeForeground.center)) project.theme.shared.center['上划文字偏移'] = deepClone(swipeForeground.center);
+    if (typeof swipeForeground.normalColor === 'string') setThemeColor(project, themeName, '划动字符颜色', swipeForeground.normalColor);
+  }
+  const swipeDownForeground = firstStyleObject(payload, Object.keys(payload).filter((key) => /(?:DownSwipeFg|ButtonDownForegroundStyle|ButtonSwipeDownForegroundStyle)$/i.test(key)));
+  if (isPlainObject(swipeDownForeground)) {
+    if (applyShared && Number.isFinite(Number(swipeDownForeground.fontSize))) project.theme.shared.fontSize['下划文字大小'] = Number(swipeDownForeground.fontSize);
+    if (applyShared && isPlainObject(swipeDownForeground.center)) project.theme.shared.center['下划文字偏移'] = deepClone(swipeDownForeground.center);
   }
   const keyboardInsets = payload.keyboardStyle?.insets;
   if (isPlainObject(keyboardInsets)) {
@@ -321,6 +568,14 @@ function applyNativePayload(project, path, payload) {
     if (Number.isFinite(Number(toolbar.fontSize))) project.toolbar.iconFontSize = Number(toolbar.fontSize);
     if (isPlainObject(toolbar.center)) project.theme.shared.center['toolbar按键偏移'] = deepClone(toolbar.center);
   }
+}
+
+function applyNativePayload(project, path, payload) {
+  const descriptor = keyboardNameFromPath(path);
+  if (!descriptor || !isPlainObject(payload)) return;
+  const { themeName, keyboardName } = descriptor;
+  project.nativeKeyboardPayloads[themeName] = project.nativeKeyboardPayloads[themeName] || {};
+  project.nativeKeyboardPayloads[themeName][keyboardName] = payload;
 }
 
 function collectConfigKeyboardNames(config = {}) {
@@ -476,6 +731,21 @@ function applyResourcePreviewFallbacks(project, resources) {
   }
 }
 
+function applyImportedPayloadPropertiesFromStoredPayloads(project) {
+  const hasLightPayloads = isPlainObject(project.nativeKeyboardPayloads?.light)
+    && Object.values(project.nativeKeyboardPayloads.light).some((payload) => isPlainObject(payload));
+  for (const themeName of ['light', 'dark']) {
+    const payloads = project.nativeKeyboardPayloads?.[themeName];
+    if (!isPlainObject(payloads)) continue;
+    for (const [keyboardName, payload] of Object.entries(payloads)) {
+      if (!STANDARD_KEYBOARD_NAME_PATTERN.test(keyboardName)) continue;
+      applyImportedPayloadProperties(project, themeName, keyboardName, payload, {
+        applyShared: themeName === 'light' || !hasLightPayloads,
+      });
+    }
+  }
+}
+
 function buildProjectFromSkinPayloads(sampleProject, payloads, sourceName = '', resources = {}) {
   const project = deepClone(sampleProject);
   project.meta = {
@@ -494,6 +764,7 @@ function buildProjectFromSkinPayloads(sampleProject, payloads, sourceName = '', 
     applyNativePayload(project, path, payload);
   }
   syncImportedMappedPayloadsToWorkbenchNames(project);
+  applyImportedPayloadPropertiesFromStoredPayloads(project);
   applyResourcePreviewFallbacks(project, resources);
   return project;
 }
