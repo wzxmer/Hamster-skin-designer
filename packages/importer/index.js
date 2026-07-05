@@ -334,6 +334,24 @@ function actionText(action) {
   return action.character || action.symbol || action.shortcut || action.keyboardType || '';
 }
 
+function actionEntry(action) {
+  if (typeof action === 'string') return { type: 'action', value: action };
+  if (!isPlainObject(action)) return null;
+  if (isPlainObject(action.action)) return actionEntry(action.action);
+  if (typeof action.action === 'string') return { type: 'action', value: action.action };
+  for (const key of ['character', 'symbol', 'shortcut', 'keyboardType', 'openURL', 'command', 'option']) {
+    if (action[key] !== undefined && action[key] !== null) return { type: key, value: action[key] };
+  }
+  return null;
+}
+
+function actionFieldsFromEntry(entry) {
+  if (!entry) return {};
+  const { type, value } = entry;
+  if (type === 'action') return { action: value, actionType: 'action', actionValue: value };
+  return { [type]: value, actionType: type, actionValue: value };
+}
+
 function normalizeImportedButtonKey(rawKey = '', button = null) {
   let key = String(rawKey || '').replace(/Button$/i, '');
   key = key.replace(/^number(\d)$/i, '$1');
@@ -370,7 +388,7 @@ function collectLayoutRows(payload = {}) {
   };
   for (const row of payload.keyboardLayout) {
     const cells = collectCells(row)
-      .map((cell) => normalizeImportedButtonKey(cell, payload[cell]))
+      .map((cell) => normalizeImportedButtonKey(cell, payload[cell] || payload[`${String(cell).replace(/Button$/i, '')}Button`]))
       .filter(Boolean);
     if (cells.length) rows.push(cells);
   }
@@ -402,6 +420,64 @@ function projectSwipeProfileForKeyboardName(keyboardName) {
   if (keyboardName.startsWith('alphabetic_')) return 'alphabetic';
   if (keyboardName.startsWith('pinyin_')) return 'pinyin';
   return '';
+}
+
+function keyboardTargetForProfile(project, profile) {
+  if (profile === 'numeric') return project.keyboards.numeric = project.keyboards.numeric || {};
+  return project.keyboards.keyboard26 = project.keyboards.keyboard26 || {};
+}
+
+function displayKeyForProfile(profile, key) {
+  return profile === 'alphabetic' && /^[a-z]$/.test(key) ? `alphabetic.${key}` : key;
+}
+
+function triggerKeyForProfile(profile, key) {
+  if ((profile === 'pinyin' || profile === 'alphabetic') && /^\d$/.test(key)) return `number${key}`;
+  return key;
+}
+
+function importedEditorKey(profile, key) {
+  return profile === 'pinyin' && /^\d$/.test(key) ? `number${key}` : key;
+}
+
+function isFunctionKey(key) {
+  return ['shift', 'backspace', 'space', 'enter', '123', 'cnen', 'symbol', 'return', 'pageUp', 'pageDown', 'lock', 'period', 'equal'].includes(key);
+}
+
+function assignImportedDisplay(keyboardTarget, profile, key, foreground) {
+  if (!isPlainObject(foreground)) return;
+  const editorKey = importedEditorKey(profile, key);
+  const displayKey = displayKeyForProfile(profile, editorKey);
+  keyboardTarget.keyDisplays = keyboardTarget.keyDisplays || {};
+  keyboardTarget.keyDisplayTypes = keyboardTarget.keyDisplayTypes || {};
+  if (typeof foreground.systemImageName === 'string' && foreground.systemImageName) {
+    keyboardTarget.keyDisplays[displayKey] = foreground.systemImageName;
+    keyboardTarget.keyDisplayTypes[editorKey] = 'systemImageName';
+    return;
+  }
+  if (typeof foreground.text === 'string' && !/^\$/.test(foreground.text)) {
+    keyboardTarget.keyDisplays[displayKey] = foreground.text;
+    keyboardTarget.keyDisplayTypes[editorKey] = 'text';
+  }
+}
+
+function assignImportedAction(keyboardTarget, profile, key, action) {
+  const entry = actionEntry(action);
+  if (!entry) return;
+  const editorKey = importedEditorKey(profile, key);
+  keyboardTarget.keyEditorModes = keyboardTarget.keyEditorModes || {};
+  keyboardTarget.keyActions = keyboardTarget.keyActions || {};
+  keyboardTarget.keyTypes = keyboardTarget.keyTypes || {};
+  keyboardTarget.keyTriggers = keyboardTarget.keyTriggers || {};
+  if (entry.type === 'character' || entry.type === 'symbol') {
+    const triggerKey = triggerKeyForProfile(profile, editorKey);
+    keyboardTarget.keyEditorModes[editorKey] = 'character';
+    keyboardTarget.keyTypes[editorKey] = entry.type;
+    keyboardTarget.keyTriggers[triggerKey] = String(entry.value);
+    return;
+  }
+  keyboardTarget.keyEditorModes[editorKey] = 'function';
+  keyboardTarget.keyActions[editorKey] = actionFieldsFromEntry(entry);
 }
 
 function ensureSwipeProfile(project, profile) {
@@ -438,24 +514,21 @@ function assignImportedSwipe(project, profile, direction, key, action, labelStyl
 function applyImportedButtonData(project, keyboardName, payload) {
   const profile = projectSwipeProfileForKeyboardName(keyboardName);
   if (!profile) return;
-  const keyboardTarget = profile === 'numeric'
-    ? (project.keyboards.numeric = project.keyboards.numeric || {})
-    : (project.keyboards.keyboard26 = project.keyboards.keyboard26 || {});
+  const keyboardTarget = keyboardTargetForProfile(project, profile);
   keyboardTarget.keyDisplays = keyboardTarget.keyDisplays || {};
-  if (profile !== 'numeric') {
-    keyboardTarget.keyActions = keyboardTarget.keyActions || {};
-  }
+  keyboardTarget.keyDisplayTypes = keyboardTarget.keyDisplayTypes || {};
+  keyboardTarget.keyTypes = keyboardTarget.keyTypes || {};
+  keyboardTarget.keyTriggers = keyboardTarget.keyTriggers || {};
+  keyboardTarget.keyActions = keyboardTarget.keyActions || {};
+  keyboardTarget.keyEditorModes = keyboardTarget.keyEditorModes || {};
   for (const [buttonName, button] of Object.entries(payload)) {
     if (!/Button$/i.test(buttonName) || !isPlainObject(button)) continue;
     const key = normalizeImportedButtonKey(buttonName, button);
     if (!key || key === 'static') continue;
     const foreground = firstForegroundStyle(payload, button, (ref) => !/(?:Up|Down)Swipe|(?:Swipe)?(?:Up|Down)Foreground/i.test(ref));
-    if (foreground?.text && !/^\$/.test(String(foreground.text))) {
-      const displayKey = profile === 'alphabetic' && /^[a-z]$/.test(key) ? `alphabetic.${key}` : key;
-      keyboardTarget.keyDisplays[displayKey] = foreground.text;
-    }
-    if (profile !== 'numeric' && isPlainObject(button.action) && ['shift', 'backspace', 'space', 'enter', '123', 'cnen', 'symbol'].includes(key)) {
-      keyboardTarget.keyActions[key] = deepClone(button.action);
+    assignImportedDisplay(keyboardTarget, profile, key, foreground);
+    if (button.action !== undefined && (isFunctionKey(key) || isPlainObject(button.action))) {
+      assignImportedAction(keyboardTarget, profile, key, button.action);
     }
     if (button.swipeUpAction !== undefined) {
       assignImportedSwipe(project, profile, 'swipe_up', key, button.swipeUpAction, firstForegroundStyle(payload, button, (ref) => /(?:UpSwipe|SwipeUp|UpForeground)/i.test(ref), false));

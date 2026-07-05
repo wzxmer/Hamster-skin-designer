@@ -550,6 +550,9 @@ function buildSymbolicNativeKeyboardPayload(project, themeName, keyboardName) {
   const dataSource = kind === 'emoji'
     ? project.data?.collections?.emojiDataSource
     : project.data?.collections?.symbolicDataSource;
+  const symbolicIconCenter = project.keyboards?.symbolic?.iconCenter
+    || project.keyboards?.symbolic?.text?.iconCenter
+    || { y: 0.53 };
   const categoryWidth = isLandscape ? '56/667' : '56/375';
   const descriptionWidth = isLandscape ? '611/667' : '319/375';
   const keyboardHeight = Number(frame.keyboardHeight) || (isLandscape ? 144 : 268);
@@ -669,7 +672,7 @@ function buildSymbolicNativeKeyboardPayload(project, themeName, keyboardName) {
     },
     pageUpButtonForegroundStyle: {
       buttonStyleType: 'systemImage',
-      center: { y: 0.53 },
+      center: symbolicIconCenter,
       fontSize: 15,
       highlightColor: foregroundColor,
       normalColor: foregroundColor,
@@ -684,7 +687,7 @@ function buildSymbolicNativeKeyboardPayload(project, themeName, keyboardName) {
     },
     pageDownButtonForegroundStyle: {
       buttonStyleType: 'systemImage',
-      center: { y: 0.53 },
+      center: symbolicIconCenter,
       fontSize: 15,
       highlightColor: foregroundColor,
       normalColor: foregroundColor,
@@ -702,7 +705,7 @@ function buildSymbolicNativeKeyboardPayload(project, themeName, keyboardName) {
     },
     lockButtonForegroundStyle: {
       buttonStyleType: 'systemImage',
-      center: { y: 0.53 },
+      center: symbolicIconCenter,
       fontSize: 15,
       highlightColor: foregroundColor,
       normalColor: foregroundColor,
@@ -710,7 +713,7 @@ function buildSymbolicNativeKeyboardPayload(project, themeName, keyboardName) {
     },
     lockButtonUnlockedForegroundStyle: {
       buttonStyleType: 'systemImage',
-      center: { y: 0.53 },
+      center: symbolicIconCenter,
       fontSize: 15,
       highlightColor: foregroundColor,
       normalColor: foregroundColor,
@@ -726,7 +729,7 @@ function buildSymbolicNativeKeyboardPayload(project, themeName, keyboardName) {
     },
     symbolbackspaceButtonForegroundStyle: {
       buttonStyleType: 'systemImage',
-      center: { y: 0.53 },
+      center: symbolicIconCenter,
       fontSize: 17,
       highlightColor: foregroundColor,
       normalColor: foregroundColor,
@@ -750,7 +753,6 @@ function buildPanelNativeKeyboardPayload(project, themeName, keyboardName) {
   const sharedCenter = project.theme?.shared?.center || {};
   const orientation = resolveOrientation(keyboardName);
   const panelFrame = project.keyboardFrame?.panel || {};
-  const textMap = project.keyboards?.panel?.text || {};
   const foregroundColor = themeColors['按键前景颜色'] || (themeName === 'dark' ? '#FFFFFF' : '#000000');
   const normalColor = themeColors['字母键背景颜色-普通'] || (themeName === 'dark' ? '#3b3f46' : '#FFFFFF');
   const highlightColor = themeColors['字母键背景颜色-高亮'] || (themeName === 'dark' ? '#505762' : '#ABB0BA');
@@ -819,8 +821,9 @@ function buildPanelNativeKeyboardPayload(project, themeName, keyboardName) {
     };
     const displayType = panelConfig.keyDisplayTypes?.[editorKey] || 'text';
     const hasDisplay = Object.prototype.hasOwnProperty.call(panelConfig.keyDisplays || {}, editorKey);
-    const displayValue = hasDisplay ? panelConfig.keyDisplays[editorKey] : (textMap[config.textKey] || config.text);
-    const displayText = displayType === 'systemImageName' ? (textMap[config.textKey] || config.text) : displayValue;
+    const legacyText = panelConfig.text?.[config.textKey];
+    const displayValue = hasDisplay ? panelConfig.keyDisplays[editorKey] : (legacyText || config.text);
+    const displayText = displayType === 'systemImageName' ? (legacyText || config.text) : displayValue;
     if (displayType === 'systemImageName') {
       payload[`${buttonName}ForegroundStyle`].systemImageName = displayValue;
     }
@@ -963,6 +966,7 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   const availableResourceFiles = availableResourceFilesForProject(project);
   const customCenters = project.theme?.shared?.customCenters || {};
   const keyDisplays = project.keyboards?.keyboard26?.keyDisplays || {};
+  const enterDisplayVariants = project.keyboards?.keyboard26?.keyDisplayVariants?.enter || {};
   const keyActions = project.keyboards?.keyboard26?.keyActions || {};
   const keyTriggers = project.keyboards?.keyboard26?.keyTriggers || {};
   const numericConfig = project.keyboards?.numeric || {};
@@ -1797,7 +1801,7 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
         style.highlightColor = keyTextColor;
       }
     }
-    const enterText = project.keyboards?.keyboard26?.text?.enter?.default || '换行';
+    const enterText = Object.prototype.hasOwnProperty.call(keyDisplays, 'enter') ? keyDisplays.enter : (enterDisplayVariants.default ?? project.keyboards?.keyboard26?.text?.enter?.default ?? '换行');
     if (isPlainObject(payload.enterButton)) {
       payload.enterButton.backgroundStyle = 'systemButtonBackgroundStyle';
       payload.enterButton.foregroundStyle = 'enterButtonForegroundStyle';
@@ -1938,13 +1942,13 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
       });
     }
     const numericFunctionButtons = {
-      symbol: { buttonName: 'symbolicButton', styleName: 'symbolicFg', defaultAction: { keyboardType: 'symbolic' }, defaultText: project.keyboards?.numeric?.text?.symbol || '#+=' },
+      symbol: { buttonName: 'symbolicButton', styleName: 'symbolicFg', defaultAction: { keyboardType: 'symbolic' }, defaultText: Object.prototype.hasOwnProperty.call(numericConfig.keyDisplays || {}, 'symbol') ? numericConfig.keyDisplays.symbol : (project.keyboards?.numeric?.text?.symbol || '#+=') },
       return: { buttonName: 'returnButton', styleName: 'returnFgGray', defaultAction: { keyboardType: 'pinyin' }, defaultText: project.keyboards?.numeric?.text?.return || '返回' },
       backspace: { buttonName: 'backspaceButton', styleName: 'backspaceFg', defaultAction: { action: 'backspace' }, defaultText: 'delete.left', defaultDisplayType: 'systemImageName' },
       period: { buttonName: 'numperiodButton', styleName: 'numperiodFg', defaultAction: { symbol: '.' }, defaultText: project.keyboards?.numeric?.text?.period || '.' },
       equal: { buttonName: 'equalButton', styleName: 'equalFg', defaultAction: { character: '=' }, defaultText: project.keyboards?.numeric?.text?.equal || '=' },
-      space: { buttonName: 'spaceButton', styleName: 'numspaceFg', defaultAction: { action: 'space' }, defaultText: project.keyboards?.numeric?.text?.space || '空格' },
-      enter: { buttonName: 'enterButton', styleName: 'enterFgCol7', defaultAction: { action: 'enter' }, defaultText: project.keyboards?.numeric?.text?.enter || '发送' },
+      space: { buttonName: 'spaceButton', styleName: 'numspaceFg', defaultAction: { action: 'space' }, defaultText: Object.prototype.hasOwnProperty.call(numericConfig.keyDisplays || {}, 'space') ? numericConfig.keyDisplays.space : (project.keyboards?.numeric?.text?.space || '空格') },
+      enter: { buttonName: 'enterButton', styleName: 'enterFgCol7', defaultAction: { action: 'enter' }, defaultText: Object.prototype.hasOwnProperty.call(numericConfig.keyDisplays || {}, 'enter') ? numericConfig.keyDisplays.enter : (project.keyboards?.numeric?.text?.enter || '发送') },
     };
     for (const [key, config] of Object.entries(numericFunctionButtons)) {
       applyStandardKeyConfig({
@@ -2202,7 +2206,10 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
   };
   const normalizeVariantEnterButton = () => {
     if (!/^pinyin_(14|17|18)_/.test(keyboardName)) return;
-    const enterText = project.keyboards?.keyboard26?.text?.enter?.send
+    const enterText = (Object.prototype.hasOwnProperty.call(keyDisplays, 'enter') ? keyDisplays.enter : '')
+      || enterDisplayVariants.send
+      || project.keyboards?.keyboard26?.text?.enter?.send
+      || enterDisplayVariants.default
       || project.keyboards?.keyboard26?.text?.enter?.default
       || '发送';
     if (isPlainObject(payload.enterButton)) {
@@ -2295,11 +2302,11 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
     for (const [styleName, text] of Object.entries(variantText)) {
       if (isPlainObject(payload[styleName])) payload[styleName].text = applyPinyinProjectLetterCase(project, text);
     }
-    setTextStyle('spaceButtonForegroundStyle', project.keyboards?.keyboard26?.text?.space || '空格', {
+    setTextStyle('spaceButtonForegroundStyle', Object.prototype.hasOwnProperty.call(keyDisplays, 'space') ? keyDisplays.space : (project.keyboards?.keyboard26?.text?.space || '空格'), {
       center: sharedCenter['功能键前景文字偏移'] || { x: 0.5, y: 0.5 },
       fontSize: sharedFontSize['功能键前景文字大小'] || 16,
     });
-    setTextStyle('enterButtonForegroundStyle', project.keyboards?.keyboard26?.text?.enter?.default || '发送', {
+    setTextStyle('enterButtonForegroundStyle', Object.prototype.hasOwnProperty.call(keyDisplays, 'enter') ? keyDisplays.enter : (enterDisplayVariants.default ?? project.keyboards?.keyboard26?.text?.enter?.default ?? '发送'), {
       center: sharedCenter['功能键前景文字偏移'] || { x: 0.5, y: 0.47 },
       fontSize: sharedFontSize['功能键前景文字大小'] || 16,
       normalColor: '#ffffff',
@@ -2564,10 +2571,21 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
       continue;
     }
 
+    if (styleName === '123ButtonForegroundStyle') {
+      applyTextStyle(style, {
+        center: sharedCenter['功能键前景文字偏移'],
+        normalColor: keyTextColor,
+        highlightColor: keyTextColor,
+      });
+      style.text = Object.prototype.hasOwnProperty.call(keyDisplays, '123') ? keyDisplays['123'] : (project.keyboards?.keyboard26?.text?.numericSwitch || style.text || '123');
+      continue;
+    }
+
     if (/^enterButtonForegroundStyle/.test(styleName)) {
       applyTextStyle(style, {
         center: sharedCenter['功能键前景文字偏移'],
       });
+      style.text = Object.prototype.hasOwnProperty.call(keyDisplays, 'enter') ? keyDisplays.enter : (enterDisplayVariants.default ?? project.keyboards?.keyboard26?.text?.enter?.default ?? style.text ?? '发送');
       continue;
     }
 
@@ -2577,6 +2595,7 @@ function sanitizeNativePayload(payload, project, themeName, keyboardName) {
         normalColor: keyTextColor,
         highlightColor: keyTextColor,
       });
+      style.text = Object.prototype.hasOwnProperty.call(keyDisplays, 'space') ? keyDisplays.space : (project.keyboards?.keyboard26?.text?.space || style.text || '空格');
       continue;
     }
 

@@ -690,23 +690,32 @@ button:disabled:hover {
 .coverage-list {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 
 .module-button {
   position: relative;
   width: 100%;
   text-align: left;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 38px;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 10px;
   border-color: transparent;
   background: transparent;
   font-size: 15px;
   font-weight: 720;
   box-shadow: none;
+}
+
+.module-button > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .module-button:hover {
@@ -725,7 +734,7 @@ button:disabled:hover {
 
 .module-button:disabled {
   cursor: not-allowed;
-  opacity: 0.52;
+  opacity: 0.62;
   background: #f3f5f8;
   color: #7a8493;
 }
@@ -735,15 +744,24 @@ button:disabled:hover {
 }
 
 .module-status {
-  min-width: 48px;
+  min-width: 46px;
+  max-width: 72px;
   padding: 2px 7px;
   border-radius: 999px;
   background: #eef2f7;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
+  line-height: 1.35;
   text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.module-button.active .module-status {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .editor-root {
@@ -1353,7 +1371,12 @@ button:disabled:hover {
 
 .key-edit-panel {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-soft);
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 0 2px var(--accent-soft),
+    0 12px 28px rgba(37, 99, 235, 0.08);
 }
 
 .key-row-card .key-edit-panel {
@@ -1362,10 +1385,10 @@ button:disabled:hover {
 
 .key-edit-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 12px;
+  padding: 12px;
   justify-self: stretch;
   width: 100%;
   max-width: 100%;
@@ -1373,19 +1396,25 @@ button:disabled:hover {
 
 .key-edit-panel .field-card-title {
   display: grid;
-  grid-template-columns: 36px 1fr 36px;
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
   align-items: center;
   grid-column: 1 / -1;
   gap: 8px;
+  min-height: 34px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #dbe7f6;
 }
 
 .key-edit-panel .field-card-title h3 {
   grid-column: 2;
   margin: 0;
-  font-size: 16px;
+  min-width: 0;
+  font-size: 15px;
   line-height: 1.25;
   text-align: center;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .key-edit-panel .field-card-title .icon-button {
@@ -1396,8 +1425,12 @@ button:disabled:hover {
 .key-edit-section {
   display: grid;
   grid-column: 1 / -1;
-  gap: 8px;
+  gap: 9px;
   min-width: 0;
+  padding: 10px;
+  border: 1px solid #dbe7f6;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .key-edit-section h4 {
@@ -1410,7 +1443,7 @@ button:disabled:hover {
 
 .key-edit-fields {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr));
   grid-column: 1 / -1;
   gap: 10px;
   min-width: 0;
@@ -1418,16 +1451,16 @@ button:disabled:hover {
 }
 
 .key-edit-fields-three {
-  grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
 }
 
 .key-edit-fields-four {
-  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr));
   justify-content: stretch;
 }
 
 .key-edit-panel .key-edit-fields-four {
-  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr));
   justify-content: stretch;
 }
 
@@ -1438,10 +1471,11 @@ button:disabled:hover {
 
 .key-edit-fields .field-card {
   display: grid;
-  grid-template-columns: minmax(64px, auto) minmax(0, 1fr);
+  grid-template-columns: minmax(78px, 104px) minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   min-width: 0;
+  min-height: 38px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -1474,7 +1508,9 @@ button:disabled:hover {
 .key-edit-fields .field-card input,
 .key-edit-fields .field-card select {
   min-width: 0;
-  height: 36px;
+  height: 38px;
+  width: 100%;
+  font-size: 14px;
 }
 
 .key-edit-fields .field-card select.compact-enum-select {
@@ -1504,12 +1540,12 @@ button:disabled:hover {
 }
 
 .nested-field-grid .field-card {
-  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-columns: minmax(76px, 96px) minmax(0, 1fr);
   max-width: none;
 }
 
 .nested-field-grid .action-type-field {
-  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-columns: minmax(76px, 96px) minmax(0, 1fr);
 }
 
 .nested-field-grid .swipe-label-field {
@@ -4995,7 +5031,7 @@ textarea {
   position: absolute;
   display: grid;
   inset: 0;
-  padding: 3px;
+  padding: 0 3px;
   gap: 2px;
 }
 
@@ -5018,9 +5054,7 @@ textarea {
 }
 
 .long-press-hint-item.is-selected {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    0 2px 8px rgba(0, 122, 255, 0.22);
+  box-shadow: none;
 }
 
 .long-press-hint-item .calayer-foreground {

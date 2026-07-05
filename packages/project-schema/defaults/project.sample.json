@@ -897,7 +897,18 @@
         }
       },
       "keyDisplays": {
+        "123": "123",
+        "symbol": "#+=",
         "cnen": "中"
+      },
+      "keyDisplayVariants": {
+        "enter": {
+          "default": "回车",
+          "search": "搜索",
+          "send": "发送",
+          "go": "前往",
+          "done": "完成"
+        }
       },
       "keyActions": {
         "cnen": {
@@ -906,18 +917,6 @@
           },
           "actionType": "shortcut",
           "actionValue": "#中英切换"
-        }
-      },
-      "text": {
-        "symbol": "#+=",
-        "numericSwitch": "123",
-        "space": "",
-        "enter": {
-          "default": "回车",
-          "search": "搜索",
-          "send": "发送",
-          "go": "前往",
-          "done": "完成"
         }
       },
       "spaceRight": {
@@ -1609,7 +1608,14 @@
         },
         "landscape": {}
       },
-      "keyDisplays": {},
+      "keyDisplays": {
+        "return": "返回",
+        "symbol": "#+=",
+        "space": "空格",
+        "period": ".",
+        "equal": "=",
+        "enter": "换行"
+      },
       "collectionSymbols": [
         "+",
         "-",
@@ -1624,15 +1630,7 @@
         "_",
         "?",
         "￥"
-      ],
-      "text": {
-        "return": "返回",
-        "symbol": "#+=",
-        "space": "空格",
-        "period": ".",
-        "equal": "=",
-        "enter": "换行"
-      }
+      ]
     },
     "symbolic": {
       "layout": {
@@ -1650,12 +1648,11 @@
           "descriptionCellHeight": 28
         }
       },
-      "keyDisplays": {},
-      "text": {
-        "return": "返回",
-        "iconCenter": {
-          "y": 0.53
-        }
+      "keyDisplays": {
+        "return": "返回"
+      },
+      "iconCenter": {
+        "y": 0.53
       },
       "collections": {
         "category": {},
@@ -1663,16 +1660,16 @@
       }
     },
     "panel": {
-      "text": {
-        "Script": "元书",
-        "RimeSwitcher": "Switcher",
-        "KeyboardSetting": "键盘设置",
-        "EmbeddedInputMode": "内嵌开关",
-        "FileManager": "文件",
-        "HamsterSetting": "皮肤设置",
-        "KeyboardPiP": "画中画",
+      "keyDisplays": {
+        "Hamster": "元书",
+        "Switcher": "Switcher",
+        "settings": "键盘设置",
+        "Phrase": "内嵌开关",
+        "Finder": "文件",
+        "HamsterSkin": "皮肤设置",
+        "Upload": "画中画",
         "Deploy": "部署",
-        "Simplified": "简繁",
+        "emoji": "简繁",
         "Lenovo": "联想"
       }
     }

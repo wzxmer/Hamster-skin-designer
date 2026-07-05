@@ -86,6 +86,14 @@ const yamlPayload = {
     foregroundStyle: 'wButtonForegroundStyle',
     swipeUpAction: 'selectSecondCandidate',
   },
+  enterButton: {
+    action: 'enter',
+    foregroundStyle: 'enterButtonForegroundStyle',
+  },
+  enterButtonForegroundStyle: {
+    buttonStyleType: 'text',
+    text: '发送',
+  },
   wButtonForegroundStyle: {
     buttonStyleType: 'text',
     text: 'w',
@@ -137,6 +145,14 @@ assert(importedThirdParty.project.data.swipes.pinyin.swipe_down.q.action.shortcu
 assert(importedThirdParty.project.data.swipes.pinyin.swipe_up.q.label.text === '1', '导入应同步上滑显示文案。');
 assert(importedThirdParty.project.data.swipes.pinyin.swipe_up.w.label.text === 'selectSecondCandidate', '字符串划动动作应保留可见标签。');
 assert(importedThirdParty.project.keyboards.keyboard26.variants['26'].portraitRows[0][0] === 'q', '导入应从 keyboardLayout 回填 26 键布局行。');
+assert(importedThirdParty.project.keyboards.keyboard26.keyDisplays.q === 'q', '导入应把按键显示迁移到统一 keyDisplays 字段。');
+assert(importedThirdParty.project.keyboards.keyboard26.keyDisplayTypes.q === 'text', '导入应把文字显示类型迁移到统一 keyDisplayTypes 字段。');
+assert(importedThirdParty.project.keyboards.keyboard26.keyEditorModes.q === 'character', '导入普通按键应迁移为统一 character 编辑模式。');
+assert(importedThirdParty.project.keyboards.keyboard26.keyTypes.q === 'character', '导入普通按键触发类型应迁移到统一 keyTypes 字段。');
+assert(importedThirdParty.project.keyboards.keyboard26.keyTriggers.q === 'q', '导入普通按键触发值应迁移到统一 keyTriggers 字段。');
+assert(importedThirdParty.project.keyboards.keyboard26.keyEditorModes.enter === 'function', '导入功能键应迁移为统一 function 编辑模式。');
+assert(importedThirdParty.project.keyboards.keyboard26.keyActions.enter.actionType === 'action', '导入功能键动作应迁移到统一 keyActions 字段。');
+assert(importedThirdParty.project.keyboards.keyboard26.keyDisplays.enter === '发送', '导入功能键显示应迁移到统一 keyDisplays 字段。');
 assert(importedThirdParty.project.nativeKeyboardPayloads.light.pinyin_26_portrait.keyboardHeight === 444, '导入 raw payload 应只作为 nativeKeyboardPayloads 兼容输入保存。');
 
 const darkSharedPayload = {

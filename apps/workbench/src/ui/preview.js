@@ -308,6 +308,23 @@ function layerStyles(project, theme, options = {}) {
     const style = fallbackNativePayload[styleName];
     return style && typeof style === 'object' && !Array.isArray(style) ? style : fallback;
   };
+  const hintGeometryBackground = (style, fallback = {}, options = {}) => ({
+    ...fallback,
+    ...style,
+    buttonStyleType: 'geometry',
+    normalImage: undefined,
+    highlightImage: undefined,
+    targetScale: undefined,
+    insets: options.keepImageInsets ? (style?.insets || fallback.insets) : fallback.insets,
+    normalColor: style?.normalColor || fallback.normalColor,
+    borderColor: style?.borderColor || fallback.borderColor,
+    normalShadowColor: style?.normalShadowColor || fallback.normalShadowColor,
+    cornerRadius: style?.cornerRadius ?? fallback.cornerRadius,
+    borderSize: style?.borderSize ?? fallback.borderSize,
+    shadowRadius: style?.shadowRadius ?? fallback.shadowRadius,
+    shadowOpacity: style?.shadowOpacity ?? fallback.shadowOpacity,
+    shadowOffset: style?.shadowOffset || fallback.shadowOffset,
+  });
   const keyboardBackgroundStyle = fallbackNativePayload.keyboardBackgroundStyle || {
     buttonStyleType: 'geometry',
     normalColor: keyboardPreviewBackground,
@@ -571,8 +588,8 @@ function layerStyles(project, theme, options = {}) {
     symbolicIconForegroundStyle: {
       buttonStyleType: 'systemImage',
       center: {
-        x: project.keyboards?.symbolic?.text?.iconCenter?.x ?? 0.5,
-        y: project.keyboards?.symbolic?.text?.iconCenter?.y ?? 0.53,
+        x: project.keyboards?.symbolic?.iconCenter?.x ?? project.keyboards?.symbolic?.text?.iconCenter?.x ?? 0.5,
+        y: project.keyboards?.symbolic?.iconCenter?.y ?? project.keyboards?.symbolic?.text?.iconCenter?.y ?? 0.53,
       },
       fontSize: resolveFontSize(project, '按键前景sf符号大小', 15),
       normalColor: keyText,
@@ -683,7 +700,7 @@ function layerStyles(project, theme, options = {}) {
       selectedPadding: { top: 5, right: 10, bottom: 5, left: 10 },
       selectedCornerRadius: 10,
     },
-    hintBackgroundStyle: nativeStyle('alphabeticHintSymbolsBackgroundStyle', {
+    hintBackgroundStyle: hintGeometryBackground(nativeStyle('alphabeticHintSymbolsBackgroundStyle', {}), {
       buttonStyleType: 'geometry',
       insets: project.keyStyles?.buttonInsets?.hint?.symbols || {},
       ...surfaceStyle('hint', 'bubble', {
@@ -696,7 +713,7 @@ function layerStyles(project, theme, options = {}) {
       normalColor: resolveColor(project, theme, '长按背景颜色', theme === 'dark' ? '#6b6b6b' : '#ffffff'),
       borderColor: resolveColor(project, theme, '气泡边缘颜色', '#606060'),
       normalShadowColor: resolveColor(project, theme, '长按背景阴影颜色', 'rgba(0,0,0,.18)'),
-    }),
+    }, { keepImageInsets: true }),
     pressedBubbleBackgroundStyle: {
       buttonStyleType: 'geometry',
       insets: project.keyStyles?.buttonInsets?.hint?.symbols || {},
@@ -712,9 +729,9 @@ function layerStyles(project, theme, options = {}) {
       borderColor: resolveColor(project, theme, '气泡边缘颜色', '#606060'),
       normalShadowColor: resolveColor(project, theme, '长按背景阴影颜色', 'rgba(0,0,0,.18)'),
     },
-    hintSelectedBackgroundStyle: nativeStyle('alphabeticHintSymbolsSelectedStyle', {
+    hintSelectedBackgroundStyle: hintGeometryBackground(nativeStyle('alphabeticHintSymbolsSelectedStyle', {}), {
       buttonStyleType: 'geometry',
-      insets: project.keyStyles?.buttonInsets?.hint?.selectedBackground || {},
+      insets: {},
       ...surfaceStyle('hint', 'selectedBackground', {
         cornerRadius: 9,
         borderSize: 0,
@@ -1424,7 +1441,7 @@ function rowsForMode(project, mode, orientation = 'portrait', options = {}) {
       ['return', 'pageUp', 'pageDown', 'lock', 'backspace'],
     ];
   }
-  const panelKeys = Object.keys(project.keyboards.panel.text || {});
+  const panelKeys = Object.keys(project.keyboards.panel.keyDisplays || project.keyboards.panel.text || {});
   return [
     panelKeys.slice(0, 3),
     panelKeys.slice(3, 6),
@@ -1434,27 +1451,40 @@ function rowsForMode(project, mode, orientation = 'portrait', options = {}) {
 
 function labelForMode(project, mode, key, options = {}) {
   if (mode !== 'keyboard26') {
-    return project.keyboards?.[mode]?.text?.[key] || project.keyboards.panel.text?.[key] || key;
+    return project.keyboards?.[mode]?.keyDisplays?.[key]
+      ?? project.keyboards?.[mode]?.text?.[key]
+      ?? project.keyboards.panel.keyDisplays?.[key]
+      ?? project.keyboards.panel.text?.[key]
+      ?? key;
   }
   const keyboard = project.keyboards?.keyboard26 || {};
   const variant = activePinyinVariantForPreview(project, options);
   const profile = keyboard26ProfileFromOptions(options);
   const text = keyboard.text || {};
+  const enterVariants = keyboard.keyDisplayVariants?.enter || {};
+  const hasCustomLabel = profile === 'alphabetic'
+    ? Object.prototype.hasOwnProperty.call(keyboard.keyDisplays || {}, `alphabetic.${key}`)
+      || Object.prototype.hasOwnProperty.call(keyboard.keyDisplays || {}, `english.${key}`)
+    : Object.prototype.hasOwnProperty.call(keyboard.keyDisplays || {}, key);
   const customLabel = profile === 'alphabetic'
-    ? keyboard.keyDisplays?.[`alphabetic.${key}`] || keyboard.keyDisplays?.[`english.${key}`]
+    ? (Object.prototype.hasOwnProperty.call(keyboard.keyDisplays || {}, `alphabetic.${key}`)
+      ? keyboard.keyDisplays[`alphabetic.${key}`]
+      : keyboard.keyDisplays?.[`english.${key}`])
     : keyboard.keyDisplays?.[key];
-  if (customLabel) return customLabel;
+  if (hasCustomLabel) return customLabel;
   if (['14', '17', '18'].includes(variant) && key === 'space') return '';
   const variantLabel = pinyinVariantKeyLabel(project, variant, key);
   if (variantLabel) return variantLabel;
   const labels = {
-    '123': text.numericSwitch || '123',
-    space: ['9', '14', '17', '18'].includes(variant) ? '' : (text.space ?? ''),
-    symbol: text.symbol || '#+=',
+    '123': keyboard.keyDisplays?.['123'] || text.numericSwitch || '123',
+    space: ['9', '14', '17', '18'].includes(variant) ? '' : (keyboard.keyDisplays?.space ?? text.space ?? ''),
+    symbol: keyboard.keyDisplays?.symbol || text.symbol || '#+=',
     cnen: profile === 'alphabetic' ? '英' : '中',
     semicolon: ';',
     spaceRight: keyboard.spaceRight?.[profile]?.primary?.text || keyboard.spaceRight?.pinyin?.primary?.text || '，',
-    enter: variant === '26' ? (text.enter?.default || '回车') : '发送',
+    enter: variant === '26'
+      ? (Object.prototype.hasOwnProperty.call(keyboard.keyDisplays || {}, 'enter') ? keyboard.keyDisplays.enter : (enterVariants.default ?? text.enter?.default ?? '回车'))
+      : (Object.prototype.hasOwnProperty.call(keyboard.keyDisplays || {}, 'enter') ? keyboard.keyDisplays.enter : (enterVariants.send ?? text.enter?.send ?? '发送')),
   };
   if (profile === 'alphabetic' && /^[a-z]$/.test(key)) return key;
   if (Object.prototype.hasOwnProperty.call(labels, key)) return labels[key];
@@ -2494,11 +2524,17 @@ function keyboard26PreviewSourceVariant(options = {}) {
 function keyboard26DisplaySpec(project, key, options = {}) {
   const keyboard = project.keyboards?.keyboard26 || {};
   const profile = keyboard26ProfileFromOptions(options);
+  const hasCustomLabel = profile === 'alphabetic'
+    ? Object.prototype.hasOwnProperty.call(keyboard.keyDisplays || {}, `alphabetic.${key}`)
+      || Object.prototype.hasOwnProperty.call(keyboard.keyDisplays || {}, `english.${key}`)
+    : Object.prototype.hasOwnProperty.call(keyboard.keyDisplays || {}, key);
   const customLabel = profile === 'alphabetic'
-    ? keyboard.keyDisplays?.[`alphabetic.${key}`] || keyboard.keyDisplays?.[`english.${key}`]
+    ? (Object.prototype.hasOwnProperty.call(keyboard.keyDisplays || {}, `alphabetic.${key}`)
+      ? keyboard.keyDisplays[`alphabetic.${key}`]
+      : keyboard.keyDisplays?.[`english.${key}`])
     : keyboard.keyDisplays?.[key];
   const customType = keyboard.keyDisplayTypes?.[key] || 'text';
-  if (customLabel) {
+  if (hasCustomLabel) {
     const content = options.shiftActive && customType !== 'systemImageName' && /^[a-z]$/.test(customLabel)
       ? customLabel.toUpperCase()
       : customLabel;
@@ -2667,6 +2703,10 @@ function spriteBackgroundCss(sprite, scale = { x: 1, y: 1 }) {
   ].join(';');
 }
 
+function cssUrl(value = '') {
+  return `url('${escapeHtml(String(value).replace(/'/g, '%27'))}')`;
+}
+
 function resolveFileImageAsset(project, theme = 'light', imageRef = null) {
   if (!imageRef || typeof imageRef !== 'object') return '';
   const fileName = String(imageRef.file || '').trim();
@@ -2747,7 +2787,7 @@ function backgroundCssForStyle(project, theme, style = {}, context = {}) {
       const scale = imageScale(style);
       return [
         geometryCss(style),
-        `background-image:url("${escapeHtml(imageAsset.source)}")`,
+        `background-image:${cssUrl(imageAsset.source)}`,
         imageAsset.sprite ? spriteBackgroundCss(imageAsset.sprite, scale) : 'background-position:center',
         'background-repeat:no-repeat',
         imageAsset.sprite ? '' : `background-size:${scale.x * 100}% ${scale.y * 100}%`,
@@ -2779,7 +2819,7 @@ function renderForeground(style, content, context = {}) {
     : null;
   const imageStyle = imageAsset?.sprite
     ? [
-      `background-image:url("${escapeHtml(imageAsset.source)}")`,
+      `background-image:${cssUrl(imageAsset.source)}`,
       spriteBackgroundCss(imageAsset.sprite, imageScale(style)),
       'background-repeat:no-repeat',
       'width:100%',
@@ -3143,7 +3183,8 @@ function renderHintOverlay(project, theme, mode, styles, frame, options = {}) {
   const height = Number.isFinite(configuredHeight) && configuredHeight > 0
     ? configuredHeight
     : Math.max(HINT_PREVIEW_CELL_HEIGHT - 6, keyRect.height * 0.92);
-  const itemHeight = Math.max(1, height - 8);
+  const hintInsets = styles.hintBackgroundStyle.insets || {};
+  const itemHeight = Math.max(1, height - numberInset(hintInsets, 'top') - numberInset(hintInsets, 'bottom'));
   const anchor = hintAnchorForMode(project, mode, sample.key, frame, orientation, options);
   const previewWidth = PREVIEW_LOGICAL_SIZE[orientation]?.width || PREVIEW_LOGICAL_WIDTH;
   const left = Math.min(Math.max(anchor.x - width / 2, 6), previewWidth - width - 6);
@@ -3152,7 +3193,7 @@ function renderHintOverlay(project, theme, mode, styles, frame, options = {}) {
   return `
     <div class="long-press-hint-preview" style="left:${left}px;top:${top}px;width:${width}px;height:${height}px">
       ${renderBackgroundLayer(project, theme, styles.hintBackgroundStyle)}
-      <div class="long-press-hint-items" style="${insetPositionCss(styles.hintBackgroundStyle.insets)};grid-template-columns:repeat(${list.length}, minmax(0, 1fr))">
+      <div class="long-press-hint-items" style="${insetPositionCss(hintInsets)};grid-template-columns:repeat(${list.length}, minmax(0, 1fr))">
         ${list.map((item, index) => {
     const selected = index === selectedIndex;
     const label = labelSpecs[index];
@@ -3469,7 +3510,7 @@ function renderExpandedCandidates(project, theme, styles, frame) {
 function numericLabel(project, key) {
   const numeric = project.keyboards?.numeric || {};
   const text = numeric.text || {};
-  if (numeric.keyDisplays?.[key]) return numeric.keyDisplays[key];
+  if (Object.prototype.hasOwnProperty.call(numeric.keyDisplays || {}, key)) return numeric.keyDisplays[key];
   const labels = {
     symbol: text.symbol || '#+=',
     return: text.return || '返回',
@@ -3499,7 +3540,8 @@ function fallbackNumericForeground(project, key, styles, customLabel = null) {
 }
 
 function numericCell(project, theme, key, height, styles, orientation = 'portrait', options = {}, payload = null) {
-  const customLabel = project.keyboards?.numeric?.keyDisplays?.[key];
+  const hasCustomLabel = Object.prototype.hasOwnProperty.call(project.keyboards?.numeric?.keyDisplays || {}, key);
+  const customLabel = hasCustomLabel ? project.keyboards.numeric.keyDisplays[key] : null;
   const metric = resolveKeyMetric(project, 'numeric', key, orientation);
   const isPressed = options.activePressedKey === key;
   const buttonName = numericButtonNameForKey(key);
@@ -3786,7 +3828,9 @@ function renderPanelKeyboard(project, theme, styles, frame, options = {}) {
   const height = frame.keyboardHeight * Number(scale.y || defaultScale.y);
   const keyboardInsets = payload?.keyboardStyle?.insets || styles.panelKeyboardBackgroundStyle.insets || {};
   const rowHeight = (height - numberInset(keyboardInsets, 'top') - numberInset(keyboardInsets, 'bottom')) / 2;
-  const labels = project.keyboards?.panel?.text || {};
+  const panelKeyboard = project.keyboards?.panel || {};
+  const labels = panelKeyboard.keyDisplays || {};
+  const legacyLabels = panelKeyboard.text || {};
   const rows = Array.isArray(payload?.keyboardLayout) && payload.keyboardLayout.length
     ? payload.keyboardLayout.map((row) => row.HStack?.subviews?.map((item) => item.Cell).filter(Boolean) || []).filter((row) => row.length)
     : [
@@ -3795,7 +3839,7 @@ function renderPanelKeyboard(project, theme, styles, frame, options = {}) {
       ];
   const fallbackByButton = Object.fromEntries(PANEL_BUTTONS.map(([key, icon, textKey]) => [`${key}Button`, {
     icon,
-    text: labels[textKey] || textKey,
+    text: labels[key] || legacyLabels[textKey] || textKey,
   }]));
 
   return `

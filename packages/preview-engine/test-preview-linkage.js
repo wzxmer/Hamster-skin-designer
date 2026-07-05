@@ -408,8 +408,7 @@ pinyin9NumericProject.keyboardCombo.slots.numeric.variant = '9';
 const pinyin9NumericPayload = buildEffectiveNativeKeyboardPayload(pinyin9NumericProject, 'light', 'numeric_9_portrait');
 const customNumericKeysProject = createSampleProject();
 customNumericKeysProject.keyboards.numeric.keyTypes = { ...(customNumericKeysProject.keyboards.numeric.keyTypes || {}), 1: 'character' };
-customNumericKeysProject.keyboards.numeric.keyDisplays = { ...(customNumericKeysProject.keyboards.numeric.keyDisplays || {}), 1: '壹' };
-customNumericKeysProject.keyboards.numeric.text = { ...(customNumericKeysProject.keyboards.numeric.text || {}), space: '' };
+customNumericKeysProject.keyboards.numeric.keyDisplays = { ...(customNumericKeysProject.keyboards.numeric.keyDisplays || {}), 1: '壹', space: '' };
 customNumericKeysProject.keyboards.numeric.keyDisplayTypes = { ...(customNumericKeysProject.keyboards.numeric.keyDisplayTypes || {}), backspace: 'systemImageName' };
 customNumericKeysProject.keyboards.numeric.keyDisplays.backspace = 'delete.left.fill';
 customNumericKeysProject.keyboards.numeric.keyActions = {
@@ -445,6 +444,38 @@ assert(customNumericPayload.number1Fg?.text === '壹' && previewKeyCellHtml(cust
 assert(customNumericPayload.numspaceFg?.text === '', '数字 9 键功能键应支持统一编辑空显示内容。');
 assert(customNumericPayload.backspaceButton?.action?.action === 'backspace', '数字 9 键功能键应支持统一编辑标准 action。');
 assert(customNumericPayload.backspaceFg?.buttonStyleType === 'systemImage' && customNumericPayload.backspaceFg?.systemImageName === 'delete.left.fill', '数字 9 键功能键应支持统一编辑 systemImageName 显示。');
+const unifiedFunctionDisplayProject = createSampleProject();
+unifiedFunctionDisplayProject.keyboards.keyboard26.keyDisplays = {
+  ...(unifiedFunctionDisplayProject.keyboards.keyboard26.keyDisplays || {}),
+  '123': '数',
+  space: '空',
+  enter: '发',
+};
+const unifiedFunctionDisplayHtml = render(unifiedFunctionDisplayProject, { mode: 'keyboard26' });
+const unifiedFunctionDisplayPayload = buildEffectiveNativeKeyboardPayload(unifiedFunctionDisplayProject, 'light', 'pinyin_26_portrait');
+assert(previewKeyCellHtml(unifiedFunctionDisplayHtml, '123').includes('>数</span>'), '26 键数字切换键应优先使用统一 keyDisplays 字段。');
+assert(previewKeyCellHtml(unifiedFunctionDisplayHtml, 'space').includes('>空</span>'), '26 键空格键应优先使用统一 keyDisplays 字段。');
+assert(previewKeyCellHtml(unifiedFunctionDisplayHtml, 'enter').includes('>发</span>'), '26 键回车键应优先使用统一 keyDisplays 字段。');
+assert(unifiedFunctionDisplayPayload['123ButtonForegroundStyle']?.text === '数', '导出 payload 应同步统一 keyDisplays.123。');
+assert(unifiedFunctionDisplayPayload.spaceButtonForegroundStyle?.text === '空', '导出 payload 应同步统一 keyDisplays.space。');
+assert(Object.entries(unifiedFunctionDisplayPayload)
+  .some(([key, value]) => /^enterButtonForegroundStyle/.test(key) && value?.text === '发'), '导出 payload 应同步统一 keyDisplays.enter。');
+const unifiedEnterVariantProject = createSampleProject();
+unifiedEnterVariantProject.keyboards.keyboard26.keyDisplayVariants = {
+  ...(unifiedEnterVariantProject.keyboards.keyboard26.keyDisplayVariants || {}),
+  enter: {
+    ...(unifiedEnterVariantProject.keyboards.keyboard26.keyDisplayVariants?.enter || {}),
+    default: '换行新',
+    send: '发送新',
+  },
+};
+const unifiedEnterVariantHtml = render(unifiedEnterVariantProject, { mode: 'keyboard26' });
+const unifiedEnterVariantPayload = buildEffectiveNativeKeyboardPayload(unifiedEnterVariantProject, 'light', 'pinyin_26_portrait');
+const unifiedEnterVariantPinyin14Payload = buildEffectiveNativeKeyboardPayload(unifiedEnterVariantProject, 'light', 'pinyin_14_portrait');
+assert(previewKeyCellHtml(unifiedEnterVariantHtml, 'enter').includes('>换行新</span>'), '26 键回车默认状态显示应优先使用 keyDisplayVariants.enter.default。');
+assert(Object.entries(unifiedEnterVariantPayload)
+  .some(([key, value]) => /^enterButtonForegroundStyle/.test(key) && value?.text === '换行新'), '26 键导出应同步 keyDisplayVariants.enter.default。');
+assert(unifiedEnterVariantPinyin14Payload.enterButtonForegroundStyle?.text === '发送新', '中文 14/17/18 变体导出应同步 keyDisplayVariants.enter.send。');
 const customSymbolicKeysProject = createSampleProject();
 customSymbolicKeysProject.keyboards.symbolic.keyActions = {
   ...(customSymbolicKeysProject.keyboards.symbolic.keyActions || {}),
@@ -464,6 +495,10 @@ assert(customSymbolicPayload.symbolreturnButtonForegroundStyle?.text === '回主
 assert(customSymbolicPayload.pageUpButton?.action?.shortcut === '#rimePreviousPage', '符号键盘功能键应支持统一编辑功能动作。');
 assert(customSymbolicPayload.symbolbackspaceButtonForegroundStyle?.buttonStyleType === 'systemImage'
   && customSymbolicPayload.symbolbackspaceButtonForegroundStyle?.systemImageName === 'delete.left.fill', '符号键盘功能键应支持统一编辑 systemImageName 显示。');
+const symbolicIconCenterProject = createSampleProject();
+symbolicIconCenterProject.keyboards.symbolic.iconCenter = { x: 0.42, y: 0.61 };
+const symbolicIconCenterHtml = render(symbolicIconCenterProject, { mode: 'symbolic' });
+assert(previewKeyCellHtml(symbolicIconCenterHtml, 'symbolbackspace').includes('left:42%;top:61%'), '符号键盘图标偏移应使用 symbolic.iconCenter，不再写 symbolic.text.iconCenter。');
 assert(previewKeyCellHtml(pinyin14LandscapeNumericHtml, 'number1').includes('>1</span>'), '中文 14 键横屏九宫格 number1 应显示数字 1。');
 assert(previewKeyCellHtml(pinyin14LandscapeNumericHtml, 'number9').includes('>9</span>'), '中文 14 键横屏九宫格 number9 应显示数字 9。');
 assert(previewKeyCellHtml(pinyin14LandscapeNumericHtml, 'number0').includes('>0</span>'), '中文 14 键横屏九宫格 number0 应显示数字 0。');
@@ -574,8 +609,12 @@ assert(symbolicCollectionHtml.includes('测试分类'), '符号键盘预览应�
 assert(symbolicCollectionHtml.includes('甲') && symbolicCollectionHtml.includes('乙'), '符号键盘预览应同步左侧 collection 条目。');
 
 const hintHtml = render(baseProject, { activeHintKey: 'q' });
-assert(hintHtml.includes('resources/hold_back.png'), '长按候选气泡预览应同步 hold_back 背景图片。');
-assert(hintHtml.includes('resources/hint.png'), '长按候选选中项预览应同步 hint 背景图片。');
+const hintSelectedBackground = backgroundStyle(previewClassCellHtml(hintHtml, 'selected'));
+assert(!hintHtml.includes('resources/hold_back.png') && !hintHtml.includes('resources/hint.png'), '长按候选气泡预览应使用可见几何背景，不应叠加模板透明图片。');
+assert(hintHtml.includes('background:#FFFFFF') && hintHtml.includes('background:#007AFF'), '长按候选气泡预览应有可见底色，不能因透明图片背景导致看不见。');
+assert(!hintHtml.includes('background-image:url("'), '长按候选气泡预览的 inline style 不能使用会截断 HTML 属性的双引号 URL。');
+assert(hintSelectedBackground.includes('background:#007AFF')
+  && hintSelectedBackground.includes('top:0px;right:0px;bottom:0px;left:0px'), '长按候选选中蓝底应填满选中项，不能继承模板图片 inset 形成重复背景。');
 
 const expandedImageProject = createSampleProject();
 expandedImageProject.nativeKeyboardPayloads = {

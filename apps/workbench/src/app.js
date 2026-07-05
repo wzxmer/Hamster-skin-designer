@@ -1996,9 +1996,9 @@ function centerSpecialEntriesForScope() {
   }
   if (scope.mode === 'symbolic' && scope.keyboardVisible) {
     entries.push({
-      path: 'keyboards.symbolic.text.iconCenter',
+      path: 'keyboards.symbolic.iconCenter',
       label: '符号键盘底部图标',
-      point: state.project.keyboards?.symbolic?.text?.iconCenter,
+      point: state.project.keyboards?.symbolic?.iconCenter || state.project.keyboards?.symbolic?.text?.iconCenter,
       category: 'special',
     });
   }
@@ -3437,34 +3437,30 @@ function keyDisplayValue(value, key) {
   if (variantLabel) return variantLabel;
   if (/^[a-z]$/.test(key)) {
     if (profile === 'alphabetic') {
-      return value.keyDisplays?.[`alphabetic.${key}`]
-        || value.keyDisplays?.[`english.${key}`]
-        || (guideState().preferences.alphabetic26LetterCase === 'upper' ? key.toUpperCase() : key);
+      if (Object.prototype.hasOwnProperty.call(value.keyDisplays || {}, `alphabetic.${key}`)) return value.keyDisplays[`alphabetic.${key}`];
+      if (Object.prototype.hasOwnProperty.call(value.keyDisplays || {}, `english.${key}`)) return value.keyDisplays[`english.${key}`];
+      return guideState().preferences.alphabetic26LetterCase === 'upper' ? key.toUpperCase() : key;
     }
-    return value.keyDisplays?.[key] || (guideState().preferences.pinyin26LetterCase === 'upper' ? key.toUpperCase() : key);
+    if (Object.prototype.hasOwnProperty.call(value.keyDisplays || {}, key)) return value.keyDisplays[key];
+    return guideState().preferences.pinyin26LetterCase === 'upper' ? key.toUpperCase() : key;
   }
-  if (key === '123') return text.numericSwitch || '123';
-  if (key === 'symbol') return text.symbol || '#+=';
-  if (key === 'space') return text.space || '空格';
+  if (key === '123') return Object.prototype.hasOwnProperty.call(value.keyDisplays || {}, '123') ? value.keyDisplays['123'] : (text.numericSwitch || '123');
+  if (key === 'symbol') return Object.prototype.hasOwnProperty.call(value.keyDisplays || {}, 'symbol') ? value.keyDisplays.symbol : (text.symbol || '#+=');
+  if (key === 'space') return Object.prototype.hasOwnProperty.call(value.keyDisplays || {}, 'space') ? value.keyDisplays.space : (text.space || '空格');
   if (key === 'spaceRight') return value.spaceRight?.[profile]?.primary?.text || value.spaceRight?.pinyin?.primary?.text || '，';
-  if (key === 'enter') return text.enter?.default || '回车';
-  return value.keyDisplays?.[key] || FUNCTION_KEY_LABELS[key] || key;
+  if (key === 'enter') return Object.prototype.hasOwnProperty.call(value.keyDisplays || {}, 'enter') ? value.keyDisplays.enter : (value.keyDisplayVariants?.enter?.default ?? text.enter?.default ?? '回车');
+  return Object.prototype.hasOwnProperty.call(value.keyDisplays || {}, key) ? value.keyDisplays[key] : (FUNCTION_KEY_LABELS[key] || key);
 }
 
 function keyboard26DisplayPath(key) {
-  if (key === '123') return 'keyboards.keyboard26.text.numericSwitch';
-  if (key === 'symbol') return 'keyboards.keyboard26.text.symbol';
-  if (key === 'enter') return 'keyboards.keyboard26.text.enter.default';
-  if (key === 'space') return activePinyinVariant() === '26' ? 'keyboards.keyboard26.text.space' : '';
   if (key === 'spaceRight') return `keyboards.keyboard26.spaceRight.${keyboard26PreviewProfile()}.primary.text`;
-  if (key === 'cnen') return 'keyboards.keyboard26.keyDisplays.cnen';
   if (['backspace', 'punctuationColumn'].includes(key)) return '';
   if (/^[a-z]$/.test(key) && keyboard26PreviewProfile() === 'alphabetic') return '';
   return `keyboards.keyboard26.keyDisplays.${key}`;
 }
 
-function keyboard26TriggerPath(key, fallbackPath) {
-  return /^number[0-9]$/.test(key) ? `keyboards.keyboard26.keyTriggers.${key}` : fallbackPath;
+function keyboard26TriggerPath(key) {
+  return `keyboards.keyboard26.keyTriggers.${key}`;
 }
 
 function keyboard26TriggerValue(key) {
@@ -3482,14 +3478,15 @@ function keyboard26MappedDisplayKeys(value = {}) {
 }
 
 function renderEnterDisplayFields(textEnter = state.project?.keyboards?.keyboard26?.text?.enter || {}) {
-  const entries = Object.entries(textEnter);
+  const variantEnter = state.project?.keyboards?.keyboard26?.keyDisplayVariants?.enter || {};
+  const entries = Object.entries({ ...textEnter, ...variantEnter });
   if (!entries.length) return '';
   return `
     <div class="key-edit-subsection key-edit-span-two">
       <h5>回车状态显示</h5>
       <div class="key-edit-fields enter-display-fields">
         ${entries.map(([key, fieldValue]) => input({
-    path: `keyboards.keyboard26.text.enter.${key}`,
+    path: `keyboards.keyboard26.keyDisplayVariants.enter.${key}`,
     label: key,
     value: fieldValue,
   })).join('')}
@@ -3838,14 +3835,7 @@ function keyEditFieldsForKey(key) {
   ], path);
   if (value === 'spaceRight') return spaceRightKeyEditFields(path, value);
   const keyboard = state.project.keyboards?.keyboard26 || {};
-  const displayPath = ['123', 'symbol', 'space', 'enter'].includes(value)
-    ? {
-      '123': 'keyboards.keyboard26.text.numericSwitch',
-      symbol: 'keyboards.keyboard26.text.symbol',
-      space: 'keyboards.keyboard26.text.space',
-      enter: 'keyboards.keyboard26.text.enter.default',
-    }[value]
-    : `keyboards.keyboard26.keyDisplays.${value}`;
+  const displayPath = `keyboards.keyboard26.keyDisplays.${value}`;
   const displayValue = getPath(state.project, displayPath) || keyDisplayValue(keyboard, value);
   const typePath = `keyboards.keyboard26.keyTypes.${value}`;
   const typeValue = getPath(state.project, typePath) || 'character';
@@ -3854,7 +3844,7 @@ function keyEditFieldsForKey(key) {
   const displayTypePath = `keyboards.keyboard26.keyDisplayTypes.${value}`;
   const displayTypeValue = getPath(state.project, displayTypePath) || 'text';
   const action = keyboard26FunctionActionFields(value);
-  const triggerPath = keyboard26TriggerPath(value, path);
+  const triggerPath = keyboard26TriggerPath(value);
   const triggerValue = keyboard26TriggerValue(value);
   const showSchemaNameOnSpace = state.project?.keyboardCombo?.spaceRow?.showSchemaNameOnSpace === true;
   const schemaNameField = ['space', 'enter'].includes(value)
@@ -4342,7 +4332,6 @@ function metricKeyboardOptions(keyboards = {}) {
 }
 
 function numericDisplayPath(key) {
-  if (['symbol', 'return', 'period', 'equal', 'space', 'enter'].includes(key)) return `keyboards.numeric.text.${key}`;
   return `keyboards.numeric.keyDisplays.${key}`;
 }
 
@@ -4363,7 +4352,6 @@ function symbolicDisplayValue(value, key) {
 }
 
 function symbolicDisplayPath(key) {
-  if (key === 'return') return 'keyboards.symbolic.text.return';
   return `keyboards.symbolic.keyDisplays.${key}`;
 }
 
@@ -4513,11 +4501,11 @@ function spaceKeyEditFields(path, value) {
   const keyboard = state.project.keyboards?.keyboard26 || {};
   const showSchemaNameOnSpace = state.project?.keyboardCombo?.spaceRow?.showSchemaNameOnSpace === true;
   return keyEditPanel('空格键', [
-    input({ path, label: '按键触发', value }),
+    input({ path: keyboard26TriggerPath(value), label: '按键触发', value: keyboard26TriggerValue(value) }),
     input({
-      path: 'keyboards.keyboard26.text.space',
+      path: 'keyboards.keyboard26.keyDisplays.space',
       label: '空格显示',
-      value: keyboard.text?.space || '空格',
+      value: keyboard.keyDisplays?.space || keyboard.text?.space || '空格',
     }),
     selectField({
       path: 'keyboardCombo.spaceRow.showSchemaNameOnSpace',
@@ -9065,6 +9053,7 @@ function handleInput(event) {
       path.startsWith('toolbar.actions.')
       || /^keyboards\.(keyboard26|numeric|symbolic|panel)\.keyActions\./.test(path)
       || /^keyboards\.(keyboard26|numeric|symbolic|panel)\.keyDisplayTypes\./.test(path)
+      || /^keyboards\.(keyboard26|numeric|symbolic|panel)\.keyDisplayVariants\./.test(path)
       || /^keyboards\.(keyboard26|numeric|symbolic|panel)\.keyEditorModes\./.test(path)
       || path === 'keyboardCombo.spaceRow.showSchemaNameOnSpace'
       || path.startsWith('guide.preferences.')
@@ -9883,9 +9872,36 @@ function mergeDefaultCollections(project, sampleProject) {
   next.keyboards = next.keyboards || {};
   next.keyboards.keyboard26 = next.keyboards.keyboard26 || {};
   next.keyboards.keyboard26.keyDisplays = next.keyboards.keyboard26.keyDisplays || {};
+  next.keyboards.keyboard26.keyDisplayVariants = next.keyboards.keyboard26.keyDisplayVariants || {};
+  next.keyboards.keyboard26.keyDisplayVariants.enter = next.keyboards.keyboard26.keyDisplayVariants.enter || {};
   next.keyboards.keyboard26.keyDisplayTypes = next.keyboards.keyboard26.keyDisplayTypes || {};
   next.keyboards.keyboard26.keyTypes = next.keyboards.keyboard26.keyTypes || {};
   next.keyboards.keyboard26.keyTriggers = next.keyboards.keyboard26.keyTriggers || {};
+  const keyboard26Text = next.keyboards.keyboard26.text || {};
+  const legacyKeyboard26Displays = {
+    '123': keyboard26Text.numericSwitch,
+    symbol: keyboard26Text.symbol,
+    space: keyboard26Text.space,
+    enter: keyboard26Text.enter?.default,
+  };
+  Object.entries(legacyKeyboard26Displays).forEach(([key, value]) => {
+    if (
+      value !== undefined
+      && value !== null
+      && !Object.prototype.hasOwnProperty.call(next.keyboards.keyboard26.keyDisplays, key)
+    ) {
+      next.keyboards.keyboard26.keyDisplays[key] = value;
+    }
+  });
+  Object.entries(keyboard26Text.enter || {}).forEach(([key, value]) => {
+    if (
+      value !== undefined
+      && value !== null
+      && !Object.prototype.hasOwnProperty.call(next.keyboards.keyboard26.keyDisplayVariants.enter, key)
+    ) {
+      next.keyboards.keyboard26.keyDisplayVariants.enter[key] = value;
+    }
+  });
   next.keyboards.keyboard26.layout = next.keyboards.keyboard26.layout || {};
   next.keyboards.keyboard26.metrics = next.keyboards.keyboard26.metrics || deepClone(sampleProject.keyboards?.keyboard26?.metrics || {});
   next.keyboards.keyboard26.variants = next.keyboards.keyboard26.variants || deepClone(sampleProject.keyboards?.keyboard26?.variants || {});
@@ -9912,6 +9928,15 @@ function mergeDefaultCollections(project, sampleProject) {
   next.keyboards.numeric.keyTypes = next.keyboards.numeric.keyTypes || {};
   next.keyboards.numeric.keyActions = next.keyboards.numeric.keyActions || {};
   next.keyboards.numeric.keyEditorModes = next.keyboards.numeric.keyEditorModes || {};
+  Object.entries(next.keyboards.numeric.text || {}).forEach(([key, value]) => {
+    if (
+      value !== undefined
+      && value !== null
+      && !Object.prototype.hasOwnProperty.call(next.keyboards.numeric.keyDisplays, key)
+    ) {
+      next.keyboards.numeric.keyDisplays[key] = value;
+    }
+  });
   if (!Array.isArray(next.keyboards.numeric.collectionSymbols)) {
     next.keyboards.numeric.collectionSymbols = deepClone(
       sampleProject.keyboards?.numeric?.collectionSymbols || DEFAULT_NUMERIC_SYMBOLS,
@@ -9940,6 +9965,18 @@ function mergeDefaultCollections(project, sampleProject) {
   next.keyboards.symbolic.keyTypes = next.keyboards.symbolic.keyTypes || {};
   next.keyboards.symbolic.keyActions = next.keyboards.symbolic.keyActions || {};
   next.keyboards.symbolic.keyEditorModes = next.keyboards.symbolic.keyEditorModes || {};
+  if (
+    next.keyboards.symbolic.iconCenter === undefined
+    && next.keyboards.symbolic.text?.iconCenter !== undefined
+  ) {
+    next.keyboards.symbolic.iconCenter = deepClone(next.keyboards.symbolic.text.iconCenter);
+  }
+  if (
+    next.keyboards.symbolic.text?.return !== undefined
+    && !Object.prototype.hasOwnProperty.call(next.keyboards.symbolic.keyDisplays, 'return')
+  ) {
+    next.keyboards.symbolic.keyDisplays.return = next.keyboards.symbolic.text.return;
+  }
   next.keyboards.emoji = next.keyboards.emoji || {};
   next.keyboards.emoji.layout = next.keyboards.emoji.layout || {};
   next.keyboards.emoji.layout.portrait = next.keyboards.emoji.layout.portrait || {};
@@ -9947,14 +9984,23 @@ function mergeDefaultCollections(project, sampleProject) {
     next.keyboards.emoji.layout.portrait.collectionRows = deepClone(EMOJI_SPECIAL_LAYOUT_GROUPS[0].defaultRows);
   }
   next.keyboards.panel = next.keyboards.panel || {};
-  next.keyboards.panel.text = next.keyboards.panel.text || deepClone(sampleProject.keyboards?.panel?.text || {});
   next.keyboards.panel.metrics = next.keyboards.panel.metrics || deepClone(sampleProject.keyboards?.panel?.metrics || {});
-  next.keyboards.panel.keyDisplays = next.keyboards.panel.keyDisplays || {};
+  next.keyboards.panel.keyDisplays = next.keyboards.panel.keyDisplays || deepClone(sampleProject.keyboards?.panel?.keyDisplays || {});
   next.keyboards.panel.keyDisplayTypes = next.keyboards.panel.keyDisplayTypes || {};
   next.keyboards.panel.keyTypes = next.keyboards.panel.keyTypes || {};
   next.keyboards.panel.keyTriggers = next.keyboards.panel.keyTriggers || {};
   next.keyboards.panel.keyActions = next.keyboards.panel.keyActions || {};
   next.keyboards.panel.keyEditorModes = next.keyboards.panel.keyEditorModes || {};
+  Object.entries(PANEL_BUTTON_LABELS).forEach(([key, textKey]) => {
+    const value = next.keyboards.panel.text?.[textKey];
+    if (
+      value !== undefined
+      && value !== null
+      && !Object.prototype.hasOwnProperty.call(next.keyboards.panel.keyDisplays, key)
+    ) {
+      next.keyboards.panel.keyDisplays[key] = value;
+    }
+  });
   if (next.meta?.name === '仿ios-显') next.meta.name = sampleProject.config?.name || sampleProject.meta?.name || next.meta.name;
   if (next.meta?.author === '叙白') next.meta.author = sampleProject.config?.author || sampleProject.meta?.author || next.meta.author;
   if (
